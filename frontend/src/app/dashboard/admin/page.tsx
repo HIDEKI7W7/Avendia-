@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { BACKEND_URL } from "@/config/api";
 
 interface Transaction {
@@ -23,10 +24,12 @@ interface KPIs {
 }
 
 export default function AdminDashboardPage() {
+  const router = useRouter();
   const [kpis, setKpis] = useState<KPIs | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [accessGranted, setAccessGranted] = useState(false);
 
   // Filtros de fecha
   const [startDate, setStartDate] = useState("");
@@ -78,8 +81,30 @@ export default function AdminDashboardPage() {
     }
   };
 
+  // ── Guardia client-side RBAC (segunda línea de defensa) ────────────────
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    const storedUser = localStorage.getItem("user");
+    if (!storedUser) {
+      router.replace("/login");
+      return;
+    }
+    try {
+      const userObj = JSON.parse(storedUser);
+      if (userObj.role !== "ADMIN") {
+        console.warn(
+          `[RBAC] Acceso denegado (client): rol "${userObj.role}" intentó acceder a /dashboard/admin`
+        );
+        router.replace("/dashboard?acceso=denegado");
+        return;
+      }
+    } catch {
+      router.replace("/login");
+      return;
+    }
+    setAccessGranted(true);
     fetchDashboardData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleFilter = (e: React.FormEvent) => {

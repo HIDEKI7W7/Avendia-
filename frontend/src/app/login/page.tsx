@@ -34,8 +34,17 @@ export default function LoginPage() {
       localStorage.setItem("token", data.access_token);
       localStorage.setItem("user", JSON.stringify(data.user));
 
-      // Redirigir al panel del dashboard
-      router.push("/dashboard");
+      // Escribir cookies para el middleware RBAC (Edge Runtime no puede leer localStorage)
+      const maxAge = 60 * 60 * 24; // 24 horas
+      document.cookie = `avendia_role=${data.user?.role ?? "DOCENTE"}; path=/; max-age=${maxAge}; SameSite=Lax`;
+      document.cookie = `avendia_session=1; path=/; max-age=${maxAge}; SameSite=Lax`;
+
+      // Despachar al panel correcto según el rol del usuario (RBAC)
+      if (data.user?.role === "ADMIN") {
+        router.push("/dashboard/admin");
+      } else {
+        router.push("/dashboard");
+      }
     } catch (err: any) {
       setError(err.message || "Fallo en la conexión con el servidor.");
     } finally {

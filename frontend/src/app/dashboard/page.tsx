@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { BACKEND_URL } from "@/config/api";
 
 type UserRole = "Docente" | "Director" | "Auxiliar";
@@ -76,13 +77,20 @@ export default function DashboardPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
+  const searchParams = useSearchParams();
+  const [accessDenied, setAccessDenied] = useState(false);
+
   // Retrieve token on mount
   useEffect(() => {
     if (typeof window !== "undefined") {
       const storedToken = localStorage.getItem("token");
       setToken(storedToken);
     }
-  }, []);
+    // Detectar redirección por acceso denegado
+    if (searchParams.get("acceso") === "denegado") {
+      setAccessDenied(true);
+    }
+  }, [searchParams]);
 
   // Handle Role Change
   const handleRoleChange = (role: UserRole) => {
@@ -208,6 +216,23 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-8 max-w-7xl mx-auto pb-12">
+      {/* Banner de Acceso Denegado */}
+      {accessDenied && (
+        <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 shadow-sm animate-pulse-once">
+          <span className="text-xl shrink-0">🚫</span>
+          <div className="flex-1">
+            <p className="font-bold">Acceso Denegado</p>
+            <p className="text-xs mt-0.5 text-red-600">No tienes permiso para acceder al Panel de Administración. Solo usuarios con rol <strong>ADMIN</strong> pueden ingresar a esa sección.</p>
+          </div>
+          <button
+            onClick={() => setAccessDenied(false)}
+            className="text-red-400 hover:text-red-600 transition-colors text-lg leading-none cursor-pointer"
+            title="Cerrar"
+          >
+            ×
+          </button>
+        </div>
+      )}
       {/* Bienvenida */}
       <div className="flex flex-col md:flex-row justify-between items-start gap-6 border-b border-slate-100 pb-6">
         <div>

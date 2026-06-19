@@ -65,6 +65,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    // Limpiar cookies del middleware RBAC
+    document.cookie = "avendia_role=; path=/; max-age=0";
+    document.cookie = "avendia_session=; path=/; max-age=0";
     window.location.href = "/login";
   };
 
