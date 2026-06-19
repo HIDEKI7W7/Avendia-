@@ -9,7 +9,7 @@ echo "[ENTRYPOINT] Iniciando la preparación del ecosistema backend..."
 # Para acelerar el inicio en Render y evitar fallos en la detección de puertos, no lo ejecutamos en el entrypoint
 echo "[ENTRYPOINT] Omitiendo init_db_prod.py en el arranque del contenedor."
 
-echo "[ENTRYPOINT] Base de datos lista. Arrancando el servidor ASGI con 4 workers..."
+echo "[ENTRYPOINT] Base de datos lista. Arrancando el servidor ASGI con 1 worker..."
 
 # 2. Iniciar el servidor web Uvicorn optimizado para producción reemplazando el proceso actual (PID 1)
-exec uvicorn src.main:app --host 0.0.0.0 --port 8000 --workers 4
+exec uvicorn src.main:app --host 0.0.0.0 --port 8000 --workers 1
