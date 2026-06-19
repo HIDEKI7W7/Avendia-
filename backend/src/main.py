@@ -69,11 +69,12 @@ allowed_origins = [
     if origin.strip()
 ]
 allowed_origins.append("https://frontend-theta-red-11.vercel.app")
+allowed_origins.append("https://avendia-frontend.onrender.com")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
-    allow_origin_regex=r"https://.*\.vercel\.app",
+    allow_origin_regex=r"https://.*\.(vercel\.app|onrender\.com)",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
