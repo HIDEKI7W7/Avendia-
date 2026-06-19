@@ -45,10 +45,7 @@ async def retrieve_relevant_context(
         return context_str, sources
         
     except Exception as e:
-        # Fallback seguro para entornos de desarrollo local sin pgvector habilitado
-        mock_context = (
-            f"[Fragmento Simulado - Documento: Ley_Reforma_Magisterial.pdf]:\n"
-            f"Regulación aplicable sobre la consulta '{query_text}'. Toda bonificación y trámite "
-            f"debe iniciarse por mesa de partes virtual presentando el formulario de solicitud."
-        )
-        return mock_context, ["Ley_Reforma_Magisterial.pdf"]
+        import logging
+        logging.error(f"Error al recuperar contexto de la base de datos: {e}")
+        print(f"Error al recuperar contexto de la base de datos: {e}")
+        return "", []

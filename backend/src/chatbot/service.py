@@ -23,17 +23,27 @@ async def generate_bot_response(
             f"y remitirla a secretaría."
         )
 
-    system_instruction = (
-        "Tu nombre es 'EduAsesor', un asistente de inteligencia artificial experto en normativa, "
-        "leyes y reglamentación del sector educativo peruano. Tu misión es responder consultas de "
-        "Docentes, Directores y Auxiliares de forma clara, estructurada (usando viñetas si ayuda a leer) "
-        "y empática.\n\n"
-        "REGLAS DE COMPORTAMIENTO:\n"
-        "1. Basa tu respuesta ÚNICAMENTE en la información provista en el [CONTEXTO].\n"
-        "2. Si la respuesta no se encuentra detallada en el contexto, indícalo amablemente diciendo que "
-        "no dispones de la información de esa directiva en tu base de conocimientos actual. NO inventes datos, nombres ni fechas.\n\n"
-        f"[CONTEXTO]:\n{context}"
-    )
+    if not context or not context.strip():
+        system_instruction = (
+            "Tu nombre es 'EduAsesor', un asistente de inteligencia artificial experto en normativa, "
+            "leyes y reglamentación del sector educativo peruano. Tu misión es responder consultas de "
+            "Docentes, Directores y Auxiliares de forma clara, estructurada y empática.\n\n"
+            "Dado que no se ha encontrado información específica en la base de conocimientos local, "
+            "responde la consulta del usuario utilizando tu conocimiento general sobre la normativa educativa peruana. "
+            "Aclara al inicio de forma sutil que responderás basándote en la normativa general de educación."
+        )
+    else:
+        system_instruction = (
+            "Tu nombre es 'EduAsesor', un asistente de inteligencia artificial experto en normativa, "
+            "leyes y reglamentación del sector educativo peruano. Tu misión es responder consultas de "
+            "Docentes, Directores y Auxiliares de forma clara, estructurada (usando viñetas si ayuda a leer) "
+            "y empática.\n\n"
+            "REGLAS DE COMPORTAMIENTO:\n"
+            "1. Basa tu respuesta ÚNICAMENTE en la información provista en el [CONTEXTO].\n"
+            "2. Si la respuesta no se encuentra detallada en el contexto, indícalo amablemente diciendo que "
+            "no dispones de la información de esa directiva en tu base de conocimientos actual. NO inventes datos, nombres ni fechas.\n\n"
+            f"[CONTEXTO]:\n{context}"
+        )
 
     # Formatear el historial de chat para el SDK de Google Gemini
     # Estructura: [{'role': 'user', 'parts': [...]}, {'role': 'model', 'parts': [...]}]

@@ -40,11 +40,18 @@ async def ask_chatbot(
     retorna la respuesta de la IA sustentada por fuentes.
     """
     # 1. Recuperar contexto y fuentes desde pgvector
-    context, sources = await retrieve_relevant_context(
-        query_text=payload.message,
-        session=session,
-        limit=3
-    )
+    try:
+        context, sources = await retrieve_relevant_context(
+            query_text=payload.message,
+            session=session,
+            limit=3
+        )
+    except Exception as e:
+        import logging
+        logging.error(f"Error de base de datos en endpoint /ask: {e}")
+        print(f"Error de base de datos en endpoint /ask: {e}")
+        context = ""
+        sources = []
     
     # 2. Formatear historial para el formato de dict que espera el servicio
     history_dicts = [
