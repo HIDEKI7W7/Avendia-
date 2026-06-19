@@ -1,0 +1,18 @@
+@import "tailwindcss";
+
+@theme {
+  --color-morado-ia: #7C6CF2;
+  --color-azul-educativo: #4A90E2;
+  --color-celeste-amigable: #7DD3FC;
+  --color-verde-exito: #34D399;
+  --color-bg-main: #FAFBFC;
+  --color-border-custom: #E8EDF3;
+  
+  --font-headings: var(--font-montserrat), sans-serif;
+  --font-body: var(--font-source-sans), sans-serif;
+}
+
+body {
+  background-color: var(--color-bg-main);
+  font-family: var(--font-body);
+}

@@ -1,0 +1,16 @@
+services:
+  db:
+    image: ankane/pgvector:latest
+    container_name: avendia_postgres
+    restart: always
+    environment:
+      POSTGRES_DB: avendia_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_secure_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

@@ -1,0 +1,55 @@
+services:
+  db_prod:
+    image: ankane/pgvector:latest
+    container_name: avendia_postgres_prod
+    restart: always
+    environment:
+      POSTGRES_DB: avendia_db_prod
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_secure_prod_pass
+    ports:
+      - "5433:5432" # Puerto alterno para evitar colisiones con el de desarrollo
+    volumes:
+      - pgdata_prod:/var/lib/postgresql/data
+    networks:
+      - avendia_net_prod
+
+  backend_prod:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: avendia_backend_prod
+    restart: always
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres_secure_prod_pass@db_prod:5432/avendia_db_prod
+      JWT_SECRET_KEY: production_super_secret_jwt_key_please_change_me
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      ALLOWED_ORIGINS: "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3005,http://127.0.0.1:3005"
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db_prod
+    networks:
+      - avendia_net_prod
+
+  frontend_prod:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000 # Dominio público del backend en la nube
+    container_name: avendia_frontend_prod
+    restart: always
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend_prod
+    networks:
+      - avendia_net_prod
+
+volumes:
+  pgdata_prod:
+
+networks:
+  avendia_net_prod:
+    driver: bridge
