@@ -23,9 +23,14 @@ from src.auth.security import hash_password
 
 import ssl
 
+# Asegurar esquema asyncpg
+db_url = settings.DATABASE_URL
+if db_url.startswith("postgresql://"):
+    db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+
 # Configurar SSL para bases de datos remotas en producción (ej. Render)
 connect_args = {}
-if "localhost" not in settings.DATABASE_URL and "127.0.0.1" not in settings.DATABASE_URL and "db_prod" not in settings.DATABASE_URL:
+if "localhost" not in db_url and "127.0.0.1" not in db_url and "db_prod" not in db_url:
     ssl_context = ssl.create_default_context()
     ssl_context.check_hostname = False
     ssl_context.verify_mode = ssl.CERT_NONE
@@ -33,7 +38,7 @@ if "localhost" not in settings.DATABASE_URL and "127.0.0.1" not in settings.DATA
 
 # Creamos el motor asíncrono
 engine = create_async_engine(
-    settings.DATABASE_URL,
+    db_url,
     echo=True,
     future=True,
     connect_args=connect_args
