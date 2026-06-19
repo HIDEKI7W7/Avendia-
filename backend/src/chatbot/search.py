@@ -48,4 +48,4 @@ async def retrieve_relevant_context(
         import logging
         logging.error(f"Error al recuperar contexto de la base de datos: {e}")
         print(f"Error al recuperar contexto de la base de datos: {e}")
-        return "", []
+        raise e

@@ -36,37 +36,57 @@ async def ask_chatbot(
 ):
     """
     Endpoint protegido para usuarios escolares autenticados.
-    Recibe la consulta del usuario, recupera el contexto semántico de pgvector y
-    retorna la respuesta de la IA sustentada por fuentes.
+    Recibe la consulta del usuario, intenta recuperar el contexto semántico de pgvector,
+    y si la base de datos falla o no responde, aplica una contingencia directa con Gemini.
     """
-    # 1. Recuperar contexto y fuentes desde pgvector
     try:
+        # 1. Intentar flujo RAG normal con pgvector
         context, sources = await retrieve_relevant_context(
             query_text=payload.message,
             session=session,
             limit=3
         )
-    except Exception as e:
+        
+        history_dicts = [
+            {"sender": msg.sender, "content": msg.content}
+            for msg in payload.history
+        ]
+        
+        bot_reply = await generate_bot_response(
+            user_message=payload.message,
+            context=context,
+            history=history_dicts
+        )
+        return {
+            "response": bot_reply,
+            "sources": sources
+        }
+    except Exception as db_error:
+        # 2. Si la DB parpadea, muere o no conecta, el bypass entra al rescate
         import logging
-        logging.error(f"Error de base de datos en endpoint /ask: {e}")
-        print(f"Error de base de datos en endpoint /ask: {e}")
-        context = ""
-        sources = []
-    
-    # 2. Formatear historial para el formato de dict que espera el servicio
-    history_dicts = [
-        {"sender": msg.sender, "content": msg.content}
-        for msg in payload.history
-    ]
-    
-    # 3. Consultar respuesta de EduAsesor
-    bot_reply = await generate_bot_response(
-        user_message=payload.message,
-        context=context,
-        history=history_dicts
-    )
-    
-    return {
-        "response": bot_reply,
-        "sources": sources
-    }
+        logging.error(f"⚠️ Alerta RAG inactivo, aplicando contingencia: {db_error}")
+        print(f"⚠️ Alerta RAG inactivo, aplicando contingencia: {db_error}")
+        
+        try:
+            history_dicts = [
+                {"sender": msg.sender, "content": msg.content}
+                for msg in payload.history
+            ]
+            # Bypass directo a Gemini (contexto vacío forzará la respuesta general en service.py)
+            respuesta_general = await generate_bot_response(
+                user_message=payload.message,
+                context="",
+                history=history_dicts
+            )
+            return {
+                "response": respuesta_general,
+                "sources": []
+            }
+        except Exception as gemini_error:
+            logging.error(f"Error de contingencia Gemini: {gemini_error}")
+            print(f"Error de contingencia Gemini: {gemini_error}")
+            # Solo si Google también se cae, devolvemos un mensaje limpio de mantenimiento
+            return {
+                "response": "Hola. Estoy experimentando una breve interrupción en mis servicios de IA. Por favor, intenta de nuevo en unos instantes.",
+                "sources": []
+            }
