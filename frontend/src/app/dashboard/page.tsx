@@ -32,7 +32,7 @@ interface DocumentTemplate {
   variables: string[];
 }
 
-export default function DashboardPage() {
+function DashboardPage() {
   const [activeTab, setActiveTab] = useState<"pedagogico" | "administrativo">("pedagogico");
   
   // States for Administrative Tab (from original home page)
@@ -504,5 +504,22 @@ export default function DashboardPage() {
         </div>
       )}
     </div>
+  );
+}
+
+import { Suspense } from "react";
+
+export default function Dashboard() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen bg-[#F9FAFB]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-sm font-medium text-gray-500">Cargando panel...</p>
+        </div>
+      </div>
+    }>
+      <DashboardPage />
+    </Suspense>
   );
 }
