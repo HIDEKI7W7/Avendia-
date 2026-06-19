@@ -1,7 +1,18 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { BACKEND_URL } from "@/config/api";
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TYPES
+// ═══════════════════════════════════════════════════════════════════════════
+interface SystemKPIs {
+  docentes_totales: number;
+  creditos_sistema: number;
+  docs_generados: number;
+  inversion_ia_soles: number;
+}
 
 interface UserDetail {
   id: string;
@@ -21,628 +32,573 @@ interface UserDetail {
   docs_hoy: number;
 }
 
-interface UserKPIs {
-  total_docentes: number;
-  total_creditos_activos: number;
-  total_docs_generados: number;
-  costo_estimado_ia: number;
+type FilterType = "" | "actives_today" | "low_credits" | "no_credits" | "critical";
+type SubTab = "Docentes" | "Editores" | "Administradores" | "Consumo" | "Descargas";
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+const fmtSoles = (n: number) =>
+  "S/. " + n.toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const fmtNum = (n: number) => n.toLocaleString("es-PE");
+
+const fmtDate = (iso: string | null) => {
+  if (!iso) return <span className="text-slate-300">—</span>;
+  const d = new Date(iso);
+  return d.toLocaleDateString("es-PE", { day: "2-digit", month: "short", year: "2-digit" });
+};
+
+const timeAgo = (iso: string | null) => {
+  if (!iso) return <span className="text-slate-300 text-[10px]">Sin acceso</span>;
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return <span className="text-emerald-600 text-[10px] font-semibold">{mins}m atrás</span>;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return <span className="text-emerald-600 text-[10px] font-semibold">{hrs}h atrás</span>;
+  const days = Math.floor(hrs / 24);
+  return <span className="text-slate-500 text-[10px] font-semibold">{days}d atrás</span>;
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SUB-COMPONENTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── KPI Card ───────────────────────────────────────────────────────────────
+function KPICard({
+  label, main, sub, accent, icon,
+}: { label: string; main: string; sub?: string; accent: string; icon: string }) {
+  return (
+    <div className="bg-white rounded-2xl border border-[#E8EDF3] p-5 flex flex-col gap-3 hover:shadow-md transition-shadow">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{label}</span>
+        <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-base ${accent}`}>{icon}</div>
+      </div>
+      <div>
+        <p className="font-extrabold text-2xl text-slate-900 leading-none tracking-tight">{main}</p>
+        {sub && <p className="text-[10px] font-semibold text-slate-400 mt-1">{sub}</p>}
+      </div>
+    </div>
+  );
 }
 
-interface ActivityDoc {
-  id: string;
-  title: string;
-  document_type: string;
-  created_at: string;
+// ── Status Badge ───────────────────────────────────────────────────────────
+function StatusBadge({ status }: { status: string }) {
+  const active = status === "activo";
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border
+      ${active ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-red-50 text-red-700 border-red-200"}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${active ? "bg-emerald-500" : "bg-red-500"}`} />
+      {active ? "Activo" : "Suspendido"}
+    </span>
+  );
 }
 
-export default function AdminUsersPage() {
-  const [kpis, setKpis] = useState<UserKPIs | null>(null);
-  const [users, setUsers] = useState<UserDetail[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+// ── Credit Bar ─────────────────────────────────────────────────────────────
+function CreditBar({ used, total }: { used: number; total: number }) {
+  const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
+  const color = pct < 20 ? "bg-red-400" : pct < 50 ? "bg-amber-400" : "bg-[#7C6CF2]";
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-bold text-slate-700">🪙 {fmtNum(used)}</span>
+        <span className="text-[9px] text-slate-400">/{fmtNum(total)}</span>
+      </div>
+      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden w-24">
+        <div className={`h-full ${color} rounded-full transition-all`} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
 
-  // Filtros y Buscador
-  const [filterType, setFilterType] = useState<string>(""); // "" (Todos), "actives_today", "low_credits", "critical_consumption"
-  const [searchQuery, setSearchQuery] = useState("");
+// ── Adjust Credits Modal ────────────────────────────────────────────────────
+function AdjustModal({
+  user, onClose, onSuccess,
+}: {
+  user: UserDetail;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [amount, setAmount]   = useState(500);
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState<string | null>(null);
 
-  // Modales
-  const [selectedUser, setSelectedUser] = useState<UserDetail | null>(null);
-  const [isActivityOpen, setIsActivityOpen] = useState(false);
-  const [activityDocs, setActivityDocs] = useState<ActivityDoc[]>([]);
-  const [loadingActivity, setLoadingActivity] = useState(false);
-
-  const [isAdjustOpen, setIsAdjustOpen] = useState(false);
-  const [adjustAmount, setAdjustAmount] = useState<number>(500);
-  const [adjusting, setAdjusting] = useState(false);
-
-  const fetchUsersData = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (amount === 0) return;
     setLoading(true);
     setError(null);
+    const token = localStorage.getItem("token");
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      if (!token) {
-        window.location.href = "/login";
-        return;
-      }
-
-      let url = `${BACKEND_URL}/api/v1/admin/analytics/users`;
-      if (filterType) {
-        url += `?filter=${filterType}`;
-      }
-
-      const res = await fetch(url, {
-        method: "GET",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+      const res = await fetch(`${BACKEND_URL}/api/v1/admin/users/${user.id}/adjust-credits`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ amount }),
       });
-
       if (!res.ok) {
-        if (res.status === 401 || res.status === 403) {
-          window.location.href = "/login";
-          return;
-        }
-        throw new Error("Error al obtener los datos analíticos de usuarios.");
+        const d = await res.json();
+        throw new Error(d.detail || "Error al ajustar créditos.");
       }
-
-      const data = await res.json();
-      setKpis(data.kpis);
-      setUsers(data.users);
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || "Fallo en la comunicación con el servidor.");
+      onSuccess();
+      onClose();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Error inesperado.");
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchUsersData();
-  }, [filterType]);
-
-  // Buscar historial del docente
-  const handleViewHistory = async (user: UserDetail) => {
-    setSelectedUser(user);
-    setIsActivityOpen(true);
-    setLoadingActivity(true);
-    setActivityDocs([]);
-    
-    try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      const res = await fetch(`${BACKEND_URL}/api/v1/admin/users/${user.id}/activity`, {
-        method: "GET",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!res.ok) throw new Error("Error al consultar la actividad.");
-      const docs = await res.json();
-      setActivityDocs(docs);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoadingActivity(false);
-    }
-  };
-
-  // Ajustar créditos de forma atómica
-  const handleAdjustCredits = async () => {
-    if (!selectedUser) return;
-    setAdjusting(true);
-    try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      const res = await fetch(`${BACKEND_URL}/api/v1/admin/users/${selectedUser.id}/credits`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ amount: adjustAmount }),
-      });
-
-      if (!res.ok) throw new Error("Error al actualizar créditos.");
-
-      const data = await res.json();
-      
-      // Actualizar estado local
-      setUsers(prev => prev.map(u => {
-        if (u.id === selectedUser.id) {
-          return {
-            ...u,
-            credits: data.credits,
-            credits_total: data.credits_total
-          };
-        }
-        return u;
-      }));
-
-      setIsAdjustOpen(false);
-    } catch (err) {
-      console.error(err);
-      alert("Hubo un error al ajustar los créditos.");
-    } finally {
-      setAdjusting(false);
-    }
-  };
-
-  // Cambiar estado (Activar/Suspender)
-  const handleToggleStatus = async (user: UserDetail) => {
-    if (!confirm(`¿Estás seguro de que deseas cambiar el estado de ${user.full_name}?`)) return;
-    try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      const res = await fetch(`${BACKEND_URL}/api/v1/admin/users/${user.id}/toggle-status`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!res.ok) throw new Error("Error al cambiar de estado.");
-      
-      const data = await res.json();
-      
-      // Actualizar estado local
-      setUsers(prev => prev.map(u => {
-        if (u.id === user.id) {
-          return { ...u, status: data.new_status };
-        }
-        return u;
-      }));
-    } catch (err) {
-      console.error(err);
-      alert("Error al cambiar el estado del usuario.");
-    }
-  };
-
-  // Filtrar lista en memoria por buscador
-  const filteredUsers = users.filter((u) => {
-    const query = searchQuery.toLowerCase();
-    return (
-      u.full_name.toLowerCase().includes(query) ||
-      u.email.toLowerCase().includes(query) ||
-      u.phone.includes(query)
-    );
-  });
-
-  const formatDate = (isoString: string) => {
-    const d = new Date(isoString);
-    return `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
-  };
-
-  const formatTime = (isoString: string) => {
-    const d = new Date(isoString);
-    let hours = d.getHours();
-    const minutes = d.getMinutes().toString().padStart(2, '0');
-    const ampm = hours >= 12 ? 'p. m.' : 'a. m.';
-    hours = hours % 12;
-    hours = hours ? hours : 12; // la hora '0' debe ser '12'
-    return `${hours}:${minutes} ${ampm}`;
-  };
-
   return (
-    <div className="p-8 bg-bg-main min-h-screen text-slate-800 font-body relative">
-      {/* Encabezado */}
-      <div className="mb-8">
-        <h1 className="font-headings font-bold text-2xl text-slate-900 tracking-tight">
-          Gestión de Usuarios / Docentes
-        </h1>
-        <p className="text-sm text-slate-500 mt-1 font-semibold">
-          Administración de balances, telemetría de IA y estado de cuentas
-        </p>
-      </div>
-
-      {/* Tarjetas de KPIs Globales */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {/* Docentes Totales */}
-        <div className="bg-white border border-border-custom rounded-2xl p-5 flex items-center gap-4 shadow-sm">
-          <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 text-xl font-bold">
-            👥
-          </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 flex flex-col gap-5 animate-in fade-in zoom-in-95 duration-200">
+        {/* Header */}
+        <div className="flex items-start justify-between">
           <div>
-            <span className="block text-slate-400 text-xs font-bold uppercase tracking-wider">
-              Docentes Totales
-            </span>
-            <span className="block font-headings font-bold text-xl text-slate-900 mt-0.5">
-              {kpis?.total_docentes !== undefined ? kpis.total_docentes : "Cargando..."}
-            </span>
+            <h3 className="font-extrabold text-lg text-slate-900">Ajustar Créditos</h3>
+            <p className="text-sm text-slate-500 mt-0.5">
+              Docente: <strong>{user.full_name}</strong>
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-700 transition-colors cursor-pointer p-1 rounded-lg hover:bg-slate-100"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Info actual */}
+        <div className="bg-slate-50 rounded-xl p-4 flex items-center justify-between border border-slate-100">
+          <div>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Saldo actual</p>
+            <p className="font-extrabold text-2xl text-slate-900 mt-0.5">🪙 {fmtNum(user.credits)}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total adquirido</p>
+            <p className="font-bold text-lg text-slate-600 mt-0.5">{fmtNum(user.credits_total)}</p>
           </div>
         </div>
 
-        {/* Créditos en Sistema */}
-        <div className="bg-white border border-border-custom rounded-2xl p-5 flex items-center gap-4 shadow-sm">
-          <div className="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 text-xl font-bold">
-            🪙
-          </div>
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
-            <span className="block text-slate-400 text-xs font-bold uppercase tracking-wider">
-              Créditos en Sistema
-            </span>
-            <span className="block font-headings font-bold text-xl text-slate-900 mt-0.5">
-              {kpis?.total_creditos_activos !== undefined ? kpis.total_creditos_activos : "Cargando..."}
-            </span>
-          </div>
-        </div>
-
-        {/* Documentos Generados */}
-        <div className="bg-white border border-border-custom rounded-2xl p-5 flex items-center gap-4 shadow-sm">
-          <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 text-xl font-bold">
-            📄
-          </div>
-          <div>
-            <span className="block text-slate-400 text-xs font-bold uppercase tracking-wider">
-              Docs. Generados
-            </span>
-            <span className="block font-headings font-bold text-xl text-slate-900 mt-0.5">
-              {kpis?.total_docs_generados !== undefined ? kpis.total_docs_generados : "Cargando..."}
-            </span>
-          </div>
-        </div>
-
-        {/* Costo IA Estimado */}
-        <div className="bg-white border border-border-custom rounded-2xl p-5 flex items-center gap-4 shadow-sm">
-          <div className="w-12 h-12 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600 text-xl font-bold">
-            💵
-          </div>
-          <div>
-            <span className="block text-slate-400 text-xs font-bold uppercase tracking-wider">
-              Inversión Est. (IA)
-            </span>
-            <div className="flex items-baseline gap-1">
-              <span className="font-headings font-bold text-xl text-slate-900 mt-0.5">
-                S/. {kpis?.costo_estimado_ia !== undefined ? kpis.costo_estimado_ia.toFixed(2) : "0.00"}
-              </span>
-              <span className="text-[10px] text-slate-400 font-bold uppercase">
-                USD ${(kpis?.costo_estimado_ia ? kpis.costo_estimado_ia / 3.80 : 0.00).toFixed(2)}
-              </span>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              Cantidad a ajustar <span className="text-slate-400 font-normal">(positivo = añadir, negativo = reducir)</span>
+            </label>
+            <input
+              type="number"
+              value={amount}
+              onChange={(e) => setAmount(Number(e.target.value))}
+              className="w-full px-4 py-3 rounded-xl border border-[#E8EDF3] text-slate-900 font-bold text-lg outline-none focus:border-[#7C6CF2] transition-colors"
+              placeholder="Ej: 500 o -200"
+            />
+            {/* Atajos rápidos */}
+            <div className="flex gap-2 mt-2 flex-wrap">
+              {[500, 1000, 2000, 5000, -500].map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setAmount(v)}
+                  className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-[#7C6CF2]/10 hover:text-[#7C6CF2] text-[11px] font-bold text-slate-600 transition-colors cursor-pointer"
+                >
+                  {v > 0 ? "+" : ""}{fmtNum(v)}
+                </button>
+              ))}
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Filtros rápidos horizontales y Buscador */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 bg-white p-4 rounded-2xl border border-border-custom shadow-sm">
-        {/* Botonera de Filtros */}
-        <div className="flex flex-wrap gap-2">
-          {[
-            { label: "Todos", value: "" },
-            { label: "🟢 Activos Hoy", value: "actives_today" },
-            { label: "🍊 Créditos Bajos", value: "low_credits" },
-            { label: "🔥 Consumo Crítico (7d)", value: "critical_consumption" }
-          ].map((item) => (
+          {/* Preview */}
+          {amount !== 0 && (
+            <div className={`rounded-xl p-3 text-sm font-semibold ${amount > 0 ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+              {amount > 0 ? "✅" : "⚠️"} Nuevo saldo estimado:{" "}
+              <strong>🪙 {fmtNum(Math.max(0, user.credits + amount))}</strong>
+            </div>
+          )}
+
+          {error && (
+            <p className="text-red-600 text-xs font-semibold bg-red-50 px-3 py-2 rounded-xl border border-red-200">
+              ⚠️ {error}
+            </p>
+          )}
+
+          <div className="flex gap-3">
             <button
-              key={item.label}
-              onClick={() => setFilterType(item.value)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                filterType === item.value
-                  ? "bg-slate-900 text-white"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-3 rounded-xl border border-[#E8EDF3] text-slate-700 text-sm font-bold hover:bg-slate-50 transition-colors cursor-pointer"
             >
-              {item.label}
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={loading || amount === 0}
+              className="flex-1 py-3 rounded-xl bg-[#7C6CF2] hover:bg-[#6B5CE7] text-white text-sm font-bold transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
+            >
+              {loading ? "Guardando..." : "Confirmar Ajuste"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PAGE
+// ═══════════════════════════════════════════════════════════════════════════
+const FILTER_PILLS: { label: string; value: FilterType }[] = [
+  { label: "Todos",            value: "" },
+  { label: "Activos Hoy",      value: "actives_today" },
+  { label: "Créditos Bajos",   value: "low_credits" },
+  { label: "Sin Créditos",     value: "no_credits" },
+  { label: "Consumo Crítico",  value: "critical" },
+];
+
+const SUB_TABS: SubTab[] = ["Docentes", "Editores", "Administradores", "Consumo", "Descargas"];
+
+export default function AdminUsersPage() {
+  const router = useRouter();
+
+  const [kpis, setKpis]         = useState<SystemKPIs | null>(null);
+  const [users, setUsers]       = useState<UserDetail[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState<string | null>(null);
+
+  const [filter, setFilter]     = useState<FilterType>("");
+  const [search, setSearch]     = useState("");
+  const [subTab, setSubTab]     = useState<SubTab>("Docentes");
+
+  // Modal ajuste créditos
+  const [editUser, setEditUser]   = useState<UserDetail | null>(null);
+
+  // ── Fetch ─────────────────────────────────────────────────────────────
+  const fetchData = useCallback(async (f: FilterType = filter, q: string = search) => {
+    setLoading(true);
+    setError(null);
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!token) { router.replace("/login"); return; }
+
+    try {
+      const params = new URLSearchParams();
+      if (f)      params.append("filter", f);
+      if (q.trim()) params.append("q", q.trim());
+
+      const res = await fetch(
+        `${BACKEND_URL}/api/v1/admin/users/dashboard${params.toString() ? "?" + params : ""}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (res.status === 401 || res.status === 403) {
+        router.replace(res.status === 401 ? "/login" : "/dashboard?acceso=denegado");
+        return;
+      }
+      if (!res.ok) throw new Error("Error al obtener datos de usuarios.");
+
+      const data = await res.json();
+      setKpis(data.kpis);
+      setUsers(data.users);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Error inesperado.");
+    } finally {
+      setLoading(false);
+    }
+  }, [router, filter, search]);
+
+  useEffect(() => { fetchData(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handlePill = (f: FilterType) => {
+    setFilter(f);
+    fetchData(f, search);
+  };
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    fetchData(filter, search);
+  };
+
+  // ── Filtered list (client-side instant search) ─────────────────────────
+  const displayUsers = useMemo(() => {
+    if (!search.trim()) return users;
+    const t = search.toLowerCase();
+    return users.filter(
+      (u) =>
+        u.full_name.toLowerCase().includes(t) ||
+        u.email.toLowerCase().includes(t) ||
+        u.phone.includes(t)
+    );
+  }, [users, search]);
+
+  return (
+    <>
+      {/* ── Adjust Modal ─────────────────────────────────────────────── */}
+      {editUser && (
+        <AdjustModal
+          user={editUser}
+          onClose={() => setEditUser(null)}
+          onSuccess={() => fetchData(filter, search)}
+        />
+      )}
+
+      <div className="p-8 flex flex-col gap-6 min-h-full">
+        {/* ── Page Header ───────────────────────────────────────────── */}
+        <div>
+          <h1 className="font-extrabold text-2xl text-slate-900 tracking-tight">Gestión de Usuarios</h1>
+          <p className="text-sm text-slate-500 mt-0.5">
+            Supervisión de docentes, créditos y consumo de IA en tiempo real.
+          </p>
+        </div>
+
+        {/* ── KPI Cards ─────────────────────────────────────────────── */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <KPICard
+            label="Docentes Totales"
+            main={kpis ? fmtNum(kpis.docentes_totales) : "—"}
+            sub="Usuarios activos"
+            accent="bg-blue-50 text-blue-600"
+            icon="👩‍🏫"
+          />
+          <KPICard
+            label="Créditos en Sistema"
+            main={kpis ? fmtNum(kpis.creditos_sistema) : "—"}
+            sub="Créditos disponibles"
+            accent="bg-violet-50 text-violet-600"
+            icon="🪙"
+          />
+          <KPICard
+            label="Documentos Generados"
+            main={kpis ? fmtNum(kpis.docs_generados) : "—"}
+            sub="Con IA pedagógica"
+            accent="bg-emerald-50 text-emerald-600"
+            icon="📄"
+          />
+          <KPICard
+            label="Inversión en IA"
+            main={kpis ? fmtSoles(kpis.inversion_ia_soles) : "—"}
+            sub={kpis ? `≈ $ ${(kpis.inversion_ia_soles / 3.8).toFixed(2)} USD` : undefined}
+            accent="bg-amber-50 text-amber-600"
+            icon="🤖"
+          />
+        </div>
+
+        {/* ── Sub-tabs ──────────────────────────────────────────────── */}
+        <div className="flex items-center gap-0.5 border-b border-[#E8EDF3]">
+          {SUB_TABS.map((t) => (
+            <button
+              key={t}
+              onClick={() => setSubTab(t)}
+              className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-colors cursor-pointer -mb-px
+                ${subTab === t
+                  ? "border-[#7C6CF2] text-[#7C6CF2]"
+                  : "border-transparent text-slate-500 hover:text-slate-800"
+                }`}
+            >
+              {t}
             </button>
           ))}
         </div>
 
-        {/* Input Buscador */}
-        <div className="relative w-full md:w-80">
-          <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-            🔍
-          </span>
-          <input
-            type="text"
-            placeholder="Buscar por nombre, email..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-xs font-semibold focus:outline-none focus:bg-white focus:border-morado-ia focus:ring-1 focus:ring-morado-ia transition-all"
-          />
+        {/* ── Toolbar: Search + Pills ────────────────────────────────── */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          {/* Search */}
+          <form onSubmit={handleSearch} className="flex items-center gap-2 flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-1 bg-white border border-[#E8EDF3] rounded-xl px-4 py-2.5 focus-within:border-[#7C6CF2] transition-colors">
+              <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar por nombre, email o teléfono..."
+                className="flex-1 bg-transparent text-sm text-slate-800 outline-none placeholder-slate-400"
+              />
+            </div>
+            <button
+              type="submit"
+              className="px-4 py-2.5 bg-[#7C6CF2] hover:bg-[#6B5CE7] text-white text-xs font-bold rounded-xl transition-colors cursor-pointer"
+            >
+              Buscar
+            </button>
+          </form>
+
+          {/* Pills */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {FILTER_PILLS.map((p) => (
+              <button
+                key={p.value}
+                onClick={() => handlePill(p.value)}
+                className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition-all cursor-pointer border
+                  ${filter === p.value
+                    ? "bg-[#7C6CF2] text-white border-[#7C6CF2] shadow-sm"
+                    : "bg-white text-slate-600 border-[#E8EDF3] hover:border-[#7C6CF2]/50 hover:text-[#7C6CF2]"
+                  }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
 
-      {/* Tabla de Usuarios */}
-      <div className="bg-white border border-border-custom rounded-2xl shadow-sm overflow-hidden">
-        {loading ? (
-          <div className="p-16 flex flex-col items-center justify-center gap-4">
-            <div className="w-10 h-10 border-4 border-morado-ia border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm font-semibold text-slate-500">Cargando docentes del sistema...</p>
-          </div>
-        ) : error ? (
-          <div className="p-16 text-center">
-            <div className="text-red-500 text-4xl mb-3">⚠️</div>
-            <h3 className="font-headings font-bold text-lg text-slate-900 mb-1">Error al cargar</h3>
-            <p className="text-sm text-slate-500">{error}</p>
-          </div>
-        ) : filteredUsers.length === 0 ? (
-          <div className="p-16 text-center">
-            <div className="text-slate-300 text-5xl mb-4">📭</div>
-            <h3 className="font-headings font-bold text-lg text-slate-950 mb-1">Sin docentes</h3>
-            <p className="text-sm text-slate-500">No se encontraron docentes bajo este filtro.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-border-custom bg-slate-50/50">
-                  <th className="px-5 py-4 font-headings font-bold text-[10px] text-slate-400 uppercase tracking-wider">Docente</th>
-                  <th className="px-5 py-4 font-headings font-bold text-[10px] text-slate-400 uppercase tracking-wider">Contacto</th>
-                  <th className="px-5 py-4 font-headings font-bold text-[10px] text-slate-400 uppercase tracking-wider">Monto Pagado</th>
-                  <th className="px-5 py-4 font-headings font-bold text-[10px] text-slate-400 uppercase tracking-wider">Consumo (S/.)</th>
-                  <th className="px-5 py-4 font-headings font-bold text-[10px] text-slate-400 uppercase tracking-wider">Estado</th>
-                  <th className="px-5 py-4 font-headings font-bold text-[10px] text-slate-400 uppercase tracking-wider">Créditos</th>
-                  <th className="px-5 py-4 font-headings font-bold text-[10px] text-slate-400 uppercase tracking-wider">Registro</th>
-                  <th className="px-5 py-4 font-headings font-bold text-[10px] text-slate-400 uppercase tracking-wider">Creado por</th>
-                  <th className="px-5 py-4 font-headings font-bold text-[10px] text-slate-400 uppercase tracking-wider">Áreas</th>
-                  <th className="px-5 py-4 font-headings font-bold text-[10px] text-slate-400 uppercase tracking-wider">Documentos</th>
-                  <th className="px-5 py-4 font-headings font-bold text-[10px] text-slate-400 uppercase tracking-wider">Último Acceso</th>
-                  <th className="px-5 py-4 font-headings font-bold text-[10px] text-slate-400 uppercase tracking-wider text-center">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border-custom text-slate-700 text-xs">
-                {filteredUsers.map((user) => (
-                  <tr key={user.id} className="hover:bg-slate-50/30 transition-colors">
-                    {/* Docente */}
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-azul-educativo/10 flex items-center justify-center font-bold text-azul-educativo text-[11px]">
-                          {user.full_name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase()}
-                        </div>
-                        <div>
-                          <span className="block font-headings font-bold text-slate-900 leading-tight">
-                            {user.full_name}
-                          </span>
-                          <span className="block text-[10px] text-slate-400 font-semibold mt-0.5">
-                            {user.email}
-                          </span>
-                        </div>
-                      </div>
-                    </td>
-
-                    {/* Contacto */}
-                    <td className="px-5 py-4 font-semibold text-slate-500">{user.phone || "-"}</td>
-
-                    {/* Monto Pagado */}
-                    <td className="px-5 py-4 font-semibold text-slate-800">
-                      S/. {user.monto_pagado.toFixed(2)}
-                    </td>
-
-                    {/* Consumo IA (Soles) */}
-                    <td className="px-5 py-4">
-                      <span className="block font-bold text-slate-800">S/. {user.consumo_ia_soles.toFixed(2)}</span>
-                    </td>
-
-                    {/* Estado */}
-                    <td className="px-5 py-4">
-                      {user.status === "activo" ? (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100">
-                          activo
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-red-700 bg-red-50 border border-red-100">
-                          suspendido
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Créditos */}
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-1">
-                        <span className="text-amber-500">🪙</span>
-                        <span className="font-bold text-slate-800">{user.credits}</span>
-                      </div>
-                    </td>
-
-                    {/* Registro */}
-                    <td className="px-5 py-4 text-slate-400 font-semibold leading-tight">
-                      <span className="block text-slate-600">{formatDate(user.created_at)}</span>
-                      <span className="block text-[10px] mt-0.5">{formatTime(user.created_at)}</span>
-                    </td>
-
-                    {/* Creado Por */}
-                    <td className="px-5 py-4">
-                      <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-bold">
-                        {user.created_by}
-                      </span>
-                    </td>
-
-                    {/* Áreas */}
-                    <td className="px-5 py-4 font-bold text-slate-700">{user.areas}</td>
-
-                    {/* Documentos */}
-                    <td className="px-5 py-4 text-slate-500 font-semibold leading-tight">
-                      <span className="block text-slate-800 font-bold">{user.docs_total} total</span>
-                      <span className="block text-[10px] text-blue-500 mt-0.5 font-bold">{user.docs_hoy} hoy</span>
-                    </td>
-
-                    {/* Último Acceso */}
-                    <td className="px-5 py-4 font-semibold text-slate-500">
-                      {user.last_access ? formatDate(user.last_access) : "Nunca"}
-                    </td>
-
-                    {/* Acciones */}
-                    <td className="px-5 py-4">
-                      <div className="flex items-center justify-center gap-2">
-                        {/* Botón Ver Historial (Lupa) */}
-                        <button
-                          onClick={() => handleViewHistory(user)}
-                          title="Ver Historial de Documentos"
-                          className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center cursor-pointer transition-colors"
-                        >
-                          🔍
-                        </button>
-
-                        {/* Botón Ajustar Créditos (Moneda) */}
-                        <button
-                          onClick={() => {
-                            setSelectedUser(user);
-                            setAdjustAmount(500);
-                            setIsAdjustOpen(true);
-                          }}
-                          title="Ajustar Créditos/Balance"
-                          className="w-7 h-7 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 flex items-center justify-center cursor-pointer transition-colors"
-                        >
-                          🪙
-                        </button>
-
-                        {/* Botón Alternar Estado (Activar/Suspender) */}
-                        <button
-                          onClick={() => handleToggleStatus(user)}
-                          title={user.status === "activo" ? "Suspender Usuario" : "Activar Usuario"}
-                          className={`w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer transition-colors ${
-                            user.status === "activo"
-                              ? "bg-red-50 hover:bg-red-100 text-red-600"
-                              : "bg-emerald-50 hover:bg-emerald-100 text-emerald-600"
-                          }`}
-                        >
-                          ⚠️
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {/* ── Error ─────────────────────────────────────────────────── */}
+        {error && (
+          <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 font-semibold">
+            ⚠️ {error}
           </div>
         )}
+
+        {/* ── Users Table ───────────────────────────────────────────── */}
+        <div className="bg-white rounded-2xl border border-[#E8EDF3] overflow-hidden">
+          {/* Table toolbar */}
+          <div className="px-6 py-4 border-b border-[#E8EDF3] flex items-center justify-between">
+            <div>
+              <h2 className="font-bold text-sm text-slate-900">Lista de Docentes</h2>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                {loading ? "Cargando..." : `${displayUsers.length} docentes encontrados`}
+                {filter && <span className="ml-2 text-[#7C6CF2]">• Filtro activo: {FILTER_PILLS.find(p => p.value === filter)?.label}</span>}
+              </p>
+            </div>
+            <button
+              onClick={() => fetchData(filter, search)}
+              className="px-3 py-1.5 text-[11px] font-bold text-slate-500 hover:text-[#7C6CF2] hover:bg-violet-50 rounded-xl transition-colors cursor-pointer border border-[#E8EDF3]"
+            >
+              ↺ Actualizar
+            </button>
+          </div>
+
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="flex flex-col items-center gap-3 text-slate-400">
+                <div className="w-8 h-8 border-2 border-[#7C6CF2] border-t-transparent rounded-full animate-spin" />
+                <span className="text-sm font-semibold">Cargando usuarios...</span>
+              </div>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-[#F8F9FC] border-b border-[#E8EDF3]">
+                    {[
+                      "Docente", "Contacto", "Monto Pagado",
+                      "Consumo IA", "Estado", "Créditos",
+                      "Registro", "Creado por", "Áreas",
+                      "Docs", "Último Acceso", "Acciones",
+                    ].map((h) => (
+                      <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#F0F3F8]">
+                  {displayUsers.length === 0 ? (
+                    <tr>
+                      <td colSpan={12} className="text-center py-16 text-slate-400 font-semibold text-sm">
+                        No se encontraron docentes con los filtros aplicados.
+                      </td>
+                    </tr>
+                  ) : (
+                    displayUsers.map((u) => (
+                      <tr key={u.id} className="hover:bg-slate-50/60 transition-colors group">
+                        {/* Docente */}
+                        <td className="px-4 py-3.5">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-full bg-[#7C6CF2]/10 flex items-center justify-center font-bold text-[#7C6CF2] text-xs shrink-0">
+                              {u.full_name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="font-bold text-slate-800 text-[12px] leading-tight">{u.full_name}</p>
+                              <p className="text-slate-400 text-[10px] mt-0.5">{u.email}</p>
+                            </div>
+                          </div>
+                        </td>
+                        {/* Contacto */}
+                        <td className="px-4 py-3.5 text-slate-600 font-medium whitespace-nowrap">{u.phone}</td>
+                        {/* Monto Pagado */}
+                        <td className="px-4 py-3.5 font-extrabold text-slate-900 whitespace-nowrap">
+                          {fmtSoles(u.monto_pagado)}
+                        </td>
+                        {/* Consumo IA */}
+                        <td className="px-4 py-3.5">
+                          <p className="font-bold text-slate-800 text-[11px]">{fmtSoles(u.consumo_ia_soles)}</p>
+                          <p className="text-slate-400 text-[9px] mt-0.5">tokens consumidos</p>
+                        </td>
+                        {/* Estado */}
+                        <td className="px-4 py-3.5">
+                          <StatusBadge status={u.status} />
+                        </td>
+                        {/* Créditos */}
+                        <td className="px-4 py-3.5">
+                          <CreditBar used={u.credits} total={u.credits_total} />
+                        </td>
+                        {/* Registro */}
+                        <td className="px-4 py-3.5 text-slate-600 whitespace-nowrap">
+                          {fmtDate(u.created_at)}
+                        </td>
+                        {/* Creado por */}
+                        <td className="px-4 py-3.5 text-slate-500 max-w-[100px] truncate" title={u.created_by}>
+                          {u.created_by}
+                        </td>
+                        {/* Áreas */}
+                        <td className="px-4 py-3.5 text-center">
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-slate-100 text-slate-700 font-bold text-[11px]">
+                            {u.areas}
+                          </span>
+                        </td>
+                        {/* Docs */}
+                        <td className="px-4 py-3.5 text-center">
+                          <div className="flex flex-col items-center">
+                            <span className="font-bold text-slate-800 text-[12px]">{u.docs_total}</span>
+                            {u.docs_hoy > 0 && (
+                              <span className="text-[9px] text-emerald-600 font-bold">+{u.docs_hoy} hoy</span>
+                            )}
+                          </div>
+                        </td>
+                        {/* Último Acceso */}
+                        <td className="px-4 py-3.5 whitespace-nowrap">
+                          {timeAgo(u.last_access)}
+                        </td>
+                        {/* Acciones */}
+                        <td className="px-4 py-3.5">
+                          <div className="flex items-center gap-1.5 opacity-60 group-hover:opacity-100 transition-opacity">
+                            {/* Descarga */}
+                            <button
+                              title="Descargar reporte"
+                              className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-blue-100 hover:text-blue-700 text-slate-500 flex items-center justify-center transition-colors cursor-pointer"
+                            >
+                              <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
+                              </svg>
+                            </button>
+                            {/* Enlace */}
+                            <button
+                              title="Ver perfil"
+                              className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-violet-100 hover:text-violet-700 text-slate-500 flex items-center justify-center transition-colors cursor-pointer"
+                            >
+                              <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
+                              </svg>
+                            </button>
+                            {/* Editar créditos */}
+                            <button
+                              title="Ajustar créditos"
+                              onClick={() => setEditUser(u)}
+                              className="w-7 h-7 rounded-lg bg-[#7C6CF2]/10 hover:bg-[#7C6CF2] hover:text-white text-[#7C6CF2] flex items-center justify-center transition-colors cursor-pointer"
+                            >
+                              <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                              </svg>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
-
-      {/* MODAL 1: HISTORIAL DE ACTIVIDAD */}
-      {isActivityOpen && selectedUser && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl border border-border-custom shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-150">
-            {/* Cabecera */}
-            <div className="px-6 py-4 border-b border-border-custom bg-slate-50 flex justify-between items-center">
-              <div>
-                <h3 className="font-headings font-bold text-slate-900">
-                  Historial de Actividad
-                </h3>
-                <p className="text-[11px] text-slate-400 font-bold uppercase mt-0.5">
-                  {selectedUser.full_name}
-                </p>
-              </div>
-              <button
-                onClick={() => setIsActivityOpen(false)}
-                className="text-slate-400 hover:text-slate-600 text-lg cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Contenido */}
-            <div className="p-6 max-h-[350px] overflow-y-auto">
-              {loadingActivity ? (
-                <div className="py-8 flex flex-col items-center justify-center gap-2">
-                  <div className="w-8 h-8 border-3 border-morado-ia border-t-transparent rounded-full animate-spin"></div>
-                  <span className="text-xs text-slate-400 font-bold">Cargando historial...</span>
-                </div>
-              ) : activityDocs.length === 0 ? (
-                <p className="text-center text-slate-400 py-8 text-xs font-semibold">
-                  Este docente aún no ha generado documentos en la plataforma.
-                </p>
-              ) : (
-                <div className="flex flex-col gap-3">
-                  {activityDocs.map((doc) => (
-                    <div key={doc.id} className="p-3 bg-slate-50 border border-border-custom rounded-xl flex justify-between items-center">
-                      <div>
-                        <span className="block font-headings font-bold text-slate-900 text-xs">
-                          {doc.title}
-                        </span>
-                        <span className="block text-[10px] text-slate-400 font-semibold mt-0.5">
-                          {doc.document_type}
-                        </span>
-                      </div>
-                      <span className="text-[10px] text-slate-500 font-bold whitespace-nowrap bg-white px-2 py-1 border border-border-custom rounded">
-                        {formatDate(doc.created_at)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Pie de modal */}
-            <div className="px-6 py-4 border-t border-border-custom bg-slate-50 flex justify-end">
-              <button
-                onClick={() => setIsActivityOpen(false)}
-                className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold cursor-pointer"
-              >
-                Cerrar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 2: AJUSTAR CRÉDITOS */}
-      {isAdjustOpen && selectedUser && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl border border-border-custom shadow-xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-150">
-            {/* Cabecera */}
-            <div className="px-6 py-4 border-b border-border-custom bg-slate-50 flex justify-between items-center">
-              <div>
-                <h3 className="font-headings font-bold text-slate-900">
-                  Modificar Balances
-                </h3>
-                <p className="text-[11px] text-slate-400 font-bold uppercase mt-0.5">
-                  {selectedUser.full_name}
-                </p>
-              </div>
-              <button
-                onClick={() => setIsAdjustOpen(false)}
-                className="text-slate-400 hover:text-slate-600 text-lg cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Contenido */}
-            <div className="p-6">
-              <div className="mb-4 p-3 bg-amber-50 border border-amber-100 rounded-xl">
-                <span className="block text-[11px] text-amber-600 font-bold">Balance Actual:</span>
-                <span className="block font-headings font-bold text-slate-900 mt-0.5">
-                  🪙 {selectedUser.credits} créditos
-                </span>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  Monto a Ajustar
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    value={adjustAmount}
-                    onChange={(e) => setAdjustAmount(parseInt(e.target.value) || 0)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-bold focus:outline-none focus:bg-white focus:border-morado-ia focus:ring-1 focus:ring-morado-ia transition-all"
-                  />
-                </div>
-                <p className="text-[10px] text-slate-400 leading-normal">
-                  * Tip: Use valores negativos (ej: <code>-500</code>) para descontar créditos del balance del docente de forma segura.
-                </p>
-              </div>
-            </div>
-
-            {/* Pie de modal */}
-            <div className="px-6 py-4 border-t border-border-custom bg-slate-50 flex justify-end gap-2">
-              <button
-                onClick={() => setIsAdjustOpen(false)}
-                className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleAdjustCredits}
-                disabled={adjusting}
-                className="px-4 py-2 bg-morado-ia hover:bg-morado-ia/90 text-white rounded-xl text-xs font-bold cursor-pointer disabled:opacity-55"
-              >
-                {adjusting ? "Guardando..." : "✔️ Ajustar"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    </>
   );
 }

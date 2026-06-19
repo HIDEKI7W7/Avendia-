@@ -16,17 +16,21 @@ from src.models.payment_transaction import PaymentTransaction, PaymentStatus, Pa
 
 router = APIRouter()
 
-# Proteger todo el enrutador con rol ADMIN
-admin_protector = RoleChecker([UserRole.ADMIN])
+# ── Protector global RBAC: solo ADMIN accede a cualquier endpoint ──────────
+admin_only = RoleChecker([UserRole.ADMIN])
 
-# Esquemas de respuesta
-class FinancialKPIs(BaseModel):
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SCHEMAS
+# ═══════════════════════════════════════════════════════════════════════════
+
+class FinanceKPIs(BaseModel):
     total_recaudado: float
     pendiente: float
-    total_transacciones: int
-    ticket_promedio: float
+    transacciones: int
+    promedio: float
 
-class TransactionDetail(BaseModel):
+class TransactionRow(BaseModel):
     id: uuid.UUID
     created_at: datetime
     amount: float
@@ -37,17 +41,19 @@ class TransactionDetail(BaseModel):
     user_credits: int
     user_credits_total: int
 
-class DashboardResponse(BaseModel):
-    kpis: FinancialKPIs
-    transactions: List[TransactionDetail]
+class FinanceDashboardResponse(BaseModel):
+    kpis: FinanceKPIs
+    transactions: List[TransactionRow]
 
-class UserKPIs(BaseModel):
-    total_docentes: int
-    total_creditos_activos: int
-    total_docs_generados: int
-    costo_estimado_ia: float
+# ─── Users ─────────────────────────────────────────────────────────────────
 
-class UserDetail(BaseModel):
+class SystemKPIs(BaseModel):
+    docentes_totales: int
+    creditos_sistema: int
+    docs_generados: int
+    inversion_ia_soles: float
+
+class UserRow(BaseModel):
     id: uuid.UUID
     full_name: str
     email: str
@@ -64,200 +70,212 @@ class UserDetail(BaseModel):
     docs_total: int
     docs_hoy: int
 
-class UsersAnalyticsResponse(BaseModel):
-    kpis: UserKPIs
-    users: List[UserDetail]
+class UsersDashboardResponse(BaseModel):
+    kpis: SystemKPIs
+    users: List[UserRow]
 
-class DocumentMiniSchema(BaseModel):
+class AdjustCreditsPayload(BaseModel):
+    amount: int
+
+class DocumentMini(BaseModel):
     id: uuid.UUID
     title: str
     document_type: str
     created_at: datetime
 
-@router.get("/analytics/dashboard", response_model=DashboardResponse)
-async def get_dashboard_analytics(
-    start_date: Optional[str] = Query(None, description="Fecha inicio YYYY-MM-DD"),
-    end_date: Optional[str] = Query(None, description="Fecha fin YYYY-MM-DD"),
+
+# ═══════════════════════════════════════════════════════════════════════════
+# TAREA 1-A: GET /finance/dashboard
+# ═══════════════════════════════════════════════════════════════════════════
+
+@router.get(
+    "/finance/dashboard",
+    response_model=FinanceDashboardResponse,
+    summary="KPIs financieros y listado de transacciones paginado",
+)
+async def get_finance_dashboard(
+    start_date: Optional[str] = Query(None, description="YYYY-MM-DD"),
+    end_date:   Optional[str] = Query(None, description="YYYY-MM-DD"),
     session: AsyncSession = Depends(get_session),
-    _current_user: User = Depends(admin_protector)
+    _: User = Depends(admin_only),
 ):
-    """
-    Retorna agregaciones financieras y las últimas transacciones,
-    filtrado opcionalmente por rango de fechas.
-    """
-    # Construir condiciones de fecha
+    # ── Construir filtros de fecha ──────────────────────────────────────────
     conditions = []
     if start_date:
         try:
-            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
-            conditions.append(PaymentTransaction.created_at >= start_dt)
+            conditions.append(PaymentTransaction.created_at >= datetime.strptime(start_date, "%Y-%m-%d"))
         except ValueError:
-            raise HTTPException(status_code=400, detail="Formato start_date inválido. Use YYYY-MM-DD")
+            raise HTTPException(400, "start_date inválido. Use YYYY-MM-DD")
     if end_date:
         try:
             end_dt = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1) - timedelta(seconds=1)
             conditions.append(PaymentTransaction.created_at <= end_dt)
         except ValueError:
-            raise HTTPException(status_code=400, detail="Formato end_date inválido. Use YYYY-MM-DD")
+            raise HTTPException(400, "end_date inválido. Use YYYY-MM-DD")
 
-    # KPIs Financieros
-    # Total Recaudado (completed)
-    q_recaudado = select(func.sum(PaymentTransaction.amount)).where(PaymentTransaction.status == PaymentStatus.COMPLETED)
-    if conditions:
-        q_recaudado = q_recaudado.where(and_(*conditions))
-    res_recaudado = await session.execute(q_recaudado)
-    total_recaudado = res_recaudado.scalar() or 0.0
+    def apply(q):
+        return q.where(and_(*conditions)) if conditions else q
 
-    # Pendiente
-    q_pendiente = select(func.sum(PaymentTransaction.amount)).where(PaymentTransaction.status == PaymentStatus.PENDING)
-    if conditions:
-        q_pendiente = q_pendiente.where(and_(*conditions))
-    res_pendiente = await session.execute(q_pendiente)
-    pendiente = res_pendiente.scalar() or 0.0
+    # ── KPIs ───────────────────────────────────────────────────────────────
+    total_recaudado = (await session.execute(
+        apply(select(func.sum(PaymentTransaction.amount))
+              .where(PaymentTransaction.status == PaymentStatus.COMPLETED))
+    )).scalar() or 0.0
 
-    # Total Transacciones
-    q_trans = select(func.count(PaymentTransaction.id))
-    if conditions:
-        q_trans = q_trans.where(and_(*conditions))
-    res_trans = await session.execute(q_trans)
-    total_transacciones = res_trans.scalar() or 0
+    pendiente = (await session.execute(
+        apply(select(func.sum(PaymentTransaction.amount))
+              .where(PaymentTransaction.status == PaymentStatus.PENDING))
+    )).scalar() or 0.0
 
-    # Ticket Promedio
-    q_avg = select(func.avg(PaymentTransaction.amount)).where(PaymentTransaction.status == PaymentStatus.COMPLETED)
-    if conditions:
-        q_avg = q_avg.where(and_(*conditions))
-    res_avg = await session.execute(q_avg)
-    ticket_promedio = res_avg.scalar() or 0.0
+    transacciones = (await session.execute(
+        apply(select(func.count(PaymentTransaction.id)))
+    )).scalar() or 0
 
-    # Lista de Transacciones (Ordenadas por fecha desc)
-    q_list = select(PaymentTransaction, User).join(User, PaymentTransaction.user_id == User.id)
-    if conditions:
-        q_list = q_list.where(and_(*conditions))
-    q_list = q_list.order_by(PaymentTransaction.created_at.desc()).limit(100)
-    res_list = await session.execute(q_list)
-    rows = res_list.all()
+    promedio = (await session.execute(
+        apply(select(func.avg(PaymentTransaction.amount))
+              .where(PaymentTransaction.status == PaymentStatus.COMPLETED))
+    )).scalar() or 0.0
 
-    transactions_list = []
-    for trans, user in rows:
-        transactions_list.append(
-            TransactionDetail(
-                id=trans.id,
-                created_at=trans.created_at,
-                amount=trans.amount,
-                payment_method=trans.payment_method.value,
-                status=trans.status.value,
-                user_name=user.full_name,
-                user_email=user.email,
-                user_credits=user.credits,
-                user_credits_total=user.credits_total
-            )
-        )
+    # ── Listado de transacciones ────────────────────────────────────────────
+    q_rows = (
+        apply(select(PaymentTransaction, User).join(User, PaymentTransaction.user_id == User.id))
+        .order_by(PaymentTransaction.created_at.desc())
+        .limit(200)
+    )
+    rows = (await session.execute(q_rows)).all()
 
-    return DashboardResponse(
-        kpis=FinancialKPIs(
+    return FinanceDashboardResponse(
+        kpis=FinanceKPIs(
             total_recaudado=round(total_recaudado, 2),
             pendiente=round(pendiente, 2),
-            total_transacciones=total_transacciones,
-            ticket_promedio=round(ticket_promedio, 2)
+            transacciones=transacciones,
+            promedio=round(promedio, 2),
         ),
-        transactions=transactions_list
+        transactions=[
+            TransactionRow(
+                id=t.id,
+                created_at=t.created_at,
+                amount=t.amount,
+                payment_method=t.payment_method.value,
+                status=t.status.value,
+                user_name=u.full_name,
+                user_email=u.email,
+                user_credits=u.credits,
+                user_credits_total=u.credits_total,
+            )
+            for t, u in rows
+        ],
     )
 
 
-@router.get("/analytics/users", response_model=UsersAnalyticsResponse)
-async def get_users_analytics(
-    filter_type: Optional[str] = Query(None, alias="filter", description="Filtro rápido: actives_today, low_credits, critical_consumption"),
+# ═══════════════════════════════════════════════════════════════════════════
+# TAREA 1-B: GET /users/dashboard
+# ═══════════════════════════════════════════════════════════════════════════
+
+FILTER_MAP = {
+    "actives_today": "actives_today",
+    "low_credits":   "low_credits",
+    "no_credits":    "no_credits",
+    "critical":      "critical",
+}
+
+@router.get(
+    "/users/dashboard",
+    response_model=UsersDashboardResponse,
+    summary="KPIs del sistema y lista de usuarios docentes con filtros",
+)
+async def get_users_dashboard(
+    filter: Optional[str] = Query(None, description="actives_today | low_credits | no_credits | critical"),
+    q:      Optional[str] = Query(None, description="Búsqueda libre (nombre, email, teléfono)"),
     session: AsyncSession = Depends(get_session),
-    _current_user: User = Depends(admin_protector)
+    _: User = Depends(admin_only),
 ):
-    """
-    Retorna los KPIs del sistema y la lista detallada de usuarios docentes
-    según el filtro seleccionado.
-    """
-    # 1. KPIs Globales del Sistema
-    res_docentes = await session.execute(select(func.count(User.id)).where(User.role == UserRole.DOCENTE))
-    total_docentes = res_docentes.scalar() or 0
+    # ── KPIs globales ──────────────────────────────────────────────────────
+    docentes_totales = (await session.execute(
+        select(func.count(User.id)).where(User.role == UserRole.DOCENTE)
+    )).scalar() or 0
 
-    res_creds = await session.execute(select(func.sum(User.credits)).where(User.role == UserRole.DOCENTE))
-    total_creditos_activos = res_creds.scalar() or 0
+    creditos_sistema = (await session.execute(
+        select(func.sum(User.credits)).where(User.role != UserRole.ADMIN)
+    )).scalar() or 0
 
-    res_docs = await session.execute(select(func.count(Document.id)))
-    total_docs_generados = res_docs.scalar() or 0
+    docs_generados = (await session.execute(
+        select(func.count(Document.id))
+    )).scalar() or 0
 
-    res_costo = await session.execute(select(func.sum(AILog.cost_soles)))
-    costo_estimado_ia = res_costo.scalar() or 0.0
+    inversion_ia_soles = (await session.execute(
+        select(func.sum(AILog.cost_soles))
+    )).scalar() or 0.0
 
-    # 2. Consultar todos los docentes para calcular los acumulados
-    # Nota: Hacemos consultas de agregación separadas o en Python de forma controlada
-    # para evitar COUNT/SUM masivos sobre tablas de producción si crecieran exponencialmente.
-    # Como es un admin dashboard, estructuramos consultas de apoyo eficientes.
-    users_query = select(User).where(User.role != UserRole.ADMIN)
-
-    # Aplicar filtros
+    # ── Lista de usuarios ──────────────────────────────────────────────────
     now = datetime.utcnow()
     today_start = datetime(now.year, now.month, now.day)
-    
-    if filter_type == "actives_today":
-        # Activos hoy: generaron documento o entraron al sistema hoy
-        users_query = users_query.where(
-            and_(
-                User.last_access >= today_start,
-                User.status == "activo"
-            )
+
+    users_q = select(User).where(User.role != UserRole.ADMIN)
+
+    # Aplicar filtros de píldora
+    if filter == "actives_today":
+        users_q = users_q.where(
+            and_(User.last_access >= today_start, User.status == "activo")
         )
-    elif filter_type == "low_credits":
-        # Créditos bajos: menos de 200 créditos
-        users_query = users_query.where(User.credits < 200)
-    elif filter_type == "critical_consumption":
-        # Consumo crítico: consumieron más de S/. 5.00 en IA en los últimos 7 días
-        seven_days_ago = now - timedelta(days=7)
-        # Subquery de usuarios con consumo crítico
+    elif filter == "low_credits":
+        users_q = users_q.where(and_(User.credits > 0, User.credits < 200))
+    elif filter == "no_credits":
+        users_q = users_q.where(User.credits == 0)
+    elif filter == "critical":
+        seven_ago = now - timedelta(days=7)
         subq = (
             select(AILog.user_id)
-            .where(AILog.created_at >= seven_days_ago)
+            .where(AILog.created_at >= seven_ago)
             .group_by(AILog.user_id)
             .having(func.sum(AILog.cost_soles) >= 5.0)
         )
-        users_query = users_query.where(User.id.in_(subq))
+        users_q = users_q.where(User.id.in_(subq))
 
-    res_users = await session.execute(users_query)
-    users_list = res_users.scalars().all()
+    # Búsqueda libre
+    if q and q.strip():
+        term = f"%{q.strip()}%"
+        users_q = users_q.where(
+            (User.full_name.ilike(term)) |
+            (User.email.ilike(term)) |
+            (User.phone.ilike(term))
+        )
 
-    # Pre-cargar agregaciones agrupadas por usuario para evitar consultas N+1
-    # Monto pagado completado por usuario
-    res_paid = await session.execute(
-        select(PaymentTransaction.user_id, func.sum(PaymentTransaction.amount))
-        .where(PaymentTransaction.status == PaymentStatus.COMPLETED)
-        .group_by(PaymentTransaction.user_id)
-    )
-    paid_map = {row[0]: row[1] for row in res_paid.all()}
+    users_list = (await session.execute(users_q)).scalars().all()
 
-    # Consumo de IA en soles por usuario
-    res_ai_cons = await session.execute(
-        select(AILog.user_id, func.sum(AILog.cost_soles))
-        .group_by(AILog.user_id)
-    )
-    ai_cons_map = {row[0]: row[1] for row in res_ai_cons.all()}
+    # ── Agregaciones por usuario (bulk, sin N+1) ───────────────────────────
+    paid_map = {
+        r[0]: r[1]
+        for r in (await session.execute(
+            select(PaymentTransaction.user_id, func.sum(PaymentTransaction.amount))
+            .where(PaymentTransaction.status == PaymentStatus.COMPLETED)
+            .group_by(PaymentTransaction.user_id)
+        )).all()
+    }
+    ai_map = {
+        r[0]: r[1]
+        for r in (await session.execute(
+            select(AILog.user_id, func.sum(AILog.cost_soles)).group_by(AILog.user_id)
+        )).all()
+    }
+    docs_total_map = {
+        r[0]: r[1]
+        for r in (await session.execute(
+            select(Document.user_id, func.count(Document.id)).group_by(Document.user_id)
+        )).all()
+    }
+    docs_today_map = {
+        r[0]: r[1]
+        for r in (await session.execute(
+            select(Document.user_id, func.count(Document.id))
+            .where(Document.created_at >= today_start)
+            .group_by(Document.user_id)
+        )).all()
+    }
 
-    # Documentos totales por usuario
-    res_docs_total = await session.execute(
-        select(Document.user_id, func.count(Document.id))
-        .group_by(Document.user_id)
-    )
-    docs_total_map = {row[0]: row[1] for row in res_docs_total.all()}
-
-    # Documentos generados hoy por usuario
-    res_docs_today = await session.execute(
-        select(Document.user_id, func.count(Document.id))
-        .where(Document.created_at >= today_start)
-        .group_by(Document.user_id)
-    )
-    docs_today_map = {row[0]: row[1] for row in res_docs_today.all()}
-
-    detailed_users = []
-    for u in users_list:
-        detailed_users.append(
-            UserDetail(
+    users_out = sorted(
+        [
+            UserRow(
                 id=u.id,
                 full_name=u.full_name,
                 email=u.email,
@@ -270,110 +288,122 @@ async def get_users_analytics(
                 areas=u.areas,
                 last_access=u.last_access,
                 monto_pagado=round(paid_map.get(u.id, 0.0), 2),
-                consumo_ia_soles=round(ai_cons_map.get(u.id, 0.0), 2),
+                consumo_ia_soles=round(ai_map.get(u.id, 0.0), 2),
                 docs_total=docs_total_map.get(u.id, 0),
-                docs_hoy=docs_today_map.get(u.id, 0)
+                docs_hoy=docs_today_map.get(u.id, 0),
             )
-        )
+            for u in users_list
+        ],
+        key=lambda x: x.created_at,
+        reverse=True,
+    )
 
-    # Ordenar por fecha de creación desc
-    detailed_users.sort(key=lambda x: x.created_at, reverse=True)
-
-    return UsersAnalyticsResponse(
-        kpis=UserKPIs(
-            total_docentes=total_docentes,
-            total_creditos_activos=total_creditos_activos,
-            total_docs_generados=total_docs_generados,
-            costo_estimado_ia=round(costo_estimado_ia, 2)
+    return UsersDashboardResponse(
+        kpis=SystemKPIs(
+            docentes_totales=docentes_totales,
+            creditos_sistema=int(creditos_sistema),
+            docs_generados=docs_generados,
+            inversion_ia_soles=round(float(inversion_ia_soles), 2),
         ),
-        users=detailed_users
+        users=users_out,
     )
 
 
-@router.get("/users/{user_id}/activity", response_model=List[DocumentMiniSchema])
+# ═══════════════════════════════════════════════════════════════════════════
+# TAREA 1-C: POST /users/{user_id}/adjust-credits
+# ═══════════════════════════════════════════════════════════════════════════
+
+@router.post(
+    "/users/{user_id}/adjust-credits",
+    summary="Ajuste atómico de créditos de un docente",
+)
+async def adjust_credits(
+    user_id: uuid.UUID,
+    payload: AdjustCreditsPayload,
+    session: AsyncSession = Depends(get_session),
+    _: User = Depends(admin_only),
+):
+    res = await session.execute(select(User).where(User.id == user_id))
+    user = res.scalar_one_or_none()
+    if not user:
+        raise HTTPException(404, "Usuario no encontrado")
+
+    # UPDATE atómico para prevenir race conditions
+    await session.execute(
+        text(
+            "UPDATE users "
+            "SET credits       = GREATEST(0, credits + :amount), "
+            "    credits_total = GREATEST(0, credits_total + :amount) "
+            "WHERE id = :id"
+        ),
+        {"amount": payload.amount, "id": str(user_id)},
+    )
+    await session.commit()
+    await session.refresh(user)
+
+    return {
+        "status": "success",
+        "credits": user.credits,
+        "credits_total": user.credits_total,
+        "message": f"Créditos ajustados. Nuevo saldo: {user.credits}",
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# GET /users/{user_id}/activity  (mantener compatibilidad)
+# ═══════════════════════════════════════════════════════════════════════════
+
+@router.get(
+    "/users/{user_id}/activity",
+    response_model=List[DocumentMini],
+    summary="Documentos generados por un docente",
+)
 async def get_user_activity(
     user_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
-    _current_user: User = Depends(admin_protector)
+    _: User = Depends(admin_only),
 ):
-    """
-    Retorna la lista de documentos generados por un docente específico.
-    """
-    result = await session.execute(
+    docs = (await session.execute(
         select(Document)
         .where(Document.user_id == user_id)
         .order_by(Document.created_at.desc())
-    )
-    docs = result.scalars().all()
+    )).scalars().all()
+
     return [
-        DocumentMiniSchema(
-            id=d.id,
-            title=d.title,
-            document_type=d.document_type,
-            created_at=d.created_at
-        )
+        DocumentMini(id=d.id, title=d.title, document_type=d.document_type, created_at=d.created_at)
         for d in docs
     ]
 
 
-class AdjustCreditsPayload(BaseModel):
-    amount: int
+# ═══════════════════════════════════════════════════════════════════════════
+# Rutas legacy (redireccionadas para no romper el admin panel existente)
+# ═══════════════════════════════════════════════════════════════════════════
 
-@router.post("/users/{user_id}/credits")
-async def adjust_user_credits(
+@router.get("/analytics/dashboard", include_in_schema=False)
+async def legacy_finance(
+    start_date: Optional[str] = None,
+    end_date:   Optional[str] = None,
+    session: AsyncSession = Depends(get_session),
+    _: User = Depends(admin_only),
+):
+    return await get_finance_dashboard(start_date, end_date, session, _)
+
+
+@router.get("/analytics/users", include_in_schema=False)
+async def legacy_users(
+    filter: Optional[str] = None,
+    q:      Optional[str] = None,
+    session: AsyncSession = Depends(get_session),
+    _: User = Depends(admin_only),
+):
+    return await get_users_dashboard(filter, q, session, _)
+
+
+@router.post("/users/{user_id}/credits", include_in_schema=False)
+async def legacy_adjust(
     user_id: uuid.UUID,
     payload: AdjustCreditsPayload,
     session: AsyncSession = Depends(get_session),
-    _current_user: User = Depends(admin_protector)
+    _: User = Depends(admin_only),
 ):
-    """
-    Modifica los créditos de un docente de forma atómica en base de datos.
-    Soporta valores positivos y negativos.
-    """
-    # Comprobar que el usuario exista
-    res_user = await session.execute(select(User).where(User.id == user_id))
-    user = res_user.scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
-
-    # Ejecutar UPDATE atómico directo en SQL para evitar condiciones de carrera (race conditions)
-    await session.execute(
-        text("UPDATE users SET credits = GREATEST(0, credits + :amount), credits_total = GREATEST(0, credits_total + :amount) WHERE id = :id"),
-        {"amount": payload.amount, "id": user_id}
-    )
-    await session.commit()
-
-    # Recargar usuario para responder con el nuevo valor
-    await session.refresh(user)
-    return {
-        "status": "success",
-        "message": f"Créditos ajustados correctamente. Nuevos créditos: {user.credits}",
-        "credits": user.credits,
-        "credits_total": user.credits_total
-    }
-
-
-@router.post("/users/{user_id}/toggle-status")
-async def toggle_user_status(
-    user_id: uuid.UUID,
-    session: AsyncSession = Depends(get_session),
-    _current_user: User = Depends(admin_protector)
-):
-    """
-    Cambia el estado del usuario de activo a suspendido, o viceversa.
-    """
-    res_user = await session.execute(select(User).where(User.id == user_id))
-    user = res_user.scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
-
-    new_status = "suspendido" if user.status == "activo" else "activo"
-    user.status = new_status
-    session.add(user)
-    await session.commit()
-
-    return {
-        "status": "success",
-        "message": f"Estado del usuario actualizado a: {new_status}",
-        "new_status": new_status
-    }
+    return await adjust_credits(user_id, payload, session, _)

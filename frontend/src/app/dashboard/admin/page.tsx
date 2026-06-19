@@ -1,8 +1,16 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { BACKEND_URL } from "@/config/api";
+
+// ── Types ──────────────────────────────────────────────────────────────────
+interface FinanceKPIs {
+  total_recaudado: number;
+  pendiente: number;
+  transacciones: number;
+  promedio: number;
+}
 
 interface Transaction {
   id: string;
@@ -16,336 +24,298 @@ interface Transaction {
   user_credits_total: number;
 }
 
-interface KPIs {
-  total_recaudado: number;
-  pendiente: number;
-  total_transacciones: number;
-  ticket_promedio: number;
+// ── Helpers ────────────────────────────────────────────────────────────────
+const fmtSoles = (n: number) =>
+  "S/. " + n.toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const fmtDate = (iso: string) => {
+  const d = new Date(iso);
+  return d.toLocaleDateString("es-PE", { day: "2-digit", month: "short", year: "numeric" }) +
+    " " + d.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" });
+};
+
+// ── KPI Card ───────────────────────────────────────────────────────────────
+function KPICard({
+  label, value, sub, accent, icon,
+}: {
+  label: string; value: string; sub?: string; accent: string; icon: React.ReactNode;
+}) {
+  return (
+    <div className="bg-white rounded-2xl border border-[#E8EDF3] p-5 flex flex-col gap-3 hover:shadow-md transition-shadow">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{label}</span>
+        <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg ${accent}`}>
+          {icon}
+        </div>
+      </div>
+      <p className="font-extrabold text-2xl text-slate-900 leading-none tracking-tight">{value}</p>
+      {sub && <p className="text-[10px] font-semibold text-slate-400">{sub}</p>}
+    </div>
+  );
 }
 
-export default function AdminDashboardPage() {
+// ── Credit Progress Bar ────────────────────────────────────────────────────
+function CreditBar({ used, total }: { used: number; total: number }) {
+  const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
+  return (
+    <div className="flex items-center gap-2 min-w-[120px]">
+      <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+        <div
+          className="h-full bg-[#7C6CF2] rounded-full transition-all"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span className="text-[11px] font-bold text-slate-700 whitespace-nowrap">
+        {used.toLocaleString()} / {total.toLocaleString()}
+      </span>
+    </div>
+  );
+}
+
+// ── Badge ──────────────────────────────────────────────────────────────────
+function StatusBadge({ status }: { status: string }) {
+  const isCompleted = status === "COMPLETED";
+  const isPending   = status === "PENDING";
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border
+        ${isCompleted ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+        : isPending   ? "bg-amber-50 text-amber-700 border-amber-200"
+                      : "bg-red-50 text-red-700 border-red-200"}`}
+    >
+      <span className={`w-1.5 h-1.5 rounded-full ${isCompleted ? "bg-emerald-500" : isPending ? "bg-amber-500" : "bg-red-500"}`} />
+      {isCompleted ? "Completado" : isPending ? "Pendiente" : "Fallido"}
+    </span>
+  );
+}
+
+// ── Method Badge ───────────────────────────────────────────────────────────
+const methodColors: Record<string, string> = {
+  YAPE:          "bg-purple-50 text-purple-700 border-purple-200",
+  PLIN:          "bg-green-50  text-green-700  border-green-200",
+  TRANSFERENCIA: "bg-blue-50   text-blue-700   border-blue-200",
+  SIN_ESPECIFICAR: "bg-slate-50 text-slate-600 border-slate-200",
+};
+
+function MethodBadge({ method }: { method: string }) {
+  return (
+    <span className={`inline-block px-2 py-0.5 rounded-lg text-[10px] font-bold border ${methodColors[method] ?? methodColors.SIN_ESPECIFICAR}`}>
+      {method === "SIN_ESPECIFICAR" ? "—" : method}
+    </span>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PAGE
+// ═══════════════════════════════════════════════════════════════════════════
+export default function AdminFinancePage() {
   const router = useRouter();
-  const [kpis, setKpis] = useState<KPIs | null>(null);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [accessGranted, setAccessGranted] = useState(false);
+  const [kpis, setKpis]             = useState<FinanceKPIs | null>(null);
+  const [transactions, setTxs]      = useState<Transaction[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState<string | null>(null);
+  const [startDate, setStartDate]   = useState("");
+  const [endDate, setEndDate]       = useState("");
 
-  // Filtros de fecha
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-
-  const fetchDashboardData = async () => {
+  const fetchData = useCallback(async (sd = startDate, ed = endDate) => {
     setLoading(true);
     setError(null);
-    try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      if (!token) {
-        window.location.href = "/login";
-        return;
-      }
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!token) { router.replace("/login"); return; }
 
-      let url = `${BACKEND_URL}/api/v1/admin/analytics/dashboard`;
+    try {
       const params = new URLSearchParams();
-      if (startDate) params.append("start_date", startDate);
-      if (endDate) params.append("end_date", endDate);
-      
-      if (params.toString()) {
-        url += `?${params.toString()}`;
-      }
+      if (sd) params.append("start_date", sd);
+      if (ed) params.append("end_date", ed);
+      const url = `${BACKEND_URL}/api/v1/admin/finance/dashboard${params.toString() ? "?" + params : ""}`;
 
       const res = await fetch(url, {
-        method: "GET",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!res.ok) {
-        if (res.status === 401 || res.status === 403) {
-          window.location.href = "/login";
-          return;
-        }
-        throw new Error("Error al obtener los datos del dashboard analítico.");
+      if (res.status === 401 || res.status === 403) {
+        router.replace(res.status === 401 ? "/login" : "/dashboard?acceso=denegado");
+        return;
       }
+      if (!res.ok) throw new Error("Error al obtener datos financieros.");
 
       const data = await res.json();
       setKpis(data.kpis);
-      setTransactions(data.transactions);
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || "Fallo en la comunicación con el servidor.");
+      setTxs(data.transactions);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Error inesperado.");
     } finally {
       setLoading(false);
     }
-  };
+  }, [router, startDate, endDate]);
 
-  // ── Guardia client-side RBAC (segunda línea de defensa) ────────────────
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const storedUser = localStorage.getItem("user");
-    if (!storedUser) {
-      router.replace("/login");
-      return;
-    }
-    try {
-      const userObj = JSON.parse(storedUser);
-      if (userObj.role !== "ADMIN") {
-        console.warn(
-          `[RBAC] Acceso denegado (client): rol "${userObj.role}" intentó acceder a /dashboard/admin`
-        );
-        router.replace("/dashboard?acceso=denegado");
-        return;
-      }
-    } catch {
-      router.replace("/login");
-      return;
-    }
-    setAccessGranted(true);
-    fetchDashboardData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  useEffect(() => { fetchData(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleFilter = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchDashboardData();
-  };
-
-  const formatDate = (isoString: string) => {
-    const d = new Date(isoString);
-    const months = [
-      "ene.", "feb.", "mar.", "abr.", "may.", "jun.",
-      "jul.", "ago.", "sep.", "oct.", "nov.", "dic."
-    ];
-    return `${d.getDate().toString().padStart(2, '0')}-${months[d.getMonth()]} ${d.getFullYear()}`;
+    fetchData(startDate, endDate);
   };
 
   return (
-    <div className="p-8 bg-bg-main min-h-screen text-slate-800 font-body">
-      {/* Encabezado y Selector de Fechas */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+    <div className="p-8 flex flex-col gap-6 min-h-full">
+      {/* ── Header ─────────────────────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="font-headings font-bold text-2xl text-slate-900 tracking-tight">
-            Registro de Ingresos
-          </h1>
-          <p className="text-sm text-slate-500 mt-1 font-semibold">
-            Historial de transacciones y pagos recibidos
+          <h1 className="font-extrabold text-2xl text-slate-900 tracking-tight">Registro de Ingresos</h1>
+          <p className="text-sm text-slate-500 mt-0.5">
+            Visualiza y filtra todas las transacciones económicas del sistema AVENDIA.
           </p>
         </div>
 
-        {/* Formulario Filtro de Calendario Doble */}
-        <form onSubmit={handleFilter} className="flex items-center gap-3 bg-white p-2 rounded-xl border border-border-custom shadow-sm flex-wrap md:flex-nowrap">
-          <div className="flex items-center gap-2">
-            <span className="text-slate-400 text-xs font-bold uppercase tracking-wider pl-2">Desde</span>
+        {/* Filtro de fechas */}
+        <form onSubmit={handleFilter} className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 bg-white border border-[#E8EDF3] rounded-xl px-3 py-2 text-xs">
+            <span className="text-slate-400">📅</span>
             <input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="bg-transparent border-0 text-sm font-semibold text-slate-700 focus:ring-0 p-1 cursor-pointer outline-none"
+              className="outline-none text-slate-700 bg-transparent text-xs"
             />
           </div>
-          <span className="text-slate-300">→</span>
-          <div className="flex items-center gap-2">
-            <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">Hasta</span>
+          <span className="text-slate-400 text-xs font-bold">—</span>
+          <div className="flex items-center gap-1.5 bg-white border border-[#E8EDF3] rounded-xl px-3 py-2 text-xs">
+            <span className="text-slate-400">📅</span>
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="bg-transparent border-0 text-sm font-semibold text-slate-700 focus:ring-0 p-1 cursor-pointer outline-none"
+              className="outline-none text-slate-700 bg-transparent text-xs"
             />
           </div>
           <button
             type="submit"
-            className="px-5 py-2 rounded-lg font-headings font-bold text-xs bg-morado-ia hover:bg-morado-ia/90 text-white shadow-md shadow-morado-ia/20 transition-all cursor-pointer"
+            className="px-4 py-2 bg-[#7C6CF2] hover:bg-[#6B5CE7] text-white text-xs font-bold rounded-xl transition-colors shadow-sm cursor-pointer"
           >
-            ⚡ Filtrar
+            Filtrar
           </button>
+          {(startDate || endDate) && (
+            <button
+              type="button"
+              onClick={() => { setStartDate(""); setEndDate(""); fetchData("", ""); }}
+              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+            >
+              Limpiar
+            </button>
+          )}
         </form>
       </div>
 
-      {/* Tarjetas de Métricas (KPIS Globales Financieros) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {/* Total Recaudado */}
-        <div className="bg-emerald-50/40 border border-emerald-100 rounded-2xl p-6 flex flex-col justify-between shadow-sm relative overflow-hidden group hover:shadow-md transition-all duration-200">
-          <div className="flex items-center justify-between mb-4">
-            <span className="font-headings font-bold text-xs text-emerald-600 tracking-wider uppercase">
-              Total Recaudado
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600 text-base font-bold">
-              💵
-            </div>
-          </div>
-          <span className="font-headings font-bold text-2xl text-slate-900 tracking-tight">
-            S/. {kpis?.total_recaudado !== undefined ? kpis.total_recaudado.toFixed(2) : "0.00"}
-          </span>
-        </div>
-
-        {/* Pendiente */}
-        <div className="bg-amber-50/40 border border-amber-100 rounded-2xl p-6 flex flex-col justify-between shadow-sm relative overflow-hidden group hover:shadow-md transition-all duration-200">
-          <div className="flex items-center justify-between mb-4">
-            <span className="font-headings font-bold text-xs text-amber-600 tracking-wider uppercase">
-              Pendiente
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center text-amber-600 text-base font-bold">
-              🕒
-            </div>
-          </div>
-          <span className="font-headings font-bold text-2xl text-slate-900 tracking-tight">
-            S/. {kpis?.pendiente !== undefined ? kpis.pendiente.toFixed(2) : "0.00"}
-          </span>
-        </div>
-
-        {/* Transacciones */}
-        <div className="bg-blue-50/40 border border-blue-100 rounded-2xl p-6 flex flex-col justify-between shadow-sm relative overflow-hidden group hover:shadow-md transition-all duration-200">
-          <div className="flex items-center justify-between mb-4">
-            <span className="font-headings font-bold text-xs text-blue-600 tracking-wider uppercase">
-              Transacciones
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 text-base font-bold">
-              💳
-            </div>
-          </div>
-          <span className="font-headings font-bold text-2xl text-slate-900 tracking-tight">
-            {kpis?.total_transacciones !== undefined ? kpis.total_transacciones : "0"}
-          </span>
-        </div>
-
-        {/* Promedio */}
-        <div className="bg-purple-50/40 border border-purple-100 rounded-2xl p-6 flex flex-col justify-between shadow-sm relative overflow-hidden group hover:shadow-md transition-all duration-200">
-          <div className="flex items-center justify-between mb-4">
-            <span className="font-headings font-bold text-xs text-purple-600 tracking-wider uppercase">
-              Promedio
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center text-purple-600 text-base font-bold">
-              📈
-            </div>
-          </div>
-          <span className="font-headings font-bold text-2xl text-slate-900 tracking-tight">
-            S/. {kpis?.ticket_promedio !== undefined ? kpis.ticket_promedio.toFixed(2) : "0.00"}
-          </span>
-        </div>
+      {/* ── KPI Cards ──────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <KPICard
+          label="Total Recaudado"
+          value={kpis ? fmtSoles(kpis.total_recaudado) : "—"}
+          sub="Pagos completados"
+          accent="bg-emerald-50 text-emerald-600"
+          icon="💰"
+        />
+        <KPICard
+          label="Pendiente"
+          value={kpis ? fmtSoles(kpis.pendiente) : "—"}
+          sub="En proceso de pago"
+          accent="bg-amber-50 text-amber-600"
+          icon="⏳"
+        />
+        <KPICard
+          label="Transacciones"
+          value={kpis ? kpis.transacciones.toLocaleString() : "—"}
+          sub="Total de operaciones"
+          accent="bg-blue-50 text-blue-600"
+          icon="🔄"
+        />
+        <KPICard
+          label="Ticket Promedio"
+          value={kpis ? fmtSoles(kpis.promedio) : "—"}
+          sub="Por transacción completada"
+          accent="bg-violet-50 text-violet-600"
+          icon="📊"
+        />
       </div>
 
-      {/* Contenido Principal / Tabla de Transacciones */}
-      <div className="bg-white border border-border-custom rounded-2xl shadow-sm overflow-hidden">
+      {/* ── Error ──────────────────────────────────────────────────────── */}
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 font-semibold">
+          ⚠️ {error}
+        </div>
+      )}
+
+      {/* ── Tabla de Transacciones ─────────────────────────────────────── */}
+      <div className="bg-white rounded-2xl border border-[#E8EDF3] overflow-hidden flex flex-col">
+        {/* Table header */}
+        <div className="px-6 py-4 border-b border-[#E8EDF3] flex items-center justify-between">
+          <div>
+            <h2 className="font-bold text-sm text-slate-900">Historial de Transacciones</h2>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              {loading ? "Cargando..." : `${transactions.length} registros encontrados`}
+            </p>
+          </div>
+        </div>
+
         {loading ? (
-          <div className="p-16 flex flex-col items-center justify-center gap-4">
-            <div className="w-10 h-10 border-4 border-morado-ia border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm font-semibold text-slate-500">Cargando transacciones financieras...</p>
-          </div>
-        ) : error ? (
-          <div className="p-16 text-center">
-            <div className="text-red-500 text-4xl mb-3">⚠️</div>
-            <h3 className="font-headings font-bold text-lg text-slate-900 mb-1">Error de carga</h3>
-            <p className="text-sm text-slate-500">{error}</p>
-          </div>
-        ) : transactions.length === 0 ? (
-          <div className="p-16 text-center">
-            <div className="text-slate-300 text-5xl mb-4">📭</div>
-            <h3 className="font-headings font-bold text-lg text-slate-950 mb-1">Sin transacciones</h3>
-            <p className="text-sm text-slate-500">No se encontraron pagos registrados en este periodo.</p>
+          <div className="flex items-center justify-center py-20 text-slate-400">
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-8 h-8 border-2 border-[#7C6CF2] border-t-transparent rounded-full animate-spin" />
+              <span className="text-sm font-semibold">Cargando datos financieros...</span>
+            </div>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-xs">
               <thead>
-                <tr className="border-b border-border-custom bg-slate-50/50">
-                  <th className="px-6 py-4 font-headings font-bold text-[10px] text-slate-400 uppercase tracking-wider">Fecha</th>
-                  <th className="px-6 py-4 font-headings font-bold text-[10px] text-slate-400 uppercase tracking-wider">Docente</th>
-                  <th className="px-6 py-4 font-headings font-bold text-[10px] text-slate-400 uppercase tracking-wider">Estado de Créditos</th>
-                  <th className="px-6 py-4 font-headings font-bold text-[10px] text-slate-400 uppercase tracking-wider">Método</th>
-                  <th className="px-6 py-4 font-headings font-bold text-[10px] text-slate-400 uppercase tracking-wider">Monto</th>
-                  <th className="px-6 py-4 font-headings font-bold text-[10px] text-slate-400 uppercase tracking-wider">Estado</th>
+                <tr className="bg-[#F8F9FC] border-b border-[#E8EDF3]">
+                  {["Fecha", "Docente", "Estado de Créditos", "Método", "Monto", "Estado"].map((h) => (
+                    <th key={h} className="px-5 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border-custom text-slate-700 text-sm">
-                {transactions.map((trans) => {
-                  // Calcular porcentaje de créditos
-                  const creditPercent = Math.min(
-                    100,
-                    Math.max(0, (trans.user_credits / (trans.user_credits_total || 1)) * 100)
-                  );
-
-                  return (
-                    <tr key={trans.id} className="hover:bg-slate-50/50 transition-colors">
+              <tbody className="divide-y divide-[#F0F3F8]">
+                {transactions.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="text-center py-16 text-slate-400 font-semibold text-sm">
+                      No hay transacciones para este período.
+                    </td>
+                  </tr>
+                ) : (
+                  transactions.map((tx) => (
+                    <tr key={tx.id} className="hover:bg-slate-50/60 transition-colors">
                       {/* Fecha */}
-                      <td className="px-6 py-4 font-semibold text-slate-500 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <span>📅</span>
-                          <span>{formatDate(trans.created_at)}</span>
-                        </div>
+                      <td className="px-5 py-3.5 whitespace-nowrap text-slate-600 font-medium">
+                        {fmtDate(tx.created_at)}
                       </td>
-
                       {/* Docente */}
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-morado-ia/10 flex items-center justify-center font-bold text-morado-ia text-xs">
-                            {trans.user_name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase()}
-                          </div>
-                          <div>
-                            <span className="block font-headings font-bold text-slate-900 leading-tight">
-                              {trans.user_name}
-                            </span>
-                            <span className="block text-xs text-slate-400 font-semibold mt-0.5">
-                              {trans.user_email}
-                            </span>
-                          </div>
+                      <td className="px-5 py-3.5">
+                        <div>
+                          <p className="font-bold text-slate-800 text-[12px]">{tx.user_name}</p>
+                          <p className="text-slate-400 text-[10px] mt-0.5">{tx.user_email}</p>
                         </div>
                       </td>
-
-                      {/* Estado de Créditos (Barra de progreso de Tailwind v4) */}
-                      <td className="px-6 py-4">
-                        <div className="max-w-[200px]">
-                          <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 mb-1">
-                            <span>{trans.user_credits} / {trans.user_credits_total}</span>
-                          </div>
-                          <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-                            <div
-                              style={{ width: `${creditPercent}%` }}
-                              className={`h-full rounded-full transition-all duration-300 ${
-                                creditPercent < 20
-                                  ? "bg-red-500"
-                                  : creditPercent < 50
-                                  ? "bg-amber-500"
-                                  : "bg-morado-ia"
-                              }`}
-                            ></div>
-                          </div>
-                        </div>
+                      {/* Estado de Créditos */}
+                      <td className="px-5 py-3.5">
+                        <CreditBar used={tx.user_credits} total={tx.user_credits_total} />
                       </td>
-
                       {/* Método */}
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold text-slate-600 bg-slate-100">
-                          💳 {trans.payment_method}
-                        </span>
+                      <td className="px-5 py-3.5">
+                        <MethodBadge method={tx.payment_method} />
                       </td>
-
                       {/* Monto */}
-                      <td className="px-6 py-4 font-headings font-bold text-slate-900 whitespace-nowrap">
-                        S/. {trans.amount.toFixed(2)}
+                      <td className="px-5 py-3.5 font-extrabold text-slate-900 whitespace-nowrap">
+                        {fmtSoles(tx.amount)}
                       </td>
-
                       {/* Estado */}
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {trans.status === "completed" ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-100">
-                            ✔️ Completado
-                          </span>
-                        ) : trans.status === "pending" ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold text-amber-700 bg-amber-50 border border-amber-100">
-                            ⏳ Pendiente
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold text-red-700 bg-red-50 border border-red-100">
-                            ❌ Fallido
-                          </span>
-                        )}
+                      <td className="px-5 py-3.5">
+                        <StatusBadge status={tx.status} />
                       </td>
                     </tr>
-                  );
-                })}
+                  ))
+                )}
               </tbody>
             </table>
           </div>
