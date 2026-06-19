@@ -17,7 +17,7 @@ class AILog(SQLModel, table=True):
         index=True
     )
     model_name: str = Field(
-        default="gemini-1.5-flash",
+        default="gemini-3.5-flash",
         nullable=False
     )
     prompt_tokens: int = Field(

@@ -93,7 +93,7 @@ async def generate_document_content(
     )
     
     # Invocar Gemini
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    model = genai.GenerativeModel("gemini-3.5-flash")
     loop = asyncio.get_running_loop()
     
     response = await loop.run_in_executor(
@@ -124,7 +124,7 @@ async def generate_document_content(
     
     ai_log = AILog(
         user_id=uuid.UUID(user_id),
-        model_name="gemini-1.5-flash",
+        model_name="gemini-3.5-flash",
         prompt_tokens=prompt_tokens,
         completion_tokens=completion_tokens,
         total_tokens=total_tokens,

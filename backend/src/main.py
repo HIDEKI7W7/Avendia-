@@ -25,7 +25,7 @@ async def verify_gemini_connection() -> None:
             return
 
         genai.configure(api_key=settings.GEMINI_API_KEY)
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        model = genai.GenerativeModel("gemini-3.5-flash")
         
         loop = asyncio.get_running_loop()
         

@@ -70,7 +70,7 @@ async def check_gemini_api() -> bool:
             return True
             
         genai.configure(api_key=settings.GEMINI_API_KEY)
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        model = genai.GenerativeModel("gemini-3.5-flash")
         
         loop = asyncio.get_running_loop()
         response = await loop.run_in_executor(

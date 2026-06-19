@@ -202,7 +202,7 @@ async def init_db() -> None:
                 
                 ai_log = AILog(
                     user_id=docente.id,
-                    model_name="gemini-1.5-flash",
+                    model_name="gemini-3.5-flash",
                     prompt_tokens=prompt_tokens,
                     completion_tokens=comp_tokens,
                     total_tokens=tot_tokens,
