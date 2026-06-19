@@ -21,11 +21,22 @@ from src.models.sesion import Sesion
 from src.models.ficha_aprendizaje import FichaAprendizaje
 from src.auth.security import hash_password
 
+import ssl
+
+# Configurar SSL para bases de datos remotas en producción (ej. Render)
+connect_args = {}
+if "localhost" not in settings.DATABASE_URL and "127.0.0.1" not in settings.DATABASE_URL and "db_prod" not in settings.DATABASE_URL:
+    ssl_context = ssl.create_default_context()
+    ssl_context.check_hostname = False
+    ssl_context.verify_mode = ssl.CERT_NONE
+    connect_args["ssl"] = ssl_context
+
 # Creamos el motor asíncrono
 engine = create_async_engine(
     settings.DATABASE_URL,
     echo=True,
-    future=True
+    future=True,
+    connect_args=connect_args
 )
 
 # Factoría para generar sesiones asíncronas
