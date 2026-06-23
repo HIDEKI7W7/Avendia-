@@ -1,6 +1,7 @@
 import uuid
 from typing import List, Optional
 from sqlmodel import Field, SQLModel, Relationship, Column
+from sqlalchemy import Text
 from sqlalchemy.dialects.postgresql import JSONB
 
 class PlanAnual(SQLModel, table=True):
@@ -26,12 +27,38 @@ class PlanAnual(SQLModel, table=True):
     area_curricular: str = Field(
         nullable=False
     )  # Ej: "Matemática", "Comunicación"
+
+    # Datos Informativos MINEDU
+    dre: str = Field(default="", nullable=False)
+    ugel: str = Field(default="", nullable=False)
+    institucion_educativa: str = Field(default="", nullable=False)
+    ciclo: str = Field(default="", nullable=False)
+    turno: str = Field(default="", nullable=False)
+
+    # Contexto CNEB
+    descripcion_estudiante: str = Field(
+        default="",
+        sa_column=Column(Text, nullable=False)
+    )
+    descripcion_contexto_local: str = Field(
+        default="",
+        sa_column=Column(Text, nullable=False)
+    )
+
+    # Temporalidad (Bimestres / Trimestres)
+    organizacion_tiempo: Optional[dict] = Field(
+        default_factory=dict,
+        sa_column=Column(JSONB, nullable=True)
+    )
+
     enfoques_transversales: Optional[dict] = Field(
         default_factory=dict,
         sa_column=Column(JSONB, nullable=True)
     )
-    competencias_anuales: dict = Field(
-        default_factory=dict,
+
+    # Árbol Curricular Estricto (Lista de Dicts)
+    competencias_anuales: list = Field(
+        default_factory=list,
         sa_column=Column(JSONB, nullable=False)
     )
 

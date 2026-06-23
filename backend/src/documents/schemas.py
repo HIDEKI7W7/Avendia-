@@ -9,12 +9,21 @@ class PlanAnualCreate(BaseModel):
     # DRE, UGEL, IE
     dre: str = Field(..., description="Dirección Regional de Educación", example="SAN MARTÍN")
     ugel: str = Field(..., description="Unidad de Gestión Educativa Local", example="LAMAS")
-    ie: str = Field(..., description="Institución Educativa", example="Mi Colegio Premium")
+    institucion_educativa: str = Field(..., description="Institución Educativa", example="Mi Colegio Premium")
+    ie: Optional[str] = Field(None, description="IE (para compatibilidad)")
     
-    # MSE, Modalidad, Nivel
+    # MSE, Modalidad, Nivel, Ciclo, Turno
     mse: str = Field("JER", description="Modelo de Servicio Educativo (JEC, JER, Otro)")
     modalidad: str = Field("EBR", description="Modalidad educativa (EBR, EBA, EBE)")
     nivel: str = Field("Secundaria", description="Nivel educativo (Inicial, Primaria, Secundaria, EBR unidocente)")
+    ciclo: str = Field("Ciclo VII", description="Ciclo educativo del CNEB (Ciclo VI o Ciclo VII)")
+    turno: str = Field("Mañana", description="Turno de la jornada (Mañana, Tarde, Completo)")
+    
+    # Temporalidad (Bimestres / Trimestres)
+    organizacion_tiempo: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Bimestres/Trimestres con fechas de inicio y fin"
+    )
     
     # Área, Grado, Sección, Año
     area_curricular: str = Field(..., description="Área Curricular", example="Matemática")
@@ -28,7 +37,11 @@ class PlanAnualCreate(BaseModel):
     director: Optional[str] = Field(None, description="Nombre del director")
     subdirector: Optional[str] = Field(None, description="Nombre del subdirector")
     
-    # Contexto local e IA
+    # Contexto local e IA (Nuevos campos del CNEB)
+    descripcion_estudiante: str = Field("", description="Descripción de las características de los estudiantes")
+    descripcion_contexto_local: str = Field("", description="Descripción del contexto local y realidad del centro")
+    
+    # Campos viejos para compatibilidad (opcionales)
     contexto_local: Optional[str] = Field(None, description="Contexto local o realidad del centro")
     justificacion: Optional[str] = Field(None, description="Justificación o necesidades de aprendizaje")
     perfil_egreso: Optional[str] = Field(None, description="Perfil de egreso esperado")
@@ -37,7 +50,10 @@ class PlanAnualCreate(BaseModel):
     
     # Enfoques y competencias (JSONB)
     enfoques_transversales: List[str] = Field(default_factory=list, description="Lista de enfoques transversales seleccionados")
-    competencias_anuales: Dict[str, List[str]] = Field(default_factory=dict, description="Competencias y capacidades priorizadas")
+    competencias_anuales: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="Lista de competencias, capacidades y desempeños priorizados"
+    )
 
 
 # =====================================================================

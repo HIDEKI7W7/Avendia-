@@ -222,17 +222,51 @@ async def init_db() -> None:
                 grado="3ro",
                 seccion="A",
                 area_curricular="Matemática",
+                dre="SAN MARTÍN",
+                ugel="LAMAS",
+                institucion_educativa="IE N° 00536 - Francisco Izquierdo",
+                ciclo="Ciclo VII",
+                turno="Mañana",
+                descripcion_estudiante="Los estudiantes del tercer grado se encuentran en un proceso de transición física y emocional, con intereses diversos en actividades lúdicas y tecnológicas.",
+                descripcion_contexto_local="La comunidad se dedica principalmente a la agricultura y el comercio local. La institución cuenta con conectividad a internet limitada.",
+                organizacion_tiempo={
+                    "I Bimestre": {"inicio": "2026-03-16", "fin": "2026-05-15"},
+                    "II Bimestre": {"inicio": "2026-05-18", "fin": "2026-07-24"},
+                    "III Bimestre": {"inicio": "2026-08-10", "fin": "2026-10-09"},
+                    "IV Bimestre": {"inicio": "2026-10-12", "fin": "2026-12-18"}
+                },
                 enfoques_transversales={
                     "lista": ["Enfoque de Derechos", "Enfoque Intercultural", "Enfoque Ambiental"]
                 },
-                competencias_anuales={
-                    "competencias": [
-                        "Resuelve problemas de cantidad",
-                        "Resuelve problemas de regularidad, equivalencia y cambio",
-                        "Resuelve problemas de forma, movimiento y localización",
-                        "Resuelve problemas de gestión de datos e incertidumbre"
-                    ]
-                }
+                competencias_anuales=[
+                    {
+                        "competencia_id": "C1",
+                        "nombre": "Resuelve problemas de cantidad",
+                        "capacidades": [
+                            "Traduce cantidades a expresiones numéricas",
+                            "Comunica su comprensión sobre los números y las operaciones",
+                            "Usa estrategias y procedimientos de estimación y cálculo",
+                            "Argumenta afirmaciones sobre las relaciones numéricas y las operaciones"
+                        ],
+                        "desempeños_priorizados": [
+                            "Establece relaciones entre datos y acciones de comparar, igualar e incorporar cantidades, y las transforma a expresiones numéricas.",
+                            "Expresa con diversas representaciones y lenguaje numérico su comprensión de la fracción como parte-todo."
+                        ]
+                    },
+                    {
+                        "competencia_id": "C2",
+                        "nombre": "Resuelve problemas de regularidad, equivalencia y cambio",
+                        "capacidades": [
+                            "Traduce datos y condiciones a expresiones algebraicas y gráficas",
+                            "Comunica su comprensión sobre las relaciones algebraicas",
+                            "Usa estrategias y procedimientos para encontrar equivalencias y reglas generales",
+                            "Argumenta afirmaciones sobre relaciones de cambio y equivalencia"
+                        ],
+                        "desempeños_priorizados": [
+                            "Establece relaciones entre datos, valores desconocidos, regularidades y condiciones de equivalencia, y las transforma a ecuaciones lineales."
+                        ]
+                    }
+                ]
             )
             session.add(mock_plan)
             await session.flush()

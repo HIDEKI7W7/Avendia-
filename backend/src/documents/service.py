@@ -75,12 +75,41 @@ async def generate_document_content(
         limit=2
     )
     
+    # Formatear campos complejos para presentarlos de manera legible a la IA
+    formatted_items = []
+    for k, v in form_data.items():
+        if not v:
+            continue
+        if k == "competencias_anuales" and isinstance(v, list):
+            comp_lines = ["Competencias, capacidades y desempeños priorizados:"]
+            for c in v:
+                comp_lines.append(f"  * Competencia: [{c.get('competencia_id', '')}] {c.get('nombre', '')}")
+                capacidades = c.get('capacidades', [])
+                desempenos = c.get('desempeños_priorizados', [])
+                if capacidades:
+                    comp_lines.append(f"    - Capacidades priorizadas: {', '.join(capacidades)}")
+                if desempenos:
+                    comp_lines.append(f"    - Desempeños priorizados: {'; '.join(desempenos)}")
+            formatted_items.append("\n".join(comp_lines))
+        elif k == "organizacion_tiempo" and isinstance(v, dict):
+            temp_lines = ["Organización del tiempo lectivo:"]
+            for period, dates in v.items():
+                temp_lines.append(f"  * {period}: desde {dates.get('inicio', '')} hasta {dates.get('fin', '')}")
+            formatted_items.append("\n".join(temp_lines))
+        elif k == "enfoques_transversales" and isinstance(v, list):
+            formatted_items.append(f"- Enfoques transversales: {', '.join(v)}")
+        elif k in ["plan_anual_id", "unidad_id", "contexto_heredado"]:
+            # Omitir metadatos técnicos en el prompt
+            continue
+        else:
+            formatted_items.append(f"- {k.replace('_', ' ').capitalize()}: {v}")
+
     # Armar prompt estructurado
     prompt = (
         f"Eres un asistente administrativo y pedagógico experto. Escribe el cuerpo de un documento formal de tipo '{doc_type}' "
         f"utilizando la siguiente información:\n\n"
         f"[DATOS DEL FORMULARIO DOCENTE/DIRECTIVO]:\n"
-        + "\n".join(f"- {k.replace('_', ' ').capitalize()}: {v}" for k, v in form_data.items())
+        + "\n".join(formatted_items)
         + f"\n\n[CONTEXTO NORMATIVO ESCOLAR]:\n{context}\n\n"
         f"REQUISITOS DE FORMATO (CRÍTICO):\n"
         f"1. Redacta el documento completo en formato Markdown utilizando únicamente etiquetas estándar:\n"

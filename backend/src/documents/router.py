@@ -110,12 +110,24 @@ async def create_plan_anual(
     Registra un Plan Anual en base de datos y genera el Word curricular correspondiente.
     """
     try:
-        # 1. Crear el objeto en la BD
+        # 1. Crear el objeto en la BD con los nuevos campos del MINEDU y CNEB
+        ie_val = payload.institucion_educativa or payload.ie or ""
+        desc_est = payload.descripcion_estudiante or payload.caracteristicas_estudiantes or ""
+        desc_ctx = payload.descripcion_contexto_local or payload.contexto_local or ""
+        
         db_plan = PlanAnual(
             docente_id=current_user.id,
             grado=payload.grado,
             seccion=payload.seccion,
             area_curricular=payload.area_curricular,
+            dre=payload.dre,
+            ugel=payload.ugel,
+            institucion_educativa=ie_val,
+            ciclo=payload.ciclo,
+            turno=payload.turno,
+            descripcion_estudiante=desc_est,
+            descripcion_contexto_local=desc_ctx,
+            organizacion_tiempo=payload.organizacion_tiempo,
             enfoques_transversales={"enfoques": payload.enfoques_transversales},
             competencias_anuales=payload.competencias_anuales
         )
