@@ -134,7 +134,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <div className="leading-tight overflow-hidden">
                 <p className="font-black text-[13px] text-slate-900 truncate">AdminPanel</p>
                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest truncate">
-                  GESTIÓN UGECA
+                  GESTIÓN AVENDIA
                 </p>
               </div>
             </div>

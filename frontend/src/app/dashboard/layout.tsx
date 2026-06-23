@@ -2,7 +2,7 @@
 
 import React from "react";
 import { UserProvider, useUser } from "@/context/UserContext";
-import Sidebar from "@/components/dashboard/Sidebar";
+import Sidebar from "@/components/layout/Sidebar";
 import EduAsesorChat from "@/components/chat/EduAsesorChat";
 
 interface DashboardLayoutProps {
