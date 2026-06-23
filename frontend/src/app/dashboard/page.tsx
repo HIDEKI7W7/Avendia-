@@ -1,104 +1,183 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { BACKEND_URL } from "@/config/api";
 import WelcomeModal from "@/components/auth/WelcomeModal";
+import { useUser } from "@/context/UserContext";
+import {
+  Search,
+  Bell,
+  Coins,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  BookOpen,
+  MessageSquare,
+  ArrowRight,
+  Calendar,
+  Book,
+  ClipboardList,
+  Users,
+  Award,
+  Sparkles,
+} from "lucide-react";
 
-type UserRole = "Docente" | "Director" | "Auxiliar";
-
-interface QuickAccessItem {
-  title: string;
-  icon: string;
-  colorClass: string;
-  bgColorClass: string;
-}
-
+// ═══════════════════════════════════════════════════════════════════════════
+// TYPES & MOCK DATA
+// ═══════════════════════════════════════════════════════════════════════════
 interface PedagogicalModule {
   number: number;
   title: string;
   description: string;
-  icon: string;
+  icon: React.ReactNode;
   colorHex: string;
   hoverColorHex: string;
   bgColorOpacity: string;
   path: string;
 }
 
-interface DocumentTemplate {
-  id: string;
-  name: string;
-  description: string;
-  variables: string[];
-}
+const CAROUSEL_SLIDES = [
+  {
+    id: 1,
+    badge: "🔥 OFERTA DEL AÑO",
+    title: "Temporada de Planificación Curricular",
+    description: "Genera unidades, planes anuales y sesiones de aprendizaje alineados al CNEB 2026 en minutos con RAG.",
+    countdown: "¡Descuento del 45% en Plan Anual finaliza pronto!",
+    buttonText: "¡Aprovéchala! →",
+    bgColor: "from-[#7C6CF2] to-[#5B4DC4]",
+    actionUrl: "#planes",
+  },
+  {
+    id: 2,
+    badge: "✨ NOVEDAD",
+    title: "Evaluación Rápida por Competencias",
+    description: "Crea rúbricas de evaluación detalladas y listas de cotejo de forma atómica y estructurada.",
+    countdown: "Actualizado según directrices del MINEDU 2026",
+    buttonText: "Crear Rúbrica →",
+    bgColor: "from-[#4A90E2] to-[#7C6CF2]",
+    actionUrl: "/dashboard/rubrica-evaluacion",
+  },
+  {
+    id: 3,
+    badge: "🤖 EDUASESOR IA",
+    title: "Soporte Administrativo y Tutoría",
+    description: "Resuelve consultas de normativas escolares, actas de consejo técnico o reportes de incidencias.",
+    countdown: "Respuestas con base vectorial RAG en tiempo real",
+    buttonText: "Chatear con IA →",
+    bgColor: "from-[#1E293B] to-[#0F172A]",
+    actionUrl: "chat-trigger",
+  },
+];
 
-function DashboardPage() {
-  const [activeTab, setActiveTab] = useState<"pedagogico" | "administrativo">("pedagogico");
-  const [isWelcomeOpen, setIsWelcomeOpen] = useState(false);
-  
-  // States for Administrative Tab (from original home page)
-  const [selectedRole, setSelectedRole] = useState<UserRole>("Docente");
-  const [token, setToken] = useState<string | null>(null);
-  
-  const [documentTemplates] = useState<DocumentTemplate[]>([
-    {
-      id: "informe-pedagogico",
-      name: "Informe Pedagógico Semestral",
-      description: "Reporte estructurado para evaluación de competencias y calificaciones.",
-      variables: ["titulo", "curso", "seccion", "docente", "alumnos_aprobados", "alumnos_riesgo"],
-    },
-    {
-      id: "acta-consejo",
-      name: "Acta de Consejo Técnico",
-      description: "Registro de acuerdos, asistencia y planes de mejora directiva.",
-      variables: ["titulo", "director", "fecha", "acuerdos_clave", "participantes"],
-    },
-    {
-      id: "planilla-incidencias",
-      name: "Planilla de Control y Asistencia",
-      description: "Bitácora diaria de conducta, retardos e incidencias.",
-      variables: ["titulo", "auxiliar", "fecha", "incidencias_destacadas"],
-    },
-  ]);
-
-  const [activeTemplate, setActiveTemplate] = useState<DocumentTemplate>(documentTemplates[0]);
-  const [formVariables, setFormVariables] = useState<Record<string, string>>({
-    titulo: "Reporte de Rendimiento 2026",
-    curso: "Matemáticas 4to B",
-    seccion: "Secundaria",
-    docente: "Prof. Juan Pérez",
-    alumnos_aprobados: "28",
-    alumnos_riesgo: "3",
-  });
-
-  const [ragQuery, setRagQuery] = useState("");
-  const [ragResults, setRagResults] = useState<Array<{ content: string; distance: number }>>([]);
-  const [isQuerying, setIsQuerying] = useState(false);
-  const [loadingDoc, setLoadingDoc] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
-
+// ═══════════════════════════════════════════════════════════════════════════
+// COMPONENTE PRINCIPAL
+// ═══════════════════════════════════════════════════════════════════════════
+function DashboardPageContent() {
   const searchParams = useSearchParams();
+  const [isWelcomeOpen, setIsWelcomeOpen] = useState(false);
   const [accessDenied, setAccessDenied] = useState(false);
+  const { user } = useUser();
 
-  // Retrieve token on mount
+  // Estados del Carousel
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  // Catálogo de Módulos Pedagógicos Oficiales de AVENDIA
+  const modules: PedagogicalModule[] = [
+    {
+      number: 1,
+      title: "PLAN ANUAL",
+      description: "Crea tu planificación anual de forma estructurada alineada al CNEB.",
+      icon: <Calendar className="w-6 h-6 text-[#7C6CF2]" />,
+      colorHex: "#7C6CF2",
+      hoverColorHex: "#6B5AE0",
+      bgColorOpacity: "bg-[#7C6CF2]/10",
+      path: "/dashboard/plan-anual",
+    },
+    {
+      number: 2,
+      title: "UNIDADES",
+      description: "Diseña unidades de aprendizaje alineadas al currículo y competencias.",
+      icon: <Book className="w-6 h-6 text-[#4A90E2]" />,
+      colorHex: "#4A90E2",
+      hoverColorHex: "#357ABD",
+      bgColorOpacity: "bg-[#4A90E2]/10",
+      path: "/dashboard/unidades",
+    },
+    {
+      number: 3,
+      title: "SESIONES",
+      description: "Planifica sesiones de aprendizaje efectivas y significativas paso a paso.",
+      icon: <FileText className="w-6 h-6 text-[#16A34A]" />,
+      colorHex: "#16A34A",
+      hoverColorHex: "#15803D",
+      bgColorOpacity: "bg-[#16A34A]/10",
+      path: "/dashboard/sesiones",
+    },
+    {
+      number: 4,
+      title: "FICHAS DE APRENDIZAJE",
+      description: "Genera fichas y actividades de refuerzo listas para imprimir y aplicar.",
+      icon: <BookOpen className="w-6 h-6 text-[#EA580C]" />,
+      colorHex: "#EA580C",
+      hoverColorHex: "#C2410C",
+      bgColorOpacity: "bg-[#EA580C]/10",
+      path: "/dashboard/fichas-aprendizaje",
+    },
+    {
+      number: 5,
+      title: "RÚBRICA DE EVALUACIÓN",
+      description: "Crea rúbricas de evaluación claras y objetivas por competencias.",
+      icon: <Award className="w-6 h-6 text-[#E11D48]" />,
+      colorHex: "#E11D48",
+      hoverColorHex: "#BE123C",
+      bgColorOpacity: "bg-[#E11D48]/10",
+      path: "/dashboard/rubrica-evaluacion",
+    },
+    {
+      number: 6,
+      title: "LISTA DE COTEJO",
+      description: "Elabora listas de cotejo sencillas y escalas de valoración en segundos.",
+      icon: <ClipboardList className="w-6 h-6 text-[#0D9488]" />,
+      colorHex: "#0D9488",
+      hoverColorHex: "#0F766E",
+      bgColorOpacity: "bg-[#0D9488]/10",
+      path: "/dashboard/lista-cotejo",
+    },
+    {
+      number: 7,
+      title: "TUTORÍA",
+      description: "Documentos de tutoría, incidentes escolares y soporte familiar.",
+      icon: <Users className="w-6 h-6 text-[#D97706]" />,
+      colorHex: "#D97706",
+      hoverColorHex: "#B45309",
+      bgColorOpacity: "bg-[#D97706]/10",
+      path: "/dashboard/tutoria",
+    },
+  ];
+
+  // Recuperar sesión e información del docente
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const storedToken = localStorage.getItem("token");
-      setToken(storedToken);
-
-      // Mostrar modal de bienvenida si está marcado el flag de registro
       const showWelcome = localStorage.getItem("show_welcome_modal");
       if (showWelcome === "true") {
         setIsWelcomeOpen(true);
       }
     }
-    // Detectar redirección por acceso denegado
+
     if (searchParams.get("acceso") === "denegado") {
       setAccessDenied(true);
     }
   }, [searchParams]);
+
+  // Rotación automática del Carousel
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % CAROUSEL_SLIDES.length);
+    }, 6000);
+    return () => clearInterval(timer);
+  }, []);
 
   const handleCloseWelcome = () => {
     setIsWelcomeOpen(false);
@@ -107,435 +186,359 @@ function DashboardPage() {
     }
   };
 
-  // Handle Role Change
-  const handleRoleChange = (role: UserRole) => {
-    setSelectedRole(role);
-    const newName = role === "Docente" ? "Prof. Juan Pérez" : role === "Director" ? "Dra. Elena Gómez" : "Sr. Carlos Ruiz";
-    
-    // Choose matching template
-    const matchingTemplate = documentTemplates.find(t => 
-      (role === "Docente" && t.id === "informe-pedagogico") ||
-      (role === "Director" && t.id === "acta-consejo") ||
-      (role === "Auxiliar" && t.id === "planilla-incidencias")
-    ) || documentTemplates[0];
-
-    setActiveTemplate(matchingTemplate);
-    const initialVars: Record<string, string> = {};
-    matchingTemplate.variables.forEach(v => {
-      initialVars[v] = v === "titulo" ? `${matchingTemplate.name} - Junio` : "";
-    });
-    
-    if (initialVars.docente !== undefined) initialVars.docente = newName;
-    if (initialVars.director !== undefined) initialVars.director = newName;
-    if (initialVars.auxiliar !== undefined) initialVars.auxiliar = newName;
-    setFormVariables(initialVars);
-  };
-
-  const selectTemplate = (template: DocumentTemplate) => {
-    setActiveTemplate(template);
-    const initialVars: Record<string, string> = {};
-    template.variables.forEach(v => {
-      initialVars[v] = v === "titulo" ? `${template.name} - Junio` : "";
-    });
-    setFormVariables(initialVars);
-  };
-
-  // Generate Document
-  const handleGenerateDocx = async () => {
-    setLoadingDoc(true);
-    setErrorMsg(null);
-    setSuccessMsg(null);
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/v1/documents/generate`, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token || ""}`
-        },
-        body: JSON.stringify({
-          document_type: activeTemplate.name,
-          title: formVariables.titulo || activeTemplate.name,
-          form_data: formVariables,
-        }),
-      });
-
-      if (!response.ok) throw new Error("Error al generar el documento con el backend.");
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${(formVariables.titulo || activeTemplate.name).replace(/\s+/g, "_")}.docx`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setSuccessMsg("Documento Word (.docx) generado y descargado exitosamente.");
-    } catch (error: any) {
-      setErrorMsg(error.message || "Fallo de conexión.");
-    } finally {
-      setLoadingDoc(false);
-    }
-  };
-
-  // Query Vector DB (RAG)
-  const handleRagSearch = async () => {
-    if (!ragQuery.trim()) return;
-    setIsQuerying(true);
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/v1/rag/search`, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token || ""}`
-        },
-        body: JSON.stringify({ query: ragQuery, limit: 3 }),
-      });
-      if (!response.ok) throw new Error("Error en la consulta RAG");
-      const data = await response.json();
-      setRagResults(data);
-    } catch (error) {
-      setRagResults([
-        {
-          content: `Normativa General (${selectedRole}): De acuerdo al estatuto de educación 2026, toda solicitud vinculada a "${ragQuery}" debe cumplir las normas vigentes de la institución.`,
-          distance: 0.15,
-        },
-      ]);
-    } finally {
-      setIsQuerying(false);
-    }
-  };
-
-  // Accesos Rápidos
-  const quickAccessItems: QuickAccessItem[] = [
-    { title: "Plazas para Destaque", icon: "👤", colorClass: "text-blue-500", bgColorClass: "bg-blue-50/50" },
-    { title: "Conclusiones Descriptivas", icon: "💬", colorClass: "text-emerald-500", bgColorClass: "bg-emerald-50/50" },
-    { title: "Documentos de Gestión", icon: "📄", colorClass: "text-orange-500", bgColorClass: "bg-orange-50/50" },
-    { title: "Día de Logro", icon: "🏆", colorClass: "text-purple-500", bgColorClass: "bg-purple-50/50" },
-  ];
-
-  // Catálogo de 7 Módulos Pedagógicos Oficiales
-  const modules: PedagogicalModule[] = [
-    { number: 1, title: "PLAN ANUAL", description: "Crea tu planificación anual de forma estructurada.", icon: "📅", colorHex: "#7C6CF2", hoverColorHex: "#6B5AE0", bgColorOpacity: "bg-[#7C6CF2]/10", path: "/dashboard/plan-anual" },
-    { number: 2, title: "UNIDADES", description: "Diseña unidades de aprendizaje alineadas al currículo.", icon: "📖", colorHex: "#4A90E2", hoverColorHex: "#357ABD", bgColorOpacity: "bg-[#4A90E2]/10", path: "/dashboard/unidades" },
-    { number: 3, title: "SESIONES", description: "Planifica sesiones efectivas y significativas.", icon: "📝", colorHex: "#16A34A", hoverColorHex: "#15803D", bgColorOpacity: "bg-[#16A34A]/10", path: "/dashboard/sesiones" },
-    { number: 4, title: "FICHAS DE APRENDIZAJE", description: "Genera fichas y actividades listas para aplicar.", icon: "📙", colorHex: "#EA580C", hoverColorHex: "#C2410C", bgColorOpacity: "bg-[#EA580C]/10", path: "/dashboard/fichas-aprendizaje" },
-    { number: 5, title: "RÚBRICA DE EVALUACIÓN", description: "Crea rúbricas claras para evaluar por competencias.", icon: "🎯", colorHex: "#E11D48", hoverColorHex: "#BE123C", bgColorOpacity: "bg-[#E11D48]/10", path: "/dashboard/rubrica-evaluacion" },
-    { number: 6, title: "LISTA DE COTEJO", description: "Elabora listas de cotejo y escalas de valoración.", icon: "📋", colorHex: "#0D9488", hoverColorHex: "#0F766E", bgColorOpacity: "bg-[#0D9488]/10", path: "/dashboard/lista-cotejo" },
-    { number: 7, title: "TUTORÍA", description: "Documentos y reportes para el acompañamiento.", icon: "👪", colorHex: "#D97706", hoverColorHex: "#B45309", bgColorOpacity: "bg-[#D97706]/10", path: "/dashboard/tutoria" },
-  ];
-
   const handleIAWidgetClick = () => {
     const botButton = document.getElementById("chatbot-toggle-button");
     if (botButton) botButton.click();
   };
 
+  // Carrusel Handlers
+  const handleNextSlide = () => {
+    setCurrentSlide((prev) => (prev + 1) % CAROUSEL_SLIDES.length);
+  };
+
+  const handlePrevSlide = () => {
+    setCurrentSlide((prev) => (prev - 1 + CAROUSEL_SLIDES.length) % CAROUSEL_SLIDES.length);
+  };
+
+  const handleSlideAction = (url: string) => {
+    if (url === "chat-trigger") {
+      handleIAWidgetClick();
+    } else {
+      window.location.href = url;
+    }
+  };
+
   return (
-    <div className="flex flex-col gap-8 max-w-7xl mx-auto pb-12">
-      {/* Banner de Acceso Denegado */}
+    <div className="flex flex-col gap-6 max-w-7xl mx-auto pb-12 px-4 font-body text-slate-800">
+      
+      {/* Alerta de Acceso Denegado */}
       {accessDenied && (
-        <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 shadow-sm animate-pulse-once">
-          <span className="text-xl shrink-0">🚫</span>
+        <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-2xl text-sm text-red-700 shadow-sm animate-pulse">
+          <span className="text-lg shrink-0">🚫</span>
           <div className="flex-1">
             <p className="font-bold">Acceso Denegado</p>
-            <p className="text-xs mt-0.5 text-red-600">No tienes permiso para acceder al Panel de Administración. Solo usuarios con rol <strong>ADMIN</strong> pueden ingresar a esa sección.</p>
+            <p className="text-xs mt-0.5 text-red-600">
+              No tienes permiso para acceder al Panel de Administración. Solo usuarios con rol <strong>ADMIN</strong> pueden ingresar.
+            </p>
           </div>
           <button
             onClick={() => setAccessDenied(false)}
             className="text-red-400 hover:text-red-600 transition-colors text-lg leading-none cursor-pointer"
-            title="Cerrar"
           >
             ×
           </button>
         </div>
       )}
-      {/* Bienvenida */}
-      <div className="flex flex-col md:flex-row justify-between items-start gap-6 border-b border-slate-100 pb-6">
-        <div>
-          <h1 className="font-headings font-bold text-3xl text-slate-900 tracking-tight">
-            Panel de Control Integrado
-          </h1>
-          <p className="text-sm font-semibold text-slate-500 mt-1">
-            Planificación curricular y generación de documentos administrativos con inteligencia artificial RAG.
-          </p>
-        </div>
+
+      {/* ════════════════════════════════════════════════════════════════
+          [MÓDULO 1: NAVBAR SUPERIOR DE ACCIONES]
+      ════════════════════════════════════════════════════════════════ */}
+      <header className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white border border-[#E8EDF3] rounded-[1.5rem] p-4 shadow-[0_1px_3px_rgba(74,90,226,0.04)] w-full">
         
-        {/* Selector de pestañas unificado */}
-        <div className="bg-slate-100 p-1 rounded-xl flex gap-1 self-start md:self-center">
-          <button
-            onClick={() => setActiveTab("pedagogico")}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-              activeTab === "pedagogico"
-                ? "bg-white text-slate-950 shadow-sm"
-                : "text-slate-500 hover:text-slate-900"
-            }`}
-          >
-            📚 Módulos Pedagógicos (EBR)
-          </button>
-          <button
-            onClick={() => setActiveTab("administrativo")}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-              activeTab === "administrativo"
-                ? "bg-white text-slate-950 shadow-sm"
-                : "text-slate-500 hover:text-slate-900"
-            }`}
-          >
-            ⚙️ Gestión Administrativa & RAG
-          </button>
+        {/* Bloque Izquierdo: Saludo */}
+        <div className="flex items-center gap-2 w-full md:w-auto md:flex-1 justify-start">
+          <span className="text-sm font-headings font-bold text-slate-700">
+            👋 Hola, <span className="text-[#7C6CF2]">{user?.full_name?.split(" ")[0] || "Docente"}</span>
+          </span>
         </div>
-      </div>
 
-      {activeTab === "pedagogico" ? (
-        <>
-          {/* Módulos Principales Grid */}
-          <div>
-            <div className="flex flex-wrap justify-center gap-6">
-              {modules.map((mod) => (
-                <div
-                  key={mod.title}
-                  className="bg-white border border-border-custom rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow duration-200 w-full sm:w-[calc(50%-12px)] lg:w-[calc(25%-18px)] flex flex-col justify-between items-center text-center min-h-[290px]"
-                >
-                  <div className={`w-14 h-14 rounded-full ${mod.bgColorOpacity} flex items-center justify-center text-2xl mb-4 shrink-0`}>
-                    {mod.icon}
-                  </div>
-
-                  <div className="mb-2">
-                    <span
-                      style={{ color: mod.colorHex }}
-                      className="font-headings font-bold text-[9px] uppercase tracking-widest block mb-1"
-                    >
-                      {mod.number}. Módulo
-                    </span>
-                    <h3 className="font-headings font-bold text-xs text-slate-900 leading-snug">
-                      {mod.title}
-                    </h3>
-                  </div>
-
-                  <p className="text-[11px] text-slate-500 leading-relaxed mb-5 font-semibold flex-1 flex items-center">
-                    {mod.description}
-                  </p>
-
-                  <Link
-                    href={mod.path}
-                    style={{
-                      backgroundColor: mod.colorHex,
-                      boxShadow: `0 4px 12px ${mod.colorHex}30`
-                    }}
-                    className="w-full py-2 rounded-xl text-white font-headings font-bold text-[10px] flex items-center justify-center gap-2 transition-all hover:opacity-95 cursor-pointer"
-                  >
-                    <span>Ingresar</span>
-                    <span>→</span>
-                  </Link>
-                </div>
-              ))}
-            </div>
+        {/* Buscador Central */}
+        <div className="relative flex items-center w-full md:w-[420px] justify-center">
+          <div className="relative w-full">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+              <Search className="w-4 h-4" />
+            </span>
+            <input
+              type="text"
+              placeholder="Busca herramientas, plantillas o tutoriales..."
+              className="w-full pl-11 pr-4 py-2.5 rounded-full border border-slate-200 bg-[#FAFBFC] focus:outline-none focus:border-[#7C6CF2] text-xs text-slate-700 transition-colors"
+            />
           </div>
-        </>
-      ) : (
-        /* Tab de Gestión Administrativa & RAG */
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        </div>
+
+        {/* Acciones del Extremo Derecho */}
+        <div className="flex items-center justify-between md:justify-end gap-5 w-full md:w-auto md:flex-1 shrink-0">
           
-          {/* Columna Izquierda: Roles y Plantillas (2/3 de ancho) */}
-          <div className="lg:col-span-2 flex flex-col gap-6">
-            
-            {/* Selector de Rol */}
-            <div className="bg-white border border-border-custom rounded-2xl p-6 shadow-sm">
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">
-                Seleccionar Rol para Plantilla
-              </h3>
-              <div className="flex gap-2">
-                {(["Docente", "Director", "Auxiliar"] as UserRole[]).map(role => {
-                  const isActive = selectedRole === role;
-                  return (
-                    <button
-                      key={role}
-                      onClick={() => handleRoleChange(role)}
-                      className={`flex-1 py-3 px-4 rounded-xl border text-center font-headings font-bold text-xs transition-all duration-250 cursor-pointer ${
-                        isActive
-                          ? "bg-slate-900 text-white border-slate-900 shadow-sm"
-                          : "bg-white text-slate-600 border-border-custom hover:border-slate-300"
-                      }`}
-                    >
-                      Portal {role}
-                    </button>
-                  );
-                })}
-              </div>
+          {/* Botón de Conversión Premium */}
+          <button
+            onClick={() => window.location.hash = "planes"}
+            className="px-5 py-2 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-950 font-headings font-bold text-[11px] shadow-sm transition-all duration-150 active:scale-[0.98] cursor-pointer"
+          >
+            👑 Obtén Premium
+          </button>
+
+          {/* Campana de Notificaciones */}
+          <div className="relative">
+            <button className="p-2 text-slate-500 hover:text-[#7C6CF2] hover:bg-[#7C6CF2]/8 rounded-xl transition-colors cursor-pointer relative">
+              <Bell className="w-4.5 h-4.5" />
+              <span className="absolute -top-1 -right-1 min-w-[17px] h-4 bg-red-500 border border-white text-white text-[8px] font-bold rounded-full flex items-center justify-center px-1 shadow-sm">
+                9+
+              </span>
+            </button>
+          </div>
+
+          {/* Divisor vertical */}
+          <div className="h-6 w-px bg-slate-200 hidden sm:block" />
+
+          {/* Bloque de Usuario */}
+          <div className="flex items-center gap-3">
+            <div className="flex flex-col text-right leading-none">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                Cuenta
+              </span>
+              <span className="text-[11px] font-extrabold text-[#7C6CF2] mt-1 flex items-center gap-1">
+                <Coins className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                {user?.credits !== undefined ? user.credits : 7} Créditos
+              </span>
             </div>
-
-            {/* Listado de Plantillas */}
-            <div className="bg-white border border-border-custom rounded-2xl p-6 shadow-sm">
-              <h3 className="font-headings font-bold text-sm text-slate-900 mb-4 flex items-center gap-2">
-                📂 Plantillas Disponibles
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {documentTemplates.map(template => {
-                  const isActive = activeTemplate.id === template.id;
-                  return (
-                    <button
-                      key={template.id}
-                      onClick={() => selectTemplate(template)}
-                      className={`p-4 rounded-xl border text-left cursor-pointer transition-all duration-200 ${
-                        isActive
-                          ? "border-morado-ia bg-morado-ia/5 shadow-sm"
-                          : "border-border-custom hover:border-slate-300 bg-white"
-                      }`}
-                    >
-                      <span className="block font-bold text-xs text-slate-800 mb-1">
-                        {template.name}
-                      </span>
-                      <span className="block text-[10px] text-slate-500 line-clamp-2">
-                        {template.description}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Formulario Dinámico */}
-            <div className="bg-white border border-border-custom rounded-2xl p-6 shadow-sm flex flex-col gap-4">
-              <h3 className="font-headings font-bold text-sm text-slate-900">
-                Parámetros de: {activeTemplate.name}
-              </h3>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {activeTemplate.variables.map(variable => (
-                  <div key={variable} className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                      {variable.replace("_", " ")}
-                    </label>
-                    <input
-                      type="text"
-                      value={formVariables[variable] || ""}
-                      onChange={e => setFormVariables({ ...formVariables, [variable]: e.target.value })}
-                      placeholder={`Ej. Ingresa ${variable.replace("_", " ")}`}
-                      className="px-4 py-2.5 rounded-lg border border-border-custom bg-[#FAFBFC] focus:outline-none focus:border-morado-ia text-xs transition-colors text-slate-950 font-body"
-                    />
-                  </div>
-                ))}
-              </div>
-
-              {errorMsg && (
-                <div className="p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg text-xs font-medium">
-                  ⚠️ {errorMsg}
-                </div>
-              )}
-              {successMsg && (
-                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-600 rounded-lg text-xs font-medium">
-                  ✅ {successMsg}
-                </div>
-              )}
-
-              <button
-                onClick={handleGenerateDocx}
-                disabled={loadingDoc}
-                className="self-end px-6 py-2.5 rounded-xl bg-morado-ia hover:bg-morado-ia/90 text-white font-headings font-bold text-xs shadow-md transition-all cursor-pointer flex items-center gap-2"
-              >
-                {loadingDoc ? "Generando documento Word..." : "📥 Generar y Descargar Word (.docx)"}
-              </button>
+            {/* Avatar circular */}
+            <div className="w-9 h-9 rounded-full bg-[#7C6CF2]/15 border border-[#7C6CF2]/30 flex items-center justify-center font-extrabold text-[#7C6CF2] text-sm shrink-0">
+              {user?.full_name ? user.full_name.charAt(0).toUpperCase() : "D"}
             </div>
           </div>
 
-          {/* Columna Derecha: Motor RAG (1/3 de ancho) */}
-          <div className="flex flex-col gap-6">
-            
-            {/* Panel RAG */}
-            <div className="bg-white border border-border-custom rounded-2xl p-6 shadow-sm h-full flex flex-col justify-between">
-              <div>
-                <h3 className="font-headings font-bold text-sm text-slate-900 flex items-center gap-2 mb-2">
-                  ⚡ Consultas de Normas & RAG
-                </h3>
-                <p className="text-[10px] text-slate-400 font-semibold mb-4 leading-normal">
-                  Recupera la normativa escolar o legal de tu base de datos de conocimiento indexada.
-                </p>
-
-                <div className="flex flex-col gap-3 mb-6">
-                  <input
-                    type="text"
-                    value={ragQuery}
-                    onChange={e => setRagQuery(e.target.value)}
-                    placeholder="¿Cuál es la tolerancia de retraso permitida?"
-                    className="px-4 py-2.5 rounded-lg border border-border-custom bg-[#FAFBFC] focus:outline-none focus:border-morado-ia text-xs text-slate-900 font-body"
-                  />
-                  <button
-                    onClick={handleRagSearch}
-                    disabled={isQuerying}
-                    className="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-headings font-bold text-xs cursor-pointer shadow-sm"
-                  >
-                    {isQuerying ? "Buscando contexto..." : "Consultar Base Vectorial"}
-                  </button>
-                </div>
-
-                {/* Resultados RAG */}
-                {ragResults.length > 0 && (
-                  <div className="flex flex-col gap-3 max-h-[300px] overflow-y-auto pr-1">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">
-                      Contexto RAG Recuperado
-                    </span>
-                    {ragResults.map((result, idx) => (
-                      <div key={idx} className="p-3.5 rounded-xl bg-slate-50 border border-slate-100 text-[11px] leading-relaxed text-slate-600">
-                        <div className="flex justify-between items-center mb-1.5">
-                          <span className="font-bold text-slate-700">Resultado #{idx + 1}</span>
-                          <span className="text-[9px] font-bold bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded">
-                            Distancia: {result.distance.toFixed(3)}
-                          </span>
-                        </div>
-                        {result.content}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Banner de Sugerencias Fijo abajo */}
-              <div className="bg-[#F5F3FF] border border-[#DDD6FE] rounded-xl p-4 flex gap-3.5 shadow-sm mt-6">
-                <div className="text-lg shrink-0">💡</div>
-                <p className="text-[10px] font-semibold text-[#5B21B6] leading-normal">
-                  <span className="font-bold text-[#6D28D9]">Consejo:</span> El motor RAG buscará automáticamente leyes de educación peruanas aplicables a tu consulta.
-                </p>
-              </div>
-            </div>
-          </div>
         </div>
-      )}
+      </header>
 
-      {/* Banner de Sugerencias General */}
-      {activeTab === "pedagogico" && (
-        <div className="bg-[#F5F3FF] border border-[#DDD6FE] rounded-2xl p-5 flex flex-col sm:flex-row justify-between items-center gap-4 shadow-sm">
-          <div className="flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-lg shrink-0">
-              💡
-            </div>
-            <p className="text-xs font-semibold text-[#5B21B6] leading-relaxed">
-              <span className="font-bold text-[#6D28D9]">Consejo:</span> Usa el asistente IA de la barra lateral para resolver cualquier duda mientras planificas.
+      {/* ════════════════════════════════════════════════════════════════
+          [MÓDULO 2: HERO CAROUSEL / BANNER DE PROMOCIONES]
+      ════════════════════════════════════════════════════════════════ */}
+      <section className="relative w-full overflow-hidden rounded-[2rem] bg-gradient-to-r from-[#7C6CF2] via-[#6858e0] to-[#5B4DC4] text-white shadow-xl min-h-[220px] flex items-center p-8 md:p-12 transition-all duration-500">
+        {/* Glows decorativos */}
+        <div className="absolute top-0 right-0 w-80 h-80 bg-white/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-1/4 w-60 h-60 bg-yellow-400/5 rounded-full blur-3xl pointer-events-none" />
+
+        {/* Controles de Navegación Izquierda/Derecha */}
+        <button
+          onClick={handlePrevSlide}
+          className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/15 hover:bg-white/30 border border-white/20 flex items-center justify-center transition-all cursor-pointer backdrop-blur-sm z-20"
+          title="Slide anterior"
+        >
+          <ChevronLeft className="w-5 h-5 text-white" />
+        </button>
+        <button
+          onClick={handleNextSlide}
+          className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/15 hover:bg-white/30 border border-white/20 flex items-center justify-center transition-all cursor-pointer backdrop-blur-sm z-20"
+          title="Siguiente slide"
+        >
+          <ChevronRight className="w-5 h-5 text-white" />
+        </button>
+
+        {/* Contenido Dinámico del Slide */}
+        <div className="w-full flex flex-col md:flex-row items-start md:items-center justify-between gap-6 max-w-4xl mx-auto z-10 duration-355 transition-all">
+          <div className="flex-1 flex flex-col gap-3">
+            <span className="self-start text-[9px] font-extrabold text-[#7C6CF2] bg-white px-2.5 py-1 rounded-md uppercase tracking-wider shadow-sm">
+              {CAROUSEL_SLIDES[currentSlide].badge}
+            </span>
+            <h2 className="font-headings font-extrabold text-2xl md:text-3.5xl tracking-tight leading-tight">
+              {CAROUSEL_SLIDES[currentSlide].title}
+            </h2>
+            <p className="text-xs md:text-sm text-slate-100 max-w-xl leading-relaxed">
+              {CAROUSEL_SLIDES[currentSlide].description}
+            </p>
+            <span className="text-xs font-bold text-amber-300 tracking-wide mt-1">
+              ⏳ {CAROUSEL_SLIDES[currentSlide].countdown}
+            </span>
+          </div>
+
+          <button
+            onClick={() => handleSlideAction(CAROUSEL_SLIDES[currentSlide].actionUrl)}
+            className="px-6 py-3.5 rounded-full bg-[#FFE342] hover:bg-[#FFE342]/90 text-slate-900 font-headings font-extrabold text-xs shadow-lg transition-all duration-150 active:scale-[0.98] cursor-pointer shrink-0"
+          >
+            {CAROUSEL_SLIDES[currentSlide].buttonText}
+          </button>
+        </div>
+
+        {/* Paginador inferior (dots) */}
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-20">
+          {CAROUSEL_SLIDES.map((_, idx) => (
+            <button
+              key={idx}
+              onClick={() => setCurrentSlide(idx)}
+              className={`w-2 h-2 rounded-full transition-all cursor-pointer ${
+                currentSlide === idx ? "w-6 bg-white" : "bg-white/40 hover:bg-white/60"
+              }`}
+              title={`Ir al slide ${idx + 1}`}
+            />
+          ))}
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════════════════════════════════
+          [MÓDULO 3: GRID DE ACCESOS RÁPIDOS (3 COLUMNAS)]
+      ════════════════════════════════════════════════════════════════ */}
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        
+        {/* Tarjeta 1: Planificación */}
+        <Link
+          href="/dashboard/plan-anual"
+          className="bg-white border border-[#E8EDF3] hover:border-[#7C6CF2]/30 rounded-2xl p-5 flex items-center gap-4 hover:shadow-[0_8px_30px_rgba(74,90,226,0.06)] transition-all duration-200 group"
+        >
+          <div className="w-12 h-12 rounded-xl bg-[#7C6CF2]/10 text-[#7C6CF2] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+            <FileText className="w-5.5 h-5.5" />
+          </div>
+          <div className="overflow-hidden flex-1">
+            <h4 className="font-headings font-bold text-xs text-slate-800 leading-tight uppercase tracking-wide">
+              Crea tu Plan Anual (PDC)
+            </h4>
+            <p className="text-[10px] text-slate-400 mt-1 leading-normal font-semibold">
+              Genera planificaciones anuales alineadas.
             </p>
           </div>
+          <ArrowRight className="w-4 h-4 text-slate-300 ml-auto group-hover:translate-x-1 transition-transform shrink-0" />
+        </Link>
+
+        {/* Tarjeta 2: Repositorio */}
+        <Link
+          href="#"
+          className="bg-white border border-[#E8EDF3] hover:border-[#7C6CF2]/30 rounded-2xl p-5 flex items-center gap-4 hover:shadow-[0_8px_30px_rgba(74,90,226,0.06)] transition-all duration-200 group"
+        >
+          <div className="w-12 h-12 rounded-xl bg-[#4A90E2]/10 text-[#4A90E2] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+            <BookOpen className="w-5.5 h-5.5" />
+          </div>
+          <div className="overflow-hidden flex-1">
+            <h4 className="font-headings font-bold text-xs text-slate-800 leading-tight uppercase tracking-wide">
+              Revisa tus documentos
+            </h4>
+            <p className="text-[10px] text-slate-400 mt-1 leading-normal font-semibold">
+              Accede a tu historial y descargas Word.
+            </p>
+          </div>
+          <ArrowRight className="w-4 h-4 text-slate-300 ml-auto group-hover:translate-x-1 transition-transform shrink-0" />
+        </Link>
+
+        {/* Tarjeta 3: IA Chat */}
+        <button
+          onClick={handleIAWidgetClick}
+          className="bg-white border border-[#E8EDF3] hover:border-[#7C6CF2]/30 rounded-2xl p-5 flex items-center gap-4 hover:shadow-[0_8px_30px_rgba(74,90,226,0.06)] transition-all duration-200 group text-left cursor-pointer w-full"
+        >
+          <div className="w-12 h-12 rounded-xl bg-[#FF7657]/10 text-[#FF7657] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+            <MessageSquare className="w-5.5 h-5.5" />
+          </div>
+          <div className="overflow-hidden flex-1">
+            <h4 className="font-headings font-bold text-xs text-slate-800 leading-tight uppercase tracking-wide">
+              Conversa con EduAsesor IA
+            </h4>
+            <p className="text-[10px] text-slate-400 mt-1 leading-normal font-semibold">
+              Pregunta dudas pedagógicas o normativas.
+            </p>
+          </div>
+          <ArrowRight className="w-4 h-4 text-slate-300 ml-auto group-hover:translate-x-1 transition-transform shrink-0" />
+        </button>
+
+      </section>
+
+      {/* ════════════════════════════════════════════════════════════════
+          [MÓDULO 4: BANNER INFERIOR DE REFERIDOS Y FIDELIZACIÓN]
+      ════════════════════════════════════════════════════════════════ */}
+      <section className="w-full bg-gradient-to-br from-[#FF7657]/10 to-[#FF7657]/4 border border-[#FF7657]/15 rounded-[2rem] p-8 flex flex-col gap-6 shadow-[0_1px_3px_rgba(74,90,226,0.02)]">
+        
+        <div className="flex flex-col gap-3">
+          <span className="self-start text-[9px] font-extrabold text-[#FF7657] bg-white px-2.5 py-1 rounded border border-[#FF7657]/20 uppercase tracking-widest shadow-sm">
+            🚀 RECOMIENDA Y GANA
+          </span>
+          <h3 className="font-headings font-black text-2xl text-slate-900 leading-tight">
+            Tus clases, sin límites
+          </h3>
+          <p className="text-xs md:text-sm text-slate-500 font-semibold leading-relaxed max-w-2xl">
+            Invita a un colega docente y ambos recibirán 5 créditos de regalo en sus cuentas. O pásate a Premium ahora mismo.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 justify-start">
           <button
-            onClick={handleIAWidgetClick}
-            className="px-5 py-2.5 rounded-xl bg-white border border-[#DDD6FE] hover:border-purple-400 text-xs font-bold text-[#6D28D9] flex items-center gap-2 shadow-sm transition-colors cursor-pointer shrink-0"
+            onClick={() => alert("¡Función de referidos próximamente disponible! Comparte tu enlace con tus colegas.")}
+            className="px-6 py-3 rounded-full bg-[#FF7657] hover:bg-[#e6684a] text-white font-headings font-bold text-xs shadow-md transition-all active:scale-[0.98] cursor-pointer"
           >
-            ✨ Ir al asistente IA
+            Invitar colega
+          </button>
+          <button
+            onClick={() => window.location.hash = "planes"}
+            className="px-6 py-3 rounded-full bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100/50 font-headings font-bold text-xs transition-colors cursor-pointer"
+          >
+            Hazte Premium
           </button>
         </div>
-      )}
+
+      </section>
+
+      {/* ════════════════════════════════════════════════════════════════
+          [MÓDULO 5: SECCIÓN DE HERRAMIENTAS GENERALES (FOOTER DEL CONTENIDO)]
+      ════════════════════════════════════════════════════════════════ */}
+      <section className="flex flex-col gap-6">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-5.5 h-5.5 text-[#7C6CF2]" />
+          <h2 className="text-2xl font-headings font-black text-slate-900 tracking-tight">
+            Nuestras herramientas
+          </h2>
+        </div>
+
+        {/* Rejilla de Módulos Pedagógicos de AVENDIA */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {modules.map((mod) => (
+            <div
+              key={mod.title}
+              className="bg-white border border-[#E8EDF3] hover:border-[#7C6CF2]/30 rounded-2xl p-5 shadow-[0_1px_3px_rgba(74,90,226,0.04)] hover:shadow-md transition-all duration-200 flex flex-col justify-between items-center text-center min-h-[260px] group"
+            >
+              {/* Icono */}
+              <div className={`w-12 h-12 rounded-full ${mod.bgColorOpacity} flex items-center justify-center text-xl mb-4 shrink-0 group-hover:scale-105 transition-transform`}>
+                {mod.icon}
+              </div>
+
+              {/* Título */}
+              <div className="mb-2">
+                <span
+                  style={{ color: mod.colorHex }}
+                  className="font-headings font-extrabold text-[9px] uppercase tracking-widest block mb-1"
+                >
+                  {mod.number}. Módulo
+                </span>
+                <h3 className="font-headings font-extrabold text-xs text-slate-900 leading-snug">
+                  {mod.title}
+                </h3>
+              </div>
+
+              {/* Descripción */}
+              <p className="text-[11px] text-slate-500 leading-relaxed font-semibold mt-1 mb-4 flex-1 flex items-center">
+                {mod.description}
+              </p>
+
+              {/* Botón de ingreso */}
+              <Link
+                href={mod.path}
+                style={{
+                  backgroundColor: mod.colorHex,
+                  boxShadow: `0 4px 12px ${mod.colorHex}25`
+                }}
+                className="w-full py-2.5 rounded-xl text-white font-headings font-bold text-[10px] flex items-center justify-center gap-1.5 transition-all hover:opacity-95 cursor-pointer active:scale-[0.97]"
+              >
+                <span>Ingresar</span>
+                <span>→</span>
+              </Link>
+            </div>
+          ))}
+        </div>
+      </section>
+
       <WelcomeModal isOpen={isWelcomeOpen} onClose={handleCloseWelcome} />
     </div>
   );
 }
 
-import { Suspense } from "react";
-
+// Wrapper para Suspense
 export default function Dashboard() {
   return (
-    <Suspense fallback={
-      <div className="flex items-center justify-center min-h-screen bg-[#F9FAFB]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-sm font-medium text-gray-500">Cargando panel...</p>
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-screen bg-[#F9FAFB]">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-10 h-10 border-4 border-[#7C6CF2] border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm font-medium text-gray-500">Cargando panel...</p>
+          </div>
         </div>
-      </div>
-    }>
-      <DashboardPage />
+      }
+    >
+      <DashboardPageContent />
     </Suspense>
   );
 }

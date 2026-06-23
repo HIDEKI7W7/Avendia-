@@ -8,6 +8,7 @@ import google.generativeai as genai
 from src.config.settings import settings
 from src.config.database import init_db
 from src.auth.router import router as auth_router
+from src.auth.users import router as users_router
 from src.rag.router import router as rag_router
 from src.chatbot.router import router as chatbot_router
 from src.documents.router import router as documents_router
@@ -83,6 +84,7 @@ app.add_middleware(
 
 # Registro de enrutadores
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["Autenticación"])
+app.include_router(users_router, prefix="/api/v1/users", tags=["Usuarios"])
 app.include_router(rag_router, prefix="/api/v1/rag", tags=["Motor RAG"])
 app.include_router(chatbot_router, prefix="/api/v1/chatbot", tags=["Chatbot Inteligente (EduAsesor)"])
 app.include_router(documents_router, prefix="/api/v1/documents", tags=["Generación de Documentos (.docx)"])
