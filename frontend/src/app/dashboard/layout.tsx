@@ -21,14 +21,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname();
   const [currentUser, setCurrentUser] = useState<{ name: string; role: string; email: string } | null>(null);
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // AISLAMIENTO ABSOLUTO: si estamos en cualquier ruta /dashboard/admin/*
-  // este layout se convierte en wrapper transparente y cede el control
-  // total a admin/layout.tsx. Ningún elemento del teacher shell se renderiza.
-  // ═══════════════════════════════════════════════════════════════════════
-  if (pathname.startsWith("/dashboard/admin")) {
-    return <>{children}</>;
-  }
 
   // Menú principal: Módulos pedagógicos
   const [pedagogicalModules, setPedagogicalModules] = useState<MenuItem[]>([
@@ -183,15 +175,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             <span>ASISTENTE IA</span>
           </button>
 
-          {/* Enlace de administración rápido si es ADMIN */}
-          {currentUser?.role === "ADMIN" && (
-            <Link
-              href="/dashboard/admin"
-              className="w-full py-2 px-4 rounded-xl bg-slate-900 hover:bg-slate-850 text-white text-center text-[10px] font-bold tracking-wide transition-all shadow-sm"
-            >
-              ⚙️ PANEL ADMINISTRADOR
-            </Link>
-          )}
 
           {/* Perfil del Usuario y Logout */}
           <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3">

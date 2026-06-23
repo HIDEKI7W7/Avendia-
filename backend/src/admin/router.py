@@ -8,7 +8,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy import text
 
 from src.config.database import get_session
-from src.auth.dependencies import RoleChecker
+from src.auth.dependencies import RoleChecker, verificar_admin
 from src.models.user import User, UserRole
 from src.models.document import Document
 from src.models.ai_log import AILog
@@ -17,7 +17,7 @@ from src.models.payment_transaction import PaymentTransaction, PaymentStatus, Pa
 router = APIRouter()
 
 # ── Protector global RBAC: solo ADMIN accede a cualquier endpoint ──────────
-admin_only = RoleChecker([UserRole.ADMIN])
+# verificar_admin is imported from dependencies
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -97,7 +97,7 @@ async def get_finance_dashboard(
     start_date: Optional[str] = Query(None, description="YYYY-MM-DD"),
     end_date:   Optional[str] = Query(None, description="YYYY-MM-DD"),
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(admin_only),
+    _: User = Depends(verificar_admin),
 ):
     # ── Construir filtros de fecha ──────────────────────────────────────────
     conditions = []
@@ -188,7 +188,7 @@ async def get_users_dashboard(
     filter: Optional[str] = Query(None, description="actives_today | low_credits | no_credits | critical"),
     q:      Optional[str] = Query(None, description="Búsqueda libre (nombre, email, teléfono)"),
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(admin_only),
+    _: User = Depends(verificar_admin),
 ):
     # ── KPIs globales ──────────────────────────────────────────────────────
     docentes_totales = (await session.execute(
@@ -321,7 +321,7 @@ async def adjust_credits(
     user_id: uuid.UUID,
     payload: AdjustCreditsPayload,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(admin_only),
+    _: User = Depends(verificar_admin),
 ):
     res = await session.execute(select(User).where(User.id == user_id))
     user = res.scalar_one_or_none()
@@ -361,7 +361,7 @@ async def adjust_credits(
 async def get_user_activity(
     user_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(admin_only),
+    _: User = Depends(verificar_admin),
 ):
     docs = (await session.execute(
         select(Document)
@@ -384,7 +384,7 @@ async def legacy_finance(
     start_date: Optional[str] = None,
     end_date:   Optional[str] = None,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(admin_only),
+    _: User = Depends(verificar_admin),
 ):
     return await get_finance_dashboard(start_date, end_date, session, _)
 
@@ -394,7 +394,7 @@ async def legacy_users(
     filter: Optional[str] = None,
     q:      Optional[str] = None,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(admin_only),
+    _: User = Depends(verificar_admin),
 ):
     return await get_users_dashboard(filter, q, session, _)
 
@@ -404,6 +404,6 @@ async def legacy_adjust(
     user_id: uuid.UUID,
     payload: AdjustCreditsPayload,
     session: AsyncSession = Depends(get_session),
-    _: User = Depends(admin_only),
+    _: User = Depends(verificar_admin),
 ):
     return await adjust_credits(user_id, payload, session, _)

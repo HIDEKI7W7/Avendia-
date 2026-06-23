@@ -58,3 +58,14 @@ class RoleChecker:
                 detail="Permisos insuficientes para realizar esta operación"
             )
         return user
+
+async def verificar_admin(user: User = Depends(get_current_user)) -> User:
+    """
+    Verifica que el usuario tenga el rol de ADMIN.
+    """
+    if user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Permisos insuficientes para realizar esta operación"
+        )
+    return user

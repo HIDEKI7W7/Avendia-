@@ -1,5 +1,6 @@
 from datetime import datetime
 import uuid
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr
 from sqlmodel import select
@@ -15,13 +16,16 @@ class UserRegister(BaseModel):
     email: EmailStr
     password: str
     full_name: str
-    role: UserRole
+    role: Optional[UserRole] = UserRole.DOCENTE
 
 class UserOut(BaseModel):
     id: uuid.UUID
     email: str
     full_name: str
     role: UserRole
+    plan_tier: str
+    credits: int
+    credits_total: int
     created_at: datetime
 
     class Config:
@@ -51,12 +55,15 @@ async def register(payload: UserRegister, session: AsyncSession = Depends(get_se
             detail="El correo electrónico ya está registrado."
         )
     
-    # Hashear contraseña y persistir
+    # Hashear contraseña y persistir con valores por defecto
     db_user = User(
         email=payload.email,
         password_hash=hash_password(payload.password),
         full_name=payload.full_name,
-        role=payload.role
+        role=payload.role or UserRole.DOCENTE,
+        plan_tier="FREE",
+        credits=7,
+        credits_total=7
     )
     session.add(db_user)
     await session.commit()
@@ -77,8 +84,12 @@ async def login(payload: LoginRequest, session: AsyncSession = Depends(get_sessi
             detail="Usuario o contraseña incorrectos."
         )
     
-    # Generar el Token firmando el ID del usuario
-    access_token = create_access_token(data={"sub": str(user.id)})
+    # Generar el Token firmando el ID del usuario, email y rol
+    access_token = create_access_token(data={
+        "sub": str(user.id),
+        "email": user.email,
+        "role": user.role
+    })
     
     return {
         "access_token": access_token,

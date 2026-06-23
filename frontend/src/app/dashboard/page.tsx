@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { BACKEND_URL } from "@/config/api";
+import WelcomeModal from "@/components/auth/WelcomeModal";
 
 type UserRole = "Docente" | "Director" | "Auxiliar";
 
@@ -34,6 +35,7 @@ interface DocumentTemplate {
 
 function DashboardPage() {
   const [activeTab, setActiveTab] = useState<"pedagogico" | "administrativo">("pedagogico");
+  const [isWelcomeOpen, setIsWelcomeOpen] = useState(false);
   
   // States for Administrative Tab (from original home page)
   const [selectedRole, setSelectedRole] = useState<UserRole>("Docente");
@@ -85,12 +87,25 @@ function DashboardPage() {
     if (typeof window !== "undefined") {
       const storedToken = localStorage.getItem("token");
       setToken(storedToken);
+
+      // Mostrar modal de bienvenida si está marcado el flag de registro
+      const showWelcome = localStorage.getItem("show_welcome_modal");
+      if (showWelcome === "true") {
+        setIsWelcomeOpen(true);
+      }
     }
     // Detectar redirección por acceso denegado
     if (searchParams.get("acceso") === "denegado") {
       setAccessDenied(true);
     }
   }, [searchParams]);
+
+  const handleCloseWelcome = () => {
+    setIsWelcomeOpen(false);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("show_welcome_modal");
+    }
+  };
 
   // Handle Role Change
   const handleRoleChange = (role: UserRole) => {
@@ -503,6 +518,7 @@ function DashboardPage() {
           </button>
         </div>
       )}
+      <WelcomeModal isOpen={isWelcomeOpen} onClose={handleCloseWelcome} />
     </div>
   );
 }

@@ -64,9 +64,9 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
-  { label: "Dashboard",         icon: <IcoChart />,   href: "/dashboard/admin" },
-  { label: "Usuarios",          icon: <IcoUsers />,   href: "/dashboard/admin/users" },
-  { label: "Biblioteca Global", icon: <IcoBook />,    href: "#", tag: "IA", tagColor: "bg-violet-100 text-violet-700" },
+  { label: "Dashboard",         icon: <IcoChart />,   href: "/admin-panel" },
+  { label: "Usuarios",          icon: <IcoUsers />,   href: "/admin-panel/users" },
+  { label: "Biblioteca Global", icon: <IcoBook />,    href: "/admin-panel/upload", tag: "IA", tagColor: "bg-violet-100 text-violet-700" },
   { label: "Reportes",          icon: <IcoReport />,  href: "#" },
   { label: "Soporte",           icon: <IcoSupport />, href: "#", alert: 5 },
   { label: "Configuración",     icon: <IcoConfig />,  href: "#" },
@@ -115,7 +115,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const isActive = (href: string) =>
     href !== "#" &&
     (pathname === href ||
-      (href !== "/dashboard/admin" && pathname.startsWith(href)));
+      (href !== "/admin-panel" && pathname.startsWith(href)));
 
   return (
     <div className="flex h-screen bg-[#F4F6FA] overflow-hidden" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
@@ -134,7 +134,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <div className="leading-tight overflow-hidden">
                 <p className="font-black text-[13px] text-slate-900 truncate">AdminPanel</p>
                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest truncate">
-                  Gestión UGECA
+                  GESTIÓN UGECA
                 </p>
               </div>
             </div>
@@ -230,7 +230,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           {/* Breadcrumb de ruta */}
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
             <span className="text-[#7C6CF2]">AdminPanel</span>
-            {pathname !== "/dashboard/admin" && (
+            {pathname !== "/admin-panel" && (
               <>
                 <span className="text-slate-300">/</span>
                 <span className="text-slate-700 capitalize">
@@ -249,60 +249,46 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 className="relative p-2 text-slate-500 hover:text-[#7C6CF2] hover:bg-[#7C6CF2]/8 rounded-xl transition-colors cursor-pointer"
               >
                 <IcoBell />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
+                <span className="absolute top-1 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
               </button>
 
-              {/* Dropdown de notificaciones */}
               {notifOpen && (
-                <div className="absolute right-0 top-10 w-72 bg-white border border-[#E8EDF3] rounded-2xl shadow-xl z-50 overflow-hidden">
-                  <div className="px-4 py-3 border-b border-[#E8EDF3]">
-                    <p className="font-bold text-sm text-slate-900">Notificaciones</p>
-                    <p className="text-[10px] text-slate-400 mt-0.5">Sistema administrativo</p>
+                <div className="absolute right-0 mt-2 w-80 bg-white border border-[#E8EDF3] rounded-2xl shadow-xl py-3 z-50 flex flex-col gap-1.5 animate-in fade-in slide-in-from-top-2 duration-150">
+                  <div className="px-4 pb-2 border-b border-slate-100 flex items-center justify-between">
+                    <span className="font-extrabold text-xs text-slate-800">Notificaciones</span>
+                    <span className="text-[9px] bg-red-50 text-red-500 px-1.5 py-0.5 rounded font-bold">5 NUEVAS</span>
                   </div>
-                  <div className="divide-y divide-[#F0F3F8]">
-                    {[
-                      { icon: "💳", msg: "Nueva transacción completada", time: "hace 5 min" },
-                      { icon: "👤", msg: "Nuevo docente registrado", time: "hace 1 h" },
-                      { icon: "⚠️", msg: "Docente con créditos bajos: 3 usuarios", time: "hace 3 h" },
-                    ].map((n, i) => (
-                      <div key={i} className="flex items-start gap-3 px-4 py-3 hover:bg-slate-50 cursor-pointer">
-                        <span className="text-base shrink-0">{n.icon}</span>
-                        <div>
-                          <p className="text-[11px] font-semibold text-slate-700">{n.msg}</p>
-                          <p className="text-[9px] text-slate-400 mt-0.5">{n.time}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="px-4 py-2.5 border-t border-[#E8EDF3]">
-                    <button className="text-[10px] font-bold text-[#7C6CF2] hover:underline cursor-pointer">
-                      Ver todas las notificaciones →
-                    </button>
+                  <div className="max-h-60 overflow-y-auto px-2 flex flex-col gap-1">
+                    <div className="p-2 hover:bg-slate-50 rounded-xl flex flex-col gap-0.5 cursor-pointer">
+                      <span className="text-[11px] font-bold text-slate-800">Transacción completada por Yape</span>
+                      <span className="text-[9px] text-slate-400">Hace 3 minutos • S/. 14.90</span>
+                    </div>
+                    <div className="p-2 hover:bg-slate-50 rounded-xl flex flex-col gap-0.5 cursor-pointer">
+                      <span className="text-[11px] font-bold text-slate-800">Alerta: Docente sin créditos</span>
+                      <span className="text-[9px] text-slate-400">Hace 12 minutos • maria.gonzales@ugca.edu</span>
+                    </div>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Separador */}
-            <div className="w-px h-5 bg-slate-200" />
+            {/* Divisor */}
+            <div className="h-6 w-px bg-slate-200" />
 
-            {/* Perfil de administrador */}
-            <div className="flex items-center gap-2.5">
-              <div className="text-right hidden sm:block">
-                <p className="text-[11px] font-bold text-slate-900 leading-tight">{adminName}</p>
-                <p className="text-[9px] font-bold text-[#7C6CF2] uppercase tracking-wider">Administrador</p>
-              </div>
-              <div className="w-8 h-8 rounded-full bg-[#7C6CF2]/15 flex items-center justify-center font-extrabold text-[#7C6CF2] text-xs border border-[#7C6CF2]/30">
-                {adminName.charAt(0).toUpperCase()}
+            {/* Info Admin */}
+            <div className="flex items-center gap-2">
+              <div className="text-right leading-tight hidden sm:block">
+                <p className="text-[11px] font-bold text-slate-800 truncate">{adminName}</p>
+                <p className="text-[9px] text-slate-400 font-bold truncate">{adminEmail}</p>
               </div>
             </div>
           </div>
         </header>
 
-        {/* ── Área de contenido de las páginas analíticas ──────────── */}
-        <main className="flex-1 overflow-y-auto bg-[#F4F6FA]">
+        {/* ── Contenido de la página ───────────────────────────────── */}
+        <div className="flex-1 overflow-y-auto bg-[#F4F6FA]">
           {children}
-        </main>
+        </div>
       </div>
     </div>
   );

@@ -31,6 +31,11 @@ class User(SQLModel, table=True):
         index=True,
         nullable=False
     )
+    plan_tier: str = Field(
+        default="FREE",
+        index=True,
+        nullable=False
+    )
     credits: int = Field(
         default=1000,
         index=True,

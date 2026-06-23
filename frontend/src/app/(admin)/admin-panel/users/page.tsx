@@ -44,27 +44,24 @@ const fmtSoles = (n: number) =>
 const fmtNum = (n: number) => n.toLocaleString("es-PE");
 
 const fmtDate = (iso: string | null) => {
-  if (!iso) return <span className="text-slate-300">—</span>;
+  if (!iso) return "—";
   const d = new Date(iso);
   return d.toLocaleDateString("es-PE", { day: "2-digit", month: "short", year: "2-digit" });
 };
 
 const timeAgo = (iso: string | null) => {
-  if (!iso) return <span className="text-slate-300 text-[10px]">Sin acceso</span>;
+  if (!iso) return "Sin acceso";
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 60) return <span className="text-emerald-600 text-[10px] font-semibold">{mins}m atrás</span>;
+  if (mins < 60) return `${mins}m atrás`;
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return <span className="text-emerald-600 text-[10px] font-semibold">{hrs}h atrás</span>;
+  if (hrs < 24) return `${hrs}h atrás`;
   const days = Math.floor(hrs / 24);
-  return <span className="text-slate-500 text-[10px] font-semibold">{days}d atrás</span>;
+  return `${days}d atrás`;
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
-// SUB-COMPONENTS
-// ═══════════════════════════════════════════════════════════════════════════
+// ─── Subcomponents ─────────────────────────────────────────────────────────
 
-// ── KPI Card ───────────────────────────────────────────────────────────────
 function KPICard({
   label, main, sub, accent, icon,
 }: { label: string; main: string; sub?: string; accent: string; icon: string }) {
@@ -82,7 +79,6 @@ function KPICard({
   );
 }
 
-// ── Status Badge ───────────────────────────────────────────────────────────
 function StatusBadge({ status }: { status: string }) {
   const active = status === "activo";
   return (
@@ -94,7 +90,6 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-// ── Credit Bar ─────────────────────────────────────────────────────────────
 function CreditBar({ used, total }: { used: number; total: number }) {
   const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
   const color = pct < 20 ? "bg-red-400" : pct < 50 ? "bg-amber-400" : "bg-[#7C6CF2]";
@@ -111,7 +106,6 @@ function CreditBar({ used, total }: { used: number; total: number }) {
   );
 }
 
-// ── Adjust Credits Modal ────────────────────────────────────────────────────
 function AdjustModal({
   user, onClose, onSuccess,
 }: {
@@ -271,7 +265,6 @@ export default function AdminUsersPage() {
   // Modal ajuste créditos
   const [editUser, setEditUser]   = useState<UserDetail | null>(null);
 
-  // ── Fetch ─────────────────────────────────────────────────────────────
   const fetchData = useCallback(async (f: FilterType = filter, q: string = search) => {
     setLoading(true);
     setError(null);
@@ -316,7 +309,6 @@ export default function AdminUsersPage() {
     fetchData(filter, search);
   };
 
-  // ── Filtered list (client-side instant search) ─────────────────────────
   const displayUsers = useMemo(() => {
     if (!search.trim()) return users;
     const t = search.toLowerCase();
@@ -330,7 +322,6 @@ export default function AdminUsersPage() {
 
   return (
     <>
-      {/* ── Adjust Modal ─────────────────────────────────────────────── */}
       {editUser && (
         <AdjustModal
           user={editUser}
@@ -340,7 +331,6 @@ export default function AdminUsersPage() {
       )}
 
       <div className="p-8 flex flex-col gap-6 min-h-full">
-        {/* ── Page Header ───────────────────────────────────────────── */}
         <div>
           <h1 className="font-extrabold text-2xl text-slate-900 tracking-tight">Gestión de Usuarios</h1>
           <p className="text-sm text-slate-500 mt-0.5">
@@ -348,7 +338,6 @@ export default function AdminUsersPage() {
           </p>
         </div>
 
-        {/* ── KPI Cards ─────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <KPICard
             label="Docentes Totales"
@@ -380,7 +369,6 @@ export default function AdminUsersPage() {
           />
         </div>
 
-        {/* ── Sub-tabs ──────────────────────────────────────────────── */}
         <div className="flex items-center gap-0.5 border-b border-[#E8EDF3]">
           {SUB_TABS.map((t) => (
             <button
@@ -397,9 +385,7 @@ export default function AdminUsersPage() {
           ))}
         </div>
 
-        {/* ── Toolbar: Search + Pills ────────────────────────────────── */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-          {/* Search */}
           <form onSubmit={handleSearch} className="flex items-center gap-2 flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-1 bg-white border border-[#E8EDF3] rounded-xl px-4 py-2.5 focus-within:border-[#7C6CF2] transition-colors">
               <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -421,7 +407,6 @@ export default function AdminUsersPage() {
             </button>
           </form>
 
-          {/* Pills */}
           <div className="flex items-center gap-1.5 flex-wrap">
             {FILTER_PILLS.map((p) => (
               <button
@@ -439,16 +424,13 @@ export default function AdminUsersPage() {
           </div>
         </div>
 
-        {/* ── Error ─────────────────────────────────────────────────── */}
         {error && (
           <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 font-semibold">
             ⚠️ {error}
           </div>
         )}
 
-        {/* ── Users Table ───────────────────────────────────────────── */}
         <div className="bg-white rounded-2xl border border-[#E8EDF3] overflow-hidden">
-          {/* Table toolbar */}
           <div className="px-6 py-4 border-b border-[#E8EDF3] flex items-center justify-between">
             <div>
               <h2 className="font-bold text-sm text-slate-900">Lista de Docentes</h2>
@@ -499,7 +481,6 @@ export default function AdminUsersPage() {
                   ) : (
                     displayUsers.map((u) => (
                       <tr key={u.id} className="hover:bg-slate-50/60 transition-colors group">
-                        {/* Docente */}
                         <td className="px-4 py-3.5">
                           <div className="flex items-center gap-2.5">
                             <div className="w-8 h-8 rounded-full bg-[#7C6CF2]/10 flex items-center justify-center font-bold text-[#7C6CF2] text-xs shrink-0">
@@ -511,40 +492,31 @@ export default function AdminUsersPage() {
                             </div>
                           </div>
                         </td>
-                        {/* Contacto */}
                         <td className="px-4 py-3.5 text-slate-600 font-medium whitespace-nowrap">{u.phone}</td>
-                        {/* Monto Pagado */}
                         <td className="px-4 py-3.5 font-extrabold text-slate-900 whitespace-nowrap">
                           {fmtSoles(u.monto_pagado)}
                         </td>
-                        {/* Consumo IA */}
                         <td className="px-4 py-3.5">
                           <p className="font-bold text-slate-800 text-[11px]">{fmtSoles(u.consumo_ia_soles)}</p>
                           <p className="text-slate-400 text-[9px] mt-0.5">tokens consumidos</p>
                         </td>
-                        {/* Estado */}
                         <td className="px-4 py-3.5">
                           <StatusBadge status={u.status} />
                         </td>
-                        {/* Créditos */}
                         <td className="px-4 py-3.5">
                           <CreditBar used={u.credits} total={u.credits_total} />
                         </td>
-                        {/* Registro */}
                         <td className="px-4 py-3.5 text-slate-600 whitespace-nowrap">
                           {fmtDate(u.created_at)}
                         </td>
-                        {/* Creado por */}
                         <td className="px-4 py-3.5 text-slate-500 max-w-[100px] truncate" title={u.created_by}>
                           {u.created_by}
                         </td>
-                        {/* Áreas */}
                         <td className="px-4 py-3.5 text-center">
                           <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-slate-100 text-slate-700 font-bold text-[11px]">
                             {u.areas}
                           </span>
                         </td>
-                        {/* Docs */}
                         <td className="px-4 py-3.5 text-center">
                           <div className="flex flex-col items-center">
                             <span className="font-bold text-slate-800 text-[12px]">{u.docs_total}</span>
@@ -553,14 +525,11 @@ export default function AdminUsersPage() {
                             )}
                           </div>
                         </td>
-                        {/* Último Acceso */}
                         <td className="px-4 py-3.5 whitespace-nowrap">
                           {timeAgo(u.last_access)}
                         </td>
-                        {/* Acciones */}
                         <td className="px-4 py-3.5">
                           <div className="flex items-center gap-1.5 opacity-60 group-hover:opacity-100 transition-opacity">
-                            {/* Descarga */}
                             <button
                               title="Descargar reporte"
                               className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-blue-100 hover:text-blue-700 text-slate-500 flex items-center justify-center transition-colors cursor-pointer"
@@ -569,7 +538,6 @@ export default function AdminUsersPage() {
                                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
                               </svg>
                             </button>
-                            {/* Enlace */}
                             <button
                               title="Ver perfil"
                               className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-violet-100 hover:text-violet-700 text-slate-500 flex items-center justify-center transition-colors cursor-pointer"
@@ -578,7 +546,6 @@ export default function AdminUsersPage() {
                                 <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
                               </svg>
                             </button>
-                            {/* Editar créditos */}
                             <button
                               title="Ajustar créditos"
                               onClick={() => setEditUser(u)}

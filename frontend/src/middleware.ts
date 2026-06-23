@@ -31,12 +31,12 @@ export function middleware(request: NextRequest): NextResponse {
 
   // ── 1. Usuario ya autenticado intenta ir a /login ───────────────────────
   if (pathname === "/login" && hasSession) {
-    const dest = isAdmin ? "/dashboard/admin" : "/dashboard";
+    const dest = isAdmin ? "/admin-panel" : "/dashboard";
     return NextResponse.redirect(new URL(dest, request.url));
   }
 
-  // ── 2-3. Protección del perímetro /dashboard/admin/* ────────────────────
-  if (pathname.startsWith("/dashboard/admin")) {
+  // ── 2-3. Protección del perímetro /admin-panel y /admin-panel/* ────────
+  if (pathname === "/admin-panel" || pathname.startsWith("/admin-panel/")) {
     // Sin sesión → login
     if (!hasSession) {
       const url = new URL("/login", request.url);
@@ -68,7 +68,7 @@ export function middleware(request: NextRequest): NextResponse {
 
     // ADMIN en el dashboard de docente → redirigir al panel admin
     if (isAdmin && pathname === "/dashboard") {
-      return NextResponse.redirect(new URL("/dashboard/admin", request.url));
+      return NextResponse.redirect(new URL("/admin-panel", request.url));
     }
   }
 
@@ -85,5 +85,7 @@ export const config = {
     "/login",
     "/dashboard",
     "/dashboard/:path*",
+    "/admin-panel",
+    "/admin-panel/:path*",
   ],
 };
