@@ -25,6 +25,23 @@ export default function LandingPage() {
     }
   };
 
+  const handleCleanLogin = (e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
+    if (typeof window !== "undefined") {
+      // Limpiar localstorage y sessionstorage
+      localStorage.clear();
+      sessionStorage.clear();
+
+      // Limpiar cookies
+      document.cookie = "avendia_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      document.cookie = "avendia_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      document.cookie = "avendia_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+
+      // Redirigir limpiamente
+      window.location.href = "/login";
+    }
+  };
+
   const faqs = [
     {
       q: "¿AVENDIA se adapta estrictamente al currículo del MINEDU y el CNEB?",
@@ -78,13 +95,15 @@ export default function LandingPage() {
           <div className="hidden md:flex items-center gap-4">
             <Link 
               href="/login" 
+              onClick={handleCleanLogin}
               className="text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors"
             >
               Ya tengo cuenta
             </Link>
             <Link 
               href="/login" 
-              className="px-5 py-2.5 rounded-xl bg-[#7C6CF2] text-white font-semibold text-sm hover:bg-[#6858e0] shadow-md hover:shadow-lg hover:shadow-[#7C6CF2]/20 transition-all cursor-pointer"
+              onClick={handleCleanLogin}
+              className="px-5 py-2.5 rounded-full bg-[#7C6CF2] text-white font-semibold text-sm hover:bg-[#6858e0] shadow-md hover:shadow-lg hover:shadow-[#7C6CF2]/20 transition-all cursor-pointer"
             >
               Iniciar Sesión →
             </Link>
@@ -134,13 +153,16 @@ export default function LandingPage() {
               <hr className="border-slate-100 my-1" />
               <Link 
                 href="/login"
-                onClick={() => setMobileMenuOpen(false)}
+                onClick={(e) => {
+                  setMobileMenuOpen(false);
+                  handleCleanLogin(e);
+                }}
                 className="text-center py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
               >
                 Ya tengo cuenta
               </Link>
               <Link 
-                href="/login"
+                href="/register"
                 onClick={() => setMobileMenuOpen(false)}
                 className="text-center py-2.5 rounded-xl bg-[#7C6CF2] text-white text-sm font-semibold hover:bg-[#6858e0] transition-colors"
               >
@@ -184,13 +206,14 @@ export default function LandingPage() {
 
               <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 mb-10">
                 <Link 
-                  href="/login" 
+                  href="/register" 
                   className="w-full sm:w-auto text-center px-8 py-4 rounded-2xl bg-[#7C6CF2] text-white font-bold text-base shadow-xl shadow-[#7C6CF2]/30 hover:shadow-2xl hover:bg-[#6858e0] hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
                 >
                   ¡Regístrate Gratis!
                 </Link>
                 <Link 
                   href="/login" 
+                  onClick={handleCleanLogin}
                   className="w-full sm:w-auto text-center px-8 py-4 rounded-2xl border border-slate-200 bg-white text-slate-700 font-bold text-base hover:bg-slate-50 hover:border-slate-300 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
                 >
                   Ya tengo cuenta →
@@ -528,7 +551,7 @@ export default function LandingPage() {
               </div>
               <div className="mt-8">
                 <Link 
-                  href="/login" 
+                  href="/register" 
                   className="block text-center w-full py-3.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors cursor-pointer"
                 >
                   Registrarse Gratis
@@ -602,6 +625,7 @@ export default function LandingPage() {
               <div className="mt-8">
                 <Link 
                   href="/login" 
+                  onClick={handleCleanLogin}
                   className="block text-center w-full py-3.5 rounded-2xl bg-[#7C6CF2] hover:bg-[#6858e0] text-white font-bold text-xs transition-colors shadow-lg shadow-[#7C6CF2]/15 hover:shadow-xl cursor-pointer"
                 >
                   ¡Clic acá para empezar!
@@ -673,6 +697,7 @@ export default function LandingPage() {
               <div className="mt-8">
                 <Link 
                   href="/login" 
+                  onClick={handleCleanLogin}
                   className="block text-center w-full py-3.5 rounded-2xl bg-[#7C6CF2] hover:bg-[#6858e0] text-white font-bold text-xs transition-all shadow-lg shadow-[#7C6CF2]/20 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
                 >
                   ¡Asegurar mis domingos!
