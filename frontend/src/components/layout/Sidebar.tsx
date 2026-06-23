@@ -4,13 +4,25 @@ import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useUser } from "@/context/UserContext";
+import {
+  Columns4,
+  Home,
+  LayoutGrid,
+  MessageSquare,
+  GraduationCap,
+  FileText,
+  Users,
+  Star,
+  ClipboardList,
+  HelpCircle,
+  MessagesSquare,
+  LogOut,
+} from "lucide-react";
 
 interface MenuItem {
   name: string;
-  icon: string;
+  icon: React.ReactNode;
   path: string;
-  tag?: string;
-  badge?: number;
 }
 
 export default function Sidebar() {
@@ -23,196 +35,178 @@ export default function Sidebar() {
   const creditsTotal = user?.credits_total ?? 0;
   const planTier = user?.plan_tier ?? "FREE";
 
-  // Menú principal: Módulos pedagógicos
-  const pedagogicalModules: MenuItem[] = [
-    { name: "1. PLAN ANUAL", icon: "📅", path: "/dashboard/plan-anual" },
-    { name: "2. UNIDADES", icon: "📖", path: "/dashboard/unidades" },
-    { name: "3. SESIONES", icon: "📝", path: "/dashboard/sesiones" },
-    { name: "4. FICHAS DE APRENDIZAJE", icon: "📙", path: "/dashboard/fichas-aprendizaje" },
-    { name: "5. RÚBRICA DE EVALUACIÓN", icon: "🎯", path: "/dashboard/rubrica-evaluacion" },
-    { name: "6. LISTA DE COTEJO", icon: "📋", path: "/dashboard/lista-cotejo" },
-    { name: "7. TUTORÍA", icon: "👪", path: "/dashboard/tutoria" },
+  // Ítems de la Categoría "CREACIÓN"
+  const creationModules: MenuItem[] = [
+    { name: "Herramientas", icon: <LayoutGrid className="w-4.5 h-4.5" />, path: "/dashboard/herramientas" },
+    { name: "EduAsesor Chat", icon: <MessageSquare className="w-4.5 h-4.5" />, path: "/dashboard/chat" },
+    { name: "Mis aulas", icon: <GraduationCap className="w-4.5 h-4.5" />, path: "/dashboard/aulas" },
+    { name: "Documentos", icon: <FileText className="w-4.5 h-4.5" />, path: "/dashboard/documentos" },
+    { name: "Salas Avendia", icon: <Users className="w-4.5 h-4.5" />, path: "/dashboard/salas" },
   ];
 
-  // Herramientas secundarias
-  const secondaryTools: MenuItem[] = [
-    { name: "VIDEOS TUTORIALES", icon: "▶️", path: "#" },
-    { name: "MIS DOCUMENTOS", icon: "📁", path: "#" },
-    { name: "PLANTILLAS", icon: "📄", path: "#" },
-    { name: "FAVORITOS", icon: "⭐", path: "#" },
-    { name: "HISTORIAL", icon: "🕒", path: "#" },
-    { name: "DESCARGAS", icon: "📥", path: "#" },
+  // Ítems de la Categoría "CONOCE MÁS"
+  const learnMoreModules: MenuItem[] = [
+    { name: "Referidos", icon: <Star className="w-4.5 h-4.5" />, path: "/dashboard/referidos" },
+    { name: "Formato escolar", icon: <ClipboardList className="w-4.5 h-4.5" />, path: "/dashboard/formato" },
+    { name: "Centro de ayuda", icon: <HelpCircle className="w-4.5 h-4.5" />, path: "/dashboard/ayuda" },
+    { name: "Comunidad", icon: <MessagesSquare className="w-4.5 h-4.5" />, path: "/dashboard/comunidad" },
   ];
-
-  const handleIAWidgetClick = () => {
-    // Buscar y abrir el widget del chatbot si existe
-    const botButton = document.getElementById("chatbot-toggle-button");
-    if (botButton) {
-      botButton.click();
-    }
-  };
 
   return (
-    <aside className="w-64 bg-white border-r border-border-custom flex flex-col justify-between shrink-0 h-full overflow-y-auto scrollbar-thin">
+    <aside className="w-64 bg-white border-r border-border-custom flex flex-col justify-between shrink-0 h-full overflow-y-auto scrollbar-thin font-body text-slate-700">
       <div className="p-6">
-        {/* Logo y Branding */}
-        <div className="flex flex-col gap-1 mb-8">
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-morado-ia to-azul-educativo flex items-center justify-center text-white font-headings font-bold text-xl shadow-md">
+        {/* Cabecera de Marca con Botón de Colapso */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-morado-ia to-azul-educativo flex items-center justify-center text-white font-headings font-extrabold text-xl shadow-md">
               A
             </div>
-            <span className="font-headings font-bold text-xl text-slate-900 tracking-tight">
-              AVEND
-            </span>
-          </div>
-          <div className="pl-0.5 mt-2">
-            <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide leading-tight">
+            <span className="font-headings font-black text-xl text-slate-900 tracking-tight">
               AVENDIA
             </span>
-            <span className="block text-[8px] font-semibold text-slate-400 leading-normal">
-              Planificación y documentos pedagógicos con IA
-            </span>
           </div>
+          {/* Botón flotante iconográfico de colapso */}
+          <button 
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
+            title="Colapsar"
+          >
+            <Columns4 className="w-4.5 h-4.5" />
+          </button>
         </div>
 
-        {/* Menú de Navegación Principal */}
-        <nav className="flex flex-col gap-1.5 mb-6">
-          {/* Inicio del Dashboard */}
+        {/* Menú de Navegación */}
+        <div className="flex flex-col gap-5">
+          {/* Ítem Destacado Principal: Inicio */}
           <Link
             href="/dashboard"
-            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 ${
+            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition-all duration-200 ${
               pathname === "/dashboard"
-                ? "bg-morado-ia text-white shadow-md shadow-morado-ia/20"
-                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                ? "bg-[#7C6CF2]/10 text-[#7C6CF2] border border-[#7C6CF2]/15"
+                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent"
             }`}
           >
-            <span>🏠</span>
-            <span>INICIO</span>
+            <Home className="w-4.5 h-4.5" />
+            <span>Inicio</span>
           </Link>
 
-          {/* Separador sutil */}
-          <div className="h-px bg-slate-100 my-2"></div>
+          {/* Bloque Categoria 1: CREACIÓN */}
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-3 block">
+              Creación
+            </span>
+            {creationModules.map((item) => {
+              const isActive = pathname === item.path;
+              return (
+                <Link
+                  key={item.name}
+                  href={item.path}
+                  className={`flex items-center gap-3 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all duration-200 ${
+                    isActive
+                      ? "bg-[#7C6CF2]/10 text-[#7C6CF2] border border-[#7C6CF2]/15"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent"
+                  }`}
+                >
+                  {item.icon}
+                  <span className="truncate">{item.name}</span>
+                </Link>
+              );
+            })}
+          </div>
 
-          {/* Enlaces a los Módulos Pedagógicos */}
-          {pedagogicalModules.map((item) => {
-            const isActive = pathname === item.path;
-            return (
-              <Link
-                key={item.name}
-                href={item.path}
-                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[11px] font-bold transition-all duration-200 ${
-                  isActive
-                    ? "bg-morado-ia text-white shadow-md shadow-morado-ia/10"
-                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                }`}
-              >
-                <span className="text-sm">{item.icon}</span>
-                <span className="truncate">{item.name}</span>
-              </Link>
-            );
-          })}
-        </nav>
-
-        {/* Separador */}
-        <div className="h-px bg-slate-100 my-4"></div>
-
-        {/* Bloque de Herramientas Secundarias */}
-        <div className="flex flex-col gap-1.5">
-          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-3 mb-1 block">
-            Complementos
-          </span>
-          {secondaryTools.map((item) => (
-            <Link
-              key={item.name}
-              href={item.path}
-              className="flex items-center gap-3 px-3.5 py-2 rounded-xl text-[10px] font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-950 transition-colors"
-            >
-              <span className="text-xs text-blue-500/70">{item.icon}</span>
-              <span>{item.name}</span>
-            </Link>
-          ))}
+          {/* Bloque Categoria 2: CONOCE MÁS */}
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-3 block">
+              Conoce más
+            </span>
+            {learnMoreModules.map((item) => {
+              const isActive = pathname === item.path;
+              return (
+                <Link
+                  key={item.name}
+                  href={item.path}
+                  className={`flex items-center gap-3 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all duration-200 ${
+                    isActive
+                      ? "bg-[#7C6CF2]/10 text-[#7C6CF2] border border-[#7C6CF2]/15"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent"
+                  }`}
+                >
+                  {item.icon}
+                  <span className="truncate">{item.name}</span>
+                </Link>
+              );
+            })}
+          </div>
         </div>
       </div>
 
-      {/* Asistente IA, Perfil y Logout Fijo abajo */}
+      {/* Widget de Créditos y Cierre de Sesión Fijo abajo */}
       <div className="p-6 border-t border-border-custom bg-slate-50/50 flex flex-col gap-4 mt-auto">
-        {/* Botón flotante interno Asistente IA */}
-        <button
-          onClick={handleIAWidgetClick}
-          className="w-full py-2.5 px-4 rounded-xl bg-white border border-border-custom hover:border-morado-ia/50 flex items-center gap-3 text-xs font-bold text-slate-700 hover:text-morado-ia shadow-sm transition-all duration-200 cursor-pointer group"
-        >
-          <span className="text-base group-hover:scale-110 transition-transform">🤖</span>
-          <span>ASISTENTE IA</span>
-        </button>
-
-        {/* INYECCIÓN DE ESTADO DINÁMICO: Widget de créditos dinámico (Consumido de useUser) */}
-        <div className="bg-white border border-border-custom rounded-2xl p-4 shadow-sm flex flex-col gap-3">
+        
+        {/* Tarjeta de Créditos redondeada estilo Premium */}
+        <div className="bg-gradient-to-br from-[#7C6CF2]/8 to-[#FF7657]/8 border border-[#7C6CF2]/12 rounded-3xl p-4 shadow-sm relative overflow-hidden flex flex-col gap-3">
           <div className="flex items-center justify-between">
-            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Créditos</span>
-            {loading ? (
-              <div className="h-4 w-12 bg-slate-100 animate-pulse rounded" />
-            ) : planTier === "PREMIUM" ? (
-              <span className="text-[8px] bg-purple-50 border border-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-extrabold uppercase">
-                Plan Premium Activo
-              </span>
-            ) : (
-              <Link
-                href="/login"
-                onClick={logout}
-                className="text-[8px] bg-amber-50 border border-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-extrabold uppercase hover:bg-amber-100 transition-colors"
-              >
-                ¡Hazte Premium!
-              </Link>
-            )}
+            <span className="text-[8px] bg-[#FF7657]/10 border border-[#FF7657]/20 text-[#FF7657] px-2 py-0.5 rounded-full font-extrabold uppercase tracking-wide">
+              {planTier === "PREMIUM" ? "Plan Premium" : "¡Hazte Premium!"}
+            </span>
           </div>
-          <div className="flex items-baseline gap-1 mt-0.5">
-            {loading ? (
-              <div className="h-6 w-16 bg-slate-100 animate-pulse rounded" />
-            ) : (
-              <>
-                <span className="text-xl font-headings font-bold text-slate-900">🪙 {credits}</span>
-                <span className="text-[9px] text-slate-400 font-semibold ml-1">/ {creditsTotal}</span>
-              </>
-            )}
-          </div>
-          {/* Barra de progreso visual */}
-          {!loading && (
-            <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-[#7C6CF2] to-[#4A90E2] transition-all duration-500"
-                style={{ width: `${Math.min(100, (credits / (creditsTotal || 1)) * 100)}%` }}
-              />
+
+          <div className="flex items-center justify-between">
+            <div className="flex flex-col">
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide leading-none">Créditos</span>
+              <div className="flex items-baseline gap-1 mt-1">
+                {loading ? (
+                  <div className="h-6 w-12 bg-slate-100 animate-pulse rounded" />
+                ) : (
+                  <>
+                    <span className="text-2xl font-headings font-black text-slate-900">{credits}</span>
+                    <span className="text-[10px] text-slate-400 font-bold">/ {creditsTotal}</span>
+                  </>
+                )}
+              </div>
             </div>
-          )}
+            {/* Moneda dorada estilizada y rotada */}
+            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-amber-400 to-orange-500 flex items-center justify-center text-white text-base shadow-md rotate-12 transform hover:scale-105 transition-transform duration-300">
+              🪙
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Link
+              href="#planes"
+              className="text-[9px] font-bold text-[#7C6CF2] hover:text-[#5B4DC4] transition-colors"
+            >
+              Conoce más →
+            </Link>
+          </div>
         </div>
 
-        {/* INYECCIÓN DE ESTADO DINÁMICO: Perfil del Usuario y Cierre de Sesión */}
-        <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
-          <div className="flex items-center gap-2.5 overflow-hidden">
-            <div className="w-8 h-8 rounded-full bg-morado-ia/10 flex items-center justify-center font-bold text-morado-ia text-xs shrink-0">
-              {user?.full_name ? user.full_name.charAt(0).toUpperCase() : "D"}
-            </div>
-            <div className="overflow-hidden">
-              <span className="block font-headings font-bold text-xs text-slate-900 truncate leading-tight">
-                {user?.full_name || (loading ? "Cargando..." : "Docente")}
-              </span>
-              <span className="block text-[8px] font-bold text-slate-400 mt-0.5 uppercase tracking-wider">
-                {user?.role === "ADMIN"
-                  ? "Administrador"
-                  : planTier === "PREMIUM"
-                  ? "Docente Premium"
-                  : "Docente Gratuito"}
-              </span>
-            </div>
+        {/* Perfil del Usuario */}
+        <div className="flex items-center gap-2.5 overflow-hidden border-t border-slate-100 pt-3">
+          <div className="w-8 h-8 rounded-full bg-[#7C6CF2]/10 flex items-center justify-center font-bold text-[#7C6CF2] text-xs shrink-0">
+            {user?.full_name ? user.full_name.charAt(0).toUpperCase() : "D"}
           </div>
-          <button
-            onClick={logout}
-            title="Cerrar Sesión"
-            className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
-          >
-            🚪
-          </button>
+          <div className="overflow-hidden flex-1">
+            <span className="block font-headings font-bold text-xs text-slate-900 truncate leading-tight">
+              {user?.full_name || (loading ? "Cargando..." : "Docente")}
+            </span>
+            <span className="block text-[8px] font-bold text-slate-400 mt-0.5 uppercase tracking-wider">
+              {user?.role === "ADMIN"
+                ? "Administrador"
+                : planTier === "PREMIUM"
+                ? "Docente Premium"
+                : "Docente Gratuito"}
+            </span>
+          </div>
         </div>
+
+        {/* Botón de Cerrar Sesión */}
+        <button
+          onClick={logout}
+          className="w-full py-2 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-950 flex items-center justify-center gap-2 text-xs font-bold transition-colors cursor-pointer"
+        >
+          <LogOut className="w-4 h-4" />
+          <span>CERRAR SESIÓN</span>
+        </button>
       </div>
     </aside>
   );

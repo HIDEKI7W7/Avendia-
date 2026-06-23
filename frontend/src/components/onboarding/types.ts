@@ -20,9 +20,9 @@ export const onboardingSchema = z.object({
   term: z.string().min(1, "Por favor, selecciona el trimestre"),
 
   // Paso 5: Contenidos y Saberes
-  knowledgeField: z.string().min(1, "Selecciona un campo de saberes"),
+  knowledgeFields: z.array(z.string()).min(1, "Selecciona al menos un campo de saberes"),
   knowledgeAreas: z.array(z.string()).min(1, "Selecciona al menos un área de saberes"),
-  baseContents: z.record(z.string(), z.string()).default({}), // Clave: Área, Valor: Contenido Base
+  baseContents: z.record(z.string(), z.string()), // Clave: Área, Valor: Contenido Base
 });
 
 export type OnboardingFormValues = z.infer<typeof onboardingSchema>;
