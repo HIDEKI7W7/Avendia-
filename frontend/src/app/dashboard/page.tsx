@@ -403,170 +403,184 @@ function DashboardPageContent() {
       )}
 
       {/* ════════════════════════════════════════════════════════════════
-          [MÓDULO 1: NAVBAR SUPERIOR INTEGRADO E INTELIGENTE]
+          [LÍNEA DE NAVEGACIÓN GLOBAL SUPERIOR (TOP UTILITY BAR)]
       ════════════════════════════════════════════════════════════════ */}
-      <header className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-[#E8EDF3] dark:border-slate-800 rounded-3xl p-4 shadow-[0_2px_15px_rgba(74,90,226,0.01)] w-full transition-colors duration-300">
-        
-        {/* Bloque Izquierdo: Saludo dinámico empático */}
-        <div className="flex items-center gap-2 w-full md:w-auto md:flex-1 justify-start">
-          <h1 className="text-sm sm:text-base font-headings font-bold text-slate-800 dark:text-slate-200">
-            {getGreeting()}
-          </h1>
-        </div>
-
-        {/* Acciones del Extremo Derecho */}
-        <div className="flex items-center justify-between md:justify-end gap-4 w-full md:w-auto shrink-0">
-          
-          {/* Botón de creación rápida */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 w-full py-2 shrink-0">
+        {/* Lado izquierdo: Botones de Acción */}
+        <div className="flex items-center gap-3 w-full sm:w-auto justify-start select-none">
           <button
             onClick={handleOpenCommandPalette}
-            className="px-5 py-2.5 rounded-2xl bg-[#7C6CF2] hover:bg-[#6858E0] text-white font-headings font-black text-xs shadow-md shadow-[#7C6CF2]/20 hover:shadow-lg transition-all active:scale-[0.98] cursor-pointer flex items-center gap-1.5"
+            className="px-5 py-2.5 rounded-2xl bg-[#7C6CF2] hover:bg-[#6858E0] text-white font-headings font-black text-xs shadow-md shadow-[#7C6CF2]/20 hover:shadow-lg transition-all active:scale-[0.98] cursor-pointer flex items-center gap-1.5 shrink-0"
           >
             <Plus className="w-3.5 h-3.5 text-white" />
             <span>Nuevo proyecto</span>
           </button>
-
-          {/* Botón de Conversión Premium */}
+          
           <PremiumButton onClick={() => setIsPricingOpen(true)} />
+        </div>
 
-          {/* Buscador minimalista integrado */}
+        {/* Lado derecho: Buscador, Notificaciones y Perfil */}
+        <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto shrink-0 select-none">
+          {/* Buscador minimalista */}
           <button
             onClick={handleOpenCommandPalette}
-            className="p-2.5 text-slate-500 hover:text-[#7C6CF2] dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-all cursor-pointer border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
+            className="flex items-center gap-2 px-3 py-2 text-slate-500 hover:text-[#7C6CF2] dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-all cursor-pointer border border-slate-200/40 dark:border-slate-850"
             title="Buscar (Ctrl+K)"
           >
-            <Search className="w-4.5 h-4.5" />
+            <Search className="w-4 h-4" />
+            <span className="text-[10px] font-bold tracking-wide hidden md:inline">Buscar (Ctrl+K)</span>
           </button>
 
-          {/* Badge del Perfil (contiene campana de notificaciones y avatar circular) */}
+          {/* Badge del Perfil con campana y avatar */}
           <ProfileHeaderBadge onClick={() => window.location.href = "/dashboard/perfil"} />
-
         </div>
-      </header>
+      </div>
 
       {/* ════════════════════════════════════════════════════════════════
-          [MÓDULO 2: BANNER ASIMÉTRICO DE METRICAS Y HERO KAWAII]
+          [NUEVO HERO BANNER DE METRICAS Y BIENVENIDA]
       ════════════════════════════════════════════════════════════════ */}
-      <section className="bg-gradient-to-br from-[#7C6CF2]/3 via-[#4A90E2]/3 to-transparent border border-[#E8EDF3] dark:border-slate-800 rounded-[2rem] p-6 sm:p-8 flex flex-col lg:flex-row items-center justify-between gap-8 relative overflow-hidden transition-all duration-300">
+      <section className="bg-gradient-to-r from-blue-900 via-indigo-900 to-indigo-950 dark:from-slate-900 dark:via-indigo-950 dark:to-slate-955 text-white rounded-[2rem] p-6 sm:p-8 flex flex-col xl:flex-row items-center justify-between gap-8 relative overflow-hidden shadow-[0_20px_50px_rgba(30,41,59,0.12)] transition-all duration-300">
         
         {/* Glows decorativos de fondo */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-tr from-[#7C6CF2]/6 to-transparent rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-gradient-to-br from-[#4A90E2]/6 to-transparent rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-tr from-white/5 to-transparent rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-gradient-to-br from-[#7C6CF2]/10 to-transparent rounded-full blur-3xl pointer-events-none" />
 
-        {/* Lado Izquierdo: Textos + Bento Metrics Row */}
-        <div className="flex-1 flex flex-col gap-6 w-full relative z-10">
-          <div>
-            <span className="text-[9px] font-headings font-black text-[#7C6CF2] dark:text-[#9A8DFF] bg-[#7C6CF2]/8 dark:bg-[#7C6CF2]/15 px-3 py-1 rounded-full uppercase tracking-wider">
-              ✨ Centro de Control Docente
-            </span>
-            <h2 className="font-headings font-black text-xl sm:text-2.5xl text-slate-900 dark:text-white mt-3.5 tracking-tight leading-tight">
-              Ahorra tiempo en tus planificaciones CNEB 2026
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed font-semibold">
-              Haz clic en "Nuevo proyecto" o presiona <kbd className="px-1 py-0.5 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 rounded font-mono text-[10px]">Ctrl+K</kbd> para activar la paleta inteligente de la IA.
-            </p>
-          </div>
-
-          {/* Bento-style metrics row */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
-            {/* Card 1: Proyectos Activos */}
-            <div className="bg-white dark:bg-slate-900 border border-[#E8EDF3] dark:border-slate-800 rounded-2xl p-4 flex items-center justify-between shadow-[0_4px_20px_rgba(74,90,226,0.01)] hover:shadow-md transition-shadow">
-              <div className="flex flex-col">
-                <span className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none">Proyectos Activos</span>
-                <span className="text-2xl font-headings font-black text-slate-900 dark:text-white mt-1">24</span>
-                <span className="text-[8px] font-bold text-emerald-500 mt-1 flex items-center gap-0.5">↑ 12% este mes</span>
-              </div>
-              <div className="w-14 h-9 shrink-0">
-                <svg className="w-full h-full" viewBox="0 0 60 30">
-                  <path
-                    d="M 5,25 L 15,22 L 25,18 L 35,12 L 45,14 L 55,5"
-                    fill="none"
-                    stroke="#7C6CF2"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                  />
-                  <circle cx="55" cy="5" r="2" fill="#7C6CF2" />
-                </svg>
-              </div>
-            </div>
-
-            {/* Card 2: Tareas Completadas */}
-            <div className="bg-white dark:bg-slate-900 border border-[#E8EDF3] dark:border-slate-800 rounded-2xl p-4 flex items-center justify-between shadow-[0_4px_20px_rgba(74,90,226,0.01)] hover:shadow-md transition-shadow">
-              <div className="flex flex-col">
-                <span className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none">Tareas Completadas</span>
-                <span className="text-2xl font-headings font-black text-slate-900 dark:text-white mt-1">78%</span>
-                <span className="text-[8px] font-bold text-slate-400 dark:text-slate-500 mt-1">64 / 82 completadas</span>
-              </div>
-              <div className="relative w-11 h-11 shrink-0 flex items-center justify-center">
-                <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                  <circle cx="18" cy="18" r="14" fill="transparent" stroke="#F1F5F9" strokeWidth="3" className="dark:stroke-slate-800" />
-                  <circle
-                    cx="18"
-                    cy="18"
-                    r="14"
-                    fill="transparent"
-                    stroke="#34D399"
-                    strokeWidth="3"
-                    strokeDasharray={`${0.78 * 2 * Math.PI * 14} ${2 * Math.PI * 14}`}
-                    strokeLinecap="round"
-                  />
-                </svg>
-                <span className="absolute text-[8px] font-extrabold text-[#34D399]">78%</span>
-              </div>
-            </div>
-
-            {/* Card 3: Recursos Utilizados */}
-            <div className="bg-white dark:bg-slate-900 border border-[#E8EDF3] dark:border-slate-800 rounded-2xl p-4 flex items-center justify-between shadow-[0_4px_20px_rgba(74,90,226,0.01)] hover:shadow-md transition-shadow">
-              <div className="flex flex-col">
-                <span className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none">Recursos Utilizados</span>
-                <span className="text-2xl font-headings font-black text-slate-900 dark:text-white mt-1">65%</span>
-                <span className="text-[8px] font-bold text-slate-400 dark:text-slate-500 mt-1">130 GB / 200 GB</span>
-              </div>
-              <div className="relative w-11 h-11 shrink-0 flex items-center justify-center">
-                <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                  <circle cx="18" cy="18" r="14" fill="transparent" stroke="#F1F5F9" strokeWidth="3" className="dark:stroke-slate-800" />
-                  <circle
-                    cx="18"
-                    cy="18"
-                    r="14"
-                    fill="transparent"
-                    stroke="#7DD3FC"
-                    strokeWidth="3"
-                    strokeDasharray={`${0.65 * 2 * Math.PI * 14} ${2 * Math.PI * 14}`}
-                    strokeLinecap="round"
-                  />
-                </svg>
-                <span className="absolute text-[8px] font-extrabold text-[#4A90E2]">65%</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Lado Derecho: UX Ilustrada Kawaii */}
-        <div className="w-full lg:w-60 h-44 shrink-0 flex items-center justify-center relative">
-          <div className="relative w-36 h-36 group select-none">
+        {/* Lado Izquierdo: Saludo dinámico + Mascota */}
+        <div className="flex-1 flex flex-col sm:flex-row items-center gap-6 z-10 w-full">
+          {/* Contenedor circular de la Mascota */}
+          <div className="w-20 h-20 shrink-0 bg-white/10 dark:bg-slate-800/30 rounded-full flex items-center justify-center border border-white/20 dark:border-slate-800/40 shadow-inner overflow-hidden select-none relative group">
             {/* Glowing bubble */}
-            <div className="absolute inset-0 bg-gradient-to-tr from-[#7C6CF2]/15 to-[#FF7657]/15 rounded-full blur-xl animate-pulse group-hover:scale-110 transition-transform duration-500" />
-            
-            {/* Kawaii illustration */}
+            <div className="absolute inset-0 bg-gradient-to-tr from-[#7C6CF2]/10 to-[#FF7657]/10 rounded-full blur-md animate-pulse" />
             <img
               src="/kawaii_teacher.png"
               alt="Mascota Kawaii Avendia"
-              className="w-full h-full object-contain relative z-10 drop-shadow-md transform group-hover:translate-y-[-4px] transition-transform duration-500"
+              className="w-16 h-16 object-contain relative z-10 drop-shadow-md transform group-hover:scale-110 group-hover:translate-y-[-2px] transition-all duration-300"
             />
-
-            {/* Check overlay */}
-            <div className="absolute -top-1 -left-1 bg-[#34D399] border-2 border-white dark:border-slate-900 text-white rounded-full w-6.5 h-6.5 flex items-center justify-center shadow-md text-[8px] animate-bounce z-20">
+            {/* mini check overlay */}
+            <div className="absolute top-0 right-0 bg-[#34D399] border border-white text-white rounded-full w-4 h-4 flex items-center justify-center shadow-md text-[6px] z-20">
               ✓
             </div>
+          </div>
 
-            {/* Calendar overlay */}
-            <div className="absolute bottom-2 -right-1 bg-[#7C6CF2] border-2 border-white dark:border-slate-900 text-white rounded-xl p-1.5 shadow-md animate-pulse z-20">
-              <Calendar className="w-3.5 h-3.5 text-white" />
-            </div>
+          {/* Saludo dinámico y subtítulo */}
+          <div className="text-center sm:text-left">
+            <h2 className="font-montserrat font-black text-2xl sm:text-3xl tracking-tight leading-tight text-white">
+              ¡Hola, {user?.full_name?.split(" ")[0] || "Docente"}! 👋
+            </h2>
+            <p className="text-xs sm:text-sm text-blue-200 mt-2 font-medium max-w-md leading-relaxed">
+              Listo para crear materiales pedagógicos significativos y alineados al CNEB 2026 hoy.
+            </p>
           </div>
         </div>
 
+        {/* Lado Derecho: 3 Tarjetas de Métricas Vidriadas (Glassmorphism) */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full xl:w-auto z-10 shrink-0 select-none">
+          {/* Card 1: Áreas Asignadas */}
+          <div className="bg-white/10 dark:bg-slate-900/40 backdrop-blur-md border border-white/10 dark:border-slate-800/40 rounded-2xl p-4 flex flex-col justify-between min-w-[155px] shadow-lg">
+            <span className="text-[9px] font-bold text-blue-200 dark:text-slate-400 uppercase tracking-widest leading-none">Áreas asignadas</span>
+            <span className="text-2xl font-headings font-black text-white mt-2">
+              {user?.subject ? "1" : "3"}
+            </span>
+            <span className="text-[9px] font-semibold text-blue-100/70 dark:text-slate-400 mt-1 block max-w-[120px] truncate" title={user?.subject || "Planificación Integral"}>
+              {user?.subject || "Matemática y Ciencias"}
+            </span>
+          </div>
+
+          {/* Card 2: Docs Generados */}
+          <div className="bg-white/10 dark:bg-slate-900/40 backdrop-blur-md border border-white/10 dark:border-slate-800/40 rounded-2xl p-4 flex flex-col justify-between min-w-[155px] shadow-lg">
+            <span className="text-[9px] font-bold text-blue-200 dark:text-slate-400 uppercase tracking-widest leading-none">Docs generados</span>
+            <span className="text-2xl font-headings font-black text-white mt-2">24</span>
+            <span className="text-[9px] font-semibold text-blue-100/70 dark:text-slate-400 mt-1 block">12 este mes</span>
+          </div>
+
+          {/* Card 3: Créditos */}
+          <div className="bg-white/10 dark:bg-slate-900/40 backdrop-blur-md border border-white/10 dark:border-slate-800/40 rounded-2xl p-4 flex flex-col justify-between min-w-[155px] shadow-lg">
+            <span className="text-[9px] font-bold text-blue-200 dark:text-slate-400 uppercase tracking-widest leading-none">Créditos</span>
+            <span className="text-2xl font-headings font-black text-white mt-2">
+              {user?.credits !== undefined ? user.credits : 7}
+            </span>
+            <span className="text-[9px] font-semibold text-blue-100/70 dark:text-slate-400 mt-1 block">
+              de {user?.credits_total ?? 7} libres
+            </span>
+          </div>
+        </div>
+
+      </section>
+
+      {/* ════════════════════════════════════════════════════════════════
+          [MÓDULO 2.5: CENTRO DE CONTROL DOCENTE — METRICAS ADICIONALES]
+      ════════════════════════════════════════════════════════════════ */}
+      <section className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
+        {/* Card 1: Proyectos Activos */}
+        <div className="bg-white dark:bg-slate-900 border border-[#E8EDF3] dark:border-slate-800 rounded-2xl p-4 flex items-center justify-between shadow-[0_4px_20px_rgba(74,90,226,0.01)] hover:shadow-md transition-shadow">
+          <div className="flex flex-col">
+            <span className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none">Proyectos Activos</span>
+            <span className="text-2xl font-headings font-black text-slate-900 dark:text-white mt-1">24</span>
+            <span className="text-[8px] font-bold text-emerald-500 mt-1 flex items-center gap-0.5">↑ 12% este mes</span>
+          </div>
+          <div className="w-14 h-9 shrink-0">
+            <svg className="w-full h-full" viewBox="0 0 60 30">
+              <path
+                d="M 5,25 L 15,22 L 25,18 L 35,12 L 45,14 L 55,5"
+                fill="none"
+                stroke="#7C6CF2"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+              />
+              <circle cx="55" cy="5" r="2" fill="#7C6CF2" />
+            </svg>
+          </div>
+        </div>
+
+        {/* Card 2: Tareas Completadas */}
+        <div className="bg-white dark:bg-slate-900 border border-[#E8EDF3] dark:border-slate-800 rounded-2xl p-4 flex items-center justify-between shadow-[0_4px_20px_rgba(74,90,226,0.01)] hover:shadow-md transition-shadow">
+          <div className="flex flex-col">
+            <span className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none">Tareas Completadas</span>
+            <span className="text-2xl font-headings font-black text-slate-900 dark:text-white mt-1">78%</span>
+            <span className="text-[8px] font-bold text-slate-400 dark:text-slate-500 mt-1">64 / 82 completadas</span>
+          </div>
+          <div className="relative w-11 h-11 shrink-0 flex items-center justify-center">
+            <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+              <circle cx="18" cy="18" r="14" fill="transparent" stroke="#F1F5F9" strokeWidth="3" className="dark:stroke-slate-800" />
+              <circle
+                cx="18"
+                cy="18"
+                r="14"
+                fill="transparent"
+                stroke="#34D399"
+                strokeWidth="3"
+                strokeDasharray={`${0.78 * 2 * Math.PI * 14} ${2 * Math.PI * 14}`}
+                strokeLinecap="round"
+              />
+            </svg>
+            <span className="absolute text-[8px] font-extrabold text-[#34D399]">78%</span>
+          </div>
+        </div>
+
+        {/* Card 3: Recursos Utilizados */}
+        <div className="bg-white dark:bg-slate-900 border border-[#E8EDF3] dark:border-slate-800 rounded-2xl p-4 flex items-center justify-between shadow-[0_4px_20px_rgba(74,90,226,0.01)] hover:shadow-md transition-shadow">
+          <div className="flex flex-col">
+            <span className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none">Recursos Utilizados</span>
+            <span className="text-2xl font-headings font-black text-slate-900 dark:text-white mt-1">65%</span>
+            <span className="text-[8px] font-bold text-slate-400 dark:text-slate-500 mt-1">130 GB / 200 GB</span>
+          </div>
+          <div className="relative w-11 h-11 shrink-0 flex items-center justify-center">
+            <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+              <circle cx="18" cy="18" r="14" fill="transparent" stroke="#F1F5F9" strokeWidth="3" className="dark:stroke-slate-800" />
+              <circle
+                cx="18"
+                cy="18"
+                r="14"
+                fill="transparent"
+                stroke="#7DD3FC"
+                strokeWidth="3"
+                strokeDasharray={`${0.65 * 2 * Math.PI * 14} ${2 * Math.PI * 14}`}
+                strokeLinecap="round"
+              />
+            </svg>
+            <span className="absolute text-[8px] font-extrabold text-[#4A90E2]">65%</span>
+          </div>
+        </div>
       </section>
 
       {/* ════════════════════════════════════════════════════════════════
