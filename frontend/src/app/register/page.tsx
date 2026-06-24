@@ -1,12 +1,15 @@
 "use client";
 
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { BACKEND_URL } from "@/config/api";
 
-export default function RegisterPage() {
+function RegisterFormContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const referralCode = searchParams.get("token") || "";
+
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -41,7 +44,8 @@ export default function RegisterPage() {
           email,
           password,
           full_name: fullName,
-          role: "DOCENTE"
+          role: "DOCENTE",
+          referral_code: referralCode || null,
         }),
       });
 
@@ -85,6 +89,12 @@ export default function RegisterPage() {
         {error && (
           <div className="p-3 bg-red-50 border border-red-200 text-red-600 rounded-xl text-xs font-semibold leading-relaxed">
             ⚠️ {error}
+          </div>
+        )}
+
+        {referralCode && (
+          <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-xs font-semibold leading-relaxed">
+            🎉 Has sido invitado. ¡Recibirás 5 créditos adicionales al registrarte!
           </div>
         )}
 
@@ -173,5 +183,17 @@ export default function RegisterPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-bg-main flex items-center justify-center p-6 font-body">
+        <div className="w-8 h-8 border-4 border-[#7C6CF2] border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <RegisterFormContent />
+    </Suspense>
   );
 }

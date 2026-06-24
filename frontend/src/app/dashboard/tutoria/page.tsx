@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { BACKEND_URL } from "@/config/api";
+import GenerationLoadingOverlay from "@/components/shared/GenerationLoadingOverlay";
 
 const TEMAS_TUTORIA = [
   "Proyecto de Vida",
@@ -270,6 +271,7 @@ export default function TutoriaPage() {
           </button>
         </div>
       </form>
+      <GenerationLoadingOverlay isOpen={loading} />
     </div>
   );
 }

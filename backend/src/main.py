@@ -13,6 +13,7 @@ from src.rag.router import router as rag_router
 from src.chatbot.router import router as chatbot_router
 from src.documents.router import router as documents_router
 from src.admin.router import router as admin_router
+from src.referrals.router import router as referrals_router
 
 async def verify_gemini_connection() -> None:
     """
@@ -89,6 +90,7 @@ app.include_router(rag_router, prefix="/api/v1/rag", tags=["Motor RAG"])
 app.include_router(chatbot_router, prefix="/api/v1/chatbot", tags=["Chatbot Inteligente (EduAsesor)"])
 app.include_router(documents_router, prefix="/api/v1/documents", tags=["Generación de Documentos (.docx)"])
 app.include_router(admin_router, prefix="/api/v1/admin", tags=["Administración"])
+app.include_router(referrals_router, prefix="/api/v1/referrals", tags=["Referidos"])
 
 @app.get("/health", tags=["Salud"])
 async def health_check():

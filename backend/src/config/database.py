@@ -19,6 +19,7 @@ from src.models.plan_anual import PlanAnual
 from src.models.unidad import Unidad
 from src.models.sesion import Sesion
 from src.models.ficha_aprendizaje import FichaAprendizaje
+from src.models.referral import ReferralRecord, WalletTransaction, ReferralStatus
 from src.auth.security import hash_password
 
 import ssl
@@ -115,21 +116,24 @@ async def init_db() -> None:
             reg_date = now - timedelta(days=random.randint(5, 30))
             last_acc = now - timedelta(hours=random.randint(1, 48)) if status == "activo" else None
             
-            docente = User(
-                email=email,
-                password_hash=hash_password("password123"),
-                full_name=name,
-                role=UserRole.DOCENTE if "Auxiliar" not in name else UserRole.AUXILIAR,
-                plan_tier="PREMIUM" if creds > 7 else "FREE",
-                credits=creds,
-                credits_total=creds_tot,
-                status=status,
-                phone=phone,
-                created_by=creator,
-                areas=areas,
-                last_access=last_acc,
-                created_at=reg_date
-            )
+            docente_kwargs = {
+                "email": email,
+                "password_hash": hash_password("password123"),
+                "full_name": name,
+                "role": UserRole.DOCENTE if "Auxiliar" not in name else UserRole.AUXILIAR,
+                "plan_tier": "PREMIUM" if creds > 7 else "FREE",
+                "credits": creds,
+                "credits_total": creds_tot,
+                "status": status,
+                "phone": phone,
+                "created_by": creator,
+                "areas": areas,
+                "last_access": last_acc,
+                "created_at": reg_date
+            }
+            if email == "docente@avendia.edu":
+                docente_kwargs["referral_code"] = "D1EUQX"
+            docente = User(**docente_kwargs)
             session.add(docente)
             docentes_db.append(docente)
 
@@ -218,6 +222,23 @@ async def init_db() -> None:
         res_doc = await session.execute(select(User).where(User.email == "docente@avendia.edu"))
         doc_user = res_doc.scalar_one_or_none()
         if doc_user:
+            # Sembrar datos de referidos
+            ref_rec = ReferralRecord(
+                referrer_id=doc_user.id,
+                referred_email="invitado@avendia.edu",
+                status=ReferralStatus.REGISTERED,
+                created_at=now - timedelta(days=1)
+            )
+            session.add(ref_rec)
+
+            wallet_tx = WalletTransaction(
+                user_id=doc_user.id,
+                amount=5,
+                description="Bono por registro de referido (invitado@avendia.edu)",
+                created_at=now - timedelta(days=1)
+            )
+            session.add(wallet_tx)
+
             # Crear Plan Anual
             mock_plan = PlanAnual(
                 docente_id=doc_user.id,

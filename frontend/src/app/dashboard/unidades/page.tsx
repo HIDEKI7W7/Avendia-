@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { BACKEND_URL } from "@/config/api";
+import GenerationLoadingOverlay from "@/components/shared/GenerationLoadingOverlay";
 
 interface PlanAnual {
   id: string;
@@ -413,6 +414,7 @@ export default function UnidadesPage() {
           </button>
         </div>
       </form>
+      <GenerationLoadingOverlay isOpen={loading} />
     </div>
   );
 }

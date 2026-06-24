@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { BACKEND_URL } from "@/config/api";
+import GenerationLoadingOverlay from "@/components/shared/GenerationLoadingOverlay";
 
 const INDICADORES_SUGERIDOS = [
   "Participa activamente en clase",
@@ -225,6 +226,7 @@ export default function ListaCotejoPage() {
           </button>
         </div>
       </form>
+      <GenerationLoadingOverlay isOpen={loading} />
     </div>
   );
 }

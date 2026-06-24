@@ -1,7 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { BACKEND_URL } from "@/config/api";
+import GenerationLoadingOverlay from "@/components/shared/GenerationLoadingOverlay";
+import AutosaveIndicator from "@/components/shared/AutosaveIndicator";
+import PrintPreview from "@/components/shared/PrintPreview";
+import Confetti from "@/components/shared/Confetti";
 
 const DIMENSIONES_SUGERIDAS = [
   "Comprensión conceptual",
@@ -52,6 +56,18 @@ export default function RubricaEvaluacionPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
+
+  // Simular guardado automático cuando cambia el formulario
+  useEffect(() => {
+    if (form === initialForm) return;
+    setIsSaving(true);
+    const timer = setTimeout(() => {
+      setIsSaving(false);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [form]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -111,6 +127,7 @@ export default function RubricaEvaluacionPage() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       setSuccess(true);
+      setShowConfetti(true);
       setForm(initialForm);
     } catch (e: any) {
       setError(e.message || "Ocurrió un error inesperado.");
@@ -121,13 +138,16 @@ export default function RubricaEvaluacionPage() {
 
   return (
     <div className="max-w-3xl">
-      <div className="mb-8">
-        <h1 className="font-headings font-bold text-2xl text-slate-900 tracking-tight">
-          🎯 Rúbrica de Evaluación
-        </h1>
-        <p className="text-sm text-slate-500 mt-1 font-semibold">
-          Genera rúbricas analíticas y holísticas alineadas al CNEB con descriptores detallados por nivel
-        </p>
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="font-headings font-bold text-2xl text-slate-900 tracking-tight">
+            🎯 Rúbrica de Evaluación
+          </h1>
+          <p className="text-sm text-slate-500 mt-1 font-semibold">
+            Genera rúbricas analíticas y holísticas alineadas al CNEB con descriptores detallados por nivel
+          </p>
+        </div>
+        <AutosaveIndicator isSaving={isSaving} />
       </div>
 
       <form onSubmit={handleSubmit} className="bg-white border border-border-custom rounded-2xl shadow-sm overflow-hidden">
@@ -233,6 +253,29 @@ export default function RubricaEvaluacionPage() {
           </button>
         </div>
       </form>
+
+      {/* Rúbrica Live Print Preview */}
+      <div className="mt-8">
+        <PrintPreview
+          type="rubrica"
+          data={{
+            area_curricular: form.area_curricular,
+            grado: form.grado,
+            competencia_evaluar: form.competencia || "—",
+            proposito: form.contexto || form.desempeno_evaluado || "—",
+            criterios: form.dimensiones.map((dim) => ({
+              criterio: dim,
+              inicio: "Muestra un nivel de inicio y requiere acompañamiento.",
+              proceso: "Muestra dificultades en proceso y avanza con apoyo.",
+              logrado: "Muestra nivel de logro esperado para el criterio.",
+              destacado: "Muestra un nivel sobresaliente en el desarrollo.",
+            })),
+          }}
+        />
+      </div>
+
+      <GenerationLoadingOverlay isOpen={loading} />
+      <Confetti active={showConfetti} onClose={() => setShowConfetti(false)} />
     </div>
   );
 }

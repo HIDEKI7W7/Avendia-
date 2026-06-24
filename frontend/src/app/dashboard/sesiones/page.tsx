@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { BACKEND_URL } from "@/config/api";
+import GenerationLoadingOverlay from "@/components/shared/GenerationLoadingOverlay";
 
 interface Unidad {
   id: string;
@@ -376,6 +377,7 @@ export default function SesionesPage() {
           </button>
         </div>
       </form>
+      <GenerationLoadingOverlay isOpen={loading} />
     </div>
   );
 }

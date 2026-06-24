@@ -2,6 +2,10 @@
 
 import React, { useState, useEffect } from "react";
 import { BACKEND_URL } from "@/config/api";
+import GenerationLoadingOverlay from "@/components/shared/GenerationLoadingOverlay";
+import AutosaveIndicator from "@/components/shared/AutosaveIndicator";
+import PrintPreview from "@/components/shared/PrintPreview";
+import Confetti from "@/components/shared/Confetti";
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -209,6 +213,18 @@ export default function PlanAnualPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
+
+  // Simular guardado automático cuando cambia el formulario
+  useEffect(() => {
+    if (form === initialForm) return;
+    setIsSaving(true);
+    const timer = setTimeout(() => {
+      setIsSaving(false);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [form]);
 
   // States to build/edit competencies
   const [selectedCompId, setSelectedCompId] = useState("");
@@ -434,6 +450,7 @@ export default function PlanAnualPage() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       setSuccess(true);
+      setShowConfetti(true);
       setStep(1);
       setForm(initialForm);
     } catch (e: any) {
@@ -455,13 +472,16 @@ export default function PlanAnualPage() {
   return (
     <div className="max-w-4xl font-body">
       {/* Encabezado */}
-      <div className="mb-8">
-        <h1 className="font-headings font-bold text-2xl text-slate-900 tracking-tight">
-          📅 Plan Curricular Anual
-        </h1>
-        <p className="text-sm text-slate-500 mt-1 font-semibold">
-          Genera tu plan curricular anual (CNEB) combinando rigurosidad técnica y UX de multipasos.
-        </p>
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="font-headings font-bold text-2xl text-slate-900 tracking-tight">
+            📅 Plan Curricular Anual
+          </h1>
+          <p className="text-sm text-slate-500 mt-1 font-semibold">
+            Genera tu plan curricular anual (CNEB) combinando rigurosidad técnica y UX de multipasos.
+          </p>
+        </div>
+        <AutosaveIndicator isSaving={isSaving} />
       </div>
 
       {/* Stepper */}
@@ -1027,6 +1047,9 @@ export default function PlanAnualPage() {
               </div>
             </div>
 
+            {/* Previsualización Física A4 */}
+            <PrintPreview type="plan" data={form} />
+
             {/* Banner IA */}
             <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-start gap-3 text-xs">
               <span className="text-blue-500 text-base mt-0.5">🤖</span>
@@ -1090,6 +1113,8 @@ export default function PlanAnualPage() {
           )}
         </div>
       </div>
+      <GenerationLoadingOverlay isOpen={loading} />
+      <Confetti active={showConfetti} onClose={() => setShowConfetti(false)} />
     </div>
   );
 }

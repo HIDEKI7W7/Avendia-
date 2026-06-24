@@ -1,8 +1,13 @@
 import uuid
+import secrets
 from datetime import datetime
 from enum import Enum
 from typing import Optional
 from sqlmodel import Field, SQLModel
+
+def generate_referral_code() -> str:
+    return secrets.token_hex(3).upper()
+
 
 class UserRole(str, Enum):
     DOCENTE = "DOCENTE"
@@ -70,4 +75,41 @@ class User(SQLModel, table=True):
         index=True,
         nullable=False
     )
+    referral_code: str = Field(
+        default_factory=generate_referral_code,
+        unique=True,
+        index=True,
+        nullable=False
+    )
+    referrer_id: Optional[uuid.UUID] = Field(
+        default=None,
+        foreign_key="users.id",
+        nullable=True
+    )
+    country: str = Field(
+        default="Perú",
+        nullable=False
+    )
+    school: str = Field(
+        default="",
+        nullable=False
+    )
+    educational_level: str = Field(
+        default="",
+        nullable=False
+    )
+    grade: str = Field(
+        default="",
+        nullable=False
+    )
+    subject: str = Field(
+        default="",
+        nullable=False
+    )
+    rag_preferences: str = Field(
+        default="",
+        nullable=False
+    )
+
+
 

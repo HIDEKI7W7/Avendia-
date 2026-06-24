@@ -1,22 +1,16 @@
 import type { Metadata } from "next";
-import { Montserrat, Source_Sans_3 } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
-const montserrat = Montserrat({
-  variable: "--font-montserrat",
+const plusJakartaSans = Plus_Jakarta_Sans({
+  variable: "--font-plus-jakarta",
   subsets: ["latin"],
-  weight: ["600", "700"],
-});
-
-const sourceSans = Source_Sans_3({
-  variable: "--font-source-sans",
-  subsets: ["latin"],
-  weight: ["400", "600", "700"],
+  weight: ["400", "500", "600", "700", "800"],
 });
 
 export const metadata: Metadata = {
   title: "AVENDIA - Generador de Documentos Escolares IA",
-  description: "Plataforma SaaS inteligente para generación de documentos y soporte administrativo con RAG.",
+  description: "Plataforma SaaS inteligente para generación de documentos y soporte administrative con RAG.",
 };
 
 export default function RootLayout({
@@ -27,7 +21,7 @@ export default function RootLayout({
   return (
     <html
       lang="es"
-      className={`${montserrat.variable} ${sourceSans.variable} h-full antialiased`}
+      className={`${plusJakartaSans.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col font-body bg-bg-app text-slate-800" suppressHydrationWarning>{children}</body>

@@ -26,6 +26,80 @@ class DocumentGenerateRequest(BaseModel):
     title: str
     form_data: dict     # Campos del formulario dinámico en JSON
 
+# Esquema de respuesta del historial
+class DocumentHistoryItem(BaseModel):
+    id: str
+    title: str
+    document_type: str
+    created_at: str
+
+@router.get("/", status_code=status.HTTP_200_OK, response_model=List[DocumentHistoryItem])
+async def list_documents(
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(RoleChecker([
+        UserRole.DOCENTE,
+        UserRole.DIRECTOR,
+        UserRole.AUXILIAR,
+        UserRole.ADMIN
+    ])),
+    document_type: Optional[str] = Query(default=None, description="Filtrar por tipo de documento"),
+    order: Optional[str] = Query(default="desc", description="Orden cronológico: asc | desc"),
+):
+    """
+    Devuelve el historial de documentos generados por el docente autenticado.
+    Soporta filtrado por tipo y ordenamiento cronológico.
+    """
+    from sqlalchemy import desc, asc as asc_fn
+    stmt = select(Document).where(Document.user_id == current_user.id)
+    if document_type:
+        stmt = stmt.where(Document.document_type == document_type)
+    if order == "asc":
+        stmt = stmt.order_by(asc_fn(Document.created_at))
+    else:
+        stmt = stmt.order_by(desc(Document.created_at))
+
+    result = await session.execute(stmt)
+    documents = result.scalars().all()
+    return [
+        DocumentHistoryItem(
+            id=str(d.id),
+            title=d.title,
+            document_type=d.document_type,
+            created_at=d.created_at.isoformat(),
+        )
+        for d in documents
+    ]
+
+@router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_document(
+    document_id: str,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(RoleChecker([
+        UserRole.DOCENTE,
+        UserRole.DIRECTOR,
+        UserRole.AUXILIAR,
+        UserRole.ADMIN
+    ])),
+):
+    """
+    Elimina un documento del historial del docente autenticado.
+    """
+    try:
+        doc_uuid = uuid.UUID(document_id)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="ID inválido")
+
+    result = await session.execute(
+        select(Document).where(Document.id == doc_uuid, Document.user_id == current_user.id)
+    )
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Documento no encontrado")
+
+    await session.delete(doc)
+    await session.commit()
+
+
 @router.post("/generate", status_code=status.HTTP_200_OK)
 async def generate_word_document(
     payload: DocumentGenerateRequest,

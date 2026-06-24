@@ -11,6 +11,13 @@ export interface UserResponse {
   plan_tier: string;
   credits: number;
   credits_total: number;
+  phone?: string;
+  country?: string;
+  school?: string;
+  educational_level?: string;
+  grade?: string;
+  subject?: string;
+  rag_preferences?: string;
 }
 
 interface UserContextType {

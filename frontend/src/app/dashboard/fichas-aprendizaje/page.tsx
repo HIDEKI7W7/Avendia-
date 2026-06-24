@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { BACKEND_URL } from "@/config/api";
+import GenerationLoadingOverlay from "@/components/shared/GenerationLoadingOverlay";
 
 const TIPOS_FICHA = [
   "Ficha de Comprensión Lectora",
@@ -269,6 +270,7 @@ export default function FichasAprendizajePage() {
           </button>
         </div>
       </form>
+      <GenerationLoadingOverlay isOpen={loading} />
     </div>
   );
 }

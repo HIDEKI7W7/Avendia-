@@ -203,13 +203,30 @@ export default function EduAsesorChat() {
         </div>
       )}
 
-      {/* Botón Flotante de Activación */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-14 h-14 rounded-full bg-morado-ia hover:bg-morado-ia/90 text-white text-2xl flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-200 cursor-pointer transform hover:scale-105"
-      >
-        💬
-      </button>
+      {/* Botón Flotante de Activación - Profesora Waving */}
+      {!isOpen && (
+        <button
+          id="chatbot-toggle-button"
+          onClick={() => setIsOpen(true)}
+          className="relative w-24 h-24 hover:scale-105 transition-all duration-300 cursor-pointer select-none group focus:outline-none"
+          title="Consultar a EduAsesor IA"
+        >
+          {/* Brillo de fondo */}
+          <div className="absolute inset-2 bg-gradient-to-tr from-[#7C6CF2]/25 to-[#FF7657]/25 rounded-full blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          
+          <img
+            src="/teacher_loading_asset.png"
+            alt="EduAsesor Chatbot"
+            className="w-full h-full object-contain relative z-10 drop-shadow-xl animate-bounce"
+            style={{ animationDuration: "3.5s" }}
+          />
+
+          {/* Micro-bocadillo flotante */}
+          <div className="absolute -top-1.5 right-1 bg-white dark:bg-slate-900 border border-[#E8EDF3] dark:border-slate-800 text-[8px] font-headings font-black text-[#7C6CF2] dark:text-[#9A8DFF] px-2 py-0.5 rounded-full shadow-md select-none pointer-events-none uppercase tracking-wider scale-90 group-hover:scale-100 transition-transform">
+            ¿Preguntas? 💬
+          </div>
+        </button>
+      )}
     </div>
   );
 }

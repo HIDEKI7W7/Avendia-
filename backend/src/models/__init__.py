@@ -7,6 +7,7 @@ from .plan_anual import PlanAnual
 from .unidad import Unidad
 from .sesion import Sesion
 from .ficha_aprendizaje import FichaAprendizaje
+from .referral import ReferralRecord, WalletTransaction, ReferralStatus
 
 __all__ = [
     "User",
@@ -20,7 +21,11 @@ __all__ = [
     "PlanAnual",
     "Unidad",
     "Sesion",
-    "FichaAprendizaje"
+    "FichaAprendizaje",
+    "ReferralRecord",
+    "WalletTransaction",
+    "ReferralStatus"
 ]
+
 
 
