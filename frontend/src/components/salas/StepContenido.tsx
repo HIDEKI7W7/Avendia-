@@ -13,6 +13,8 @@ interface OrigenOption {
   titulo: string;
   descripcion: string;
   icon: React.ReactNode;
+  iconColor: string;
+  iconBg: string;
 }
 
 const OPCIONES: OrigenOption[] = [
@@ -21,21 +23,27 @@ const OPCIONES: OrigenOption[] = [
     titulo: "Desde un tema o tus preguntas",
     descripcion:
       "Escribe un tema o pega tus propias preguntas y la IA las usará como base de la evaluación.",
-    icon: <PenTool className="w-6 h-6" />,
+    icon: <PenTool className="w-5.5 h-5.5" />,
+    iconColor: "text-[#7C6CF2]",
+    iconBg: "bg-[#7C6CF2]/10",
   },
   {
     valor: "documento",
     titulo: "Desde un Documento interno",
     descripcion:
       "Selecciona uno de tus documentos generados en AVENDIA (Unidad, Plan Anual, etc.) como fuente.",
-    icon: <BookOpen className="w-6 h-6" />,
+    icon: <BookOpen className="w-5.5 h-5.5" />,
+    iconColor: "text-[#4A90E2]",
+    iconBg: "bg-[#4A90E2]/10",
   },
   {
     valor: "archivo",
     titulo: "Subir archivo",
     descripcion:
       "Carga un PDF, Word o texto plano desde tu dispositivo para que la IA extraiga el contenido.",
-    icon: <Upload className="w-6 h-6" />,
+    icon: <Upload className="w-5.5 h-5.5" />,
+    iconColor: "text-[#34D399]",
+    iconBg: "bg-[#34D399]/10",
   },
 ];
 
@@ -49,16 +57,16 @@ export default function StepContenido({ config, onChange }: StepContenidoProps) 
     <div className="flex flex-col gap-6">
       {/* Encabezado */}
       <div>
-        <h3 className="font-headings font-black text-lg text-slate-900 leading-tight">
+        <h3 className="font-headings font-black text-lg text-slate-900 dark:text-white leading-tight">
           ¿De dónde viene el contenido?
         </h3>
-        <p className="text-xs text-slate-500 mt-1">
+        <p className="text-xs text-slate-500 mt-1 font-body">
           La fuente que elijas determinará cómo la IA preparará las preguntas y el contexto de la sala.
         </p>
       </div>
 
-      {/* Grid triple de tarjetas */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      {/* Grid triple de tarjetas Bento */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 select-none">
         {OPCIONES.map((op) => {
           const isSelected = config.origenContenido === op.valor;
           return (
@@ -66,18 +74,18 @@ export default function StepContenido({ config, onChange }: StepContenidoProps) 
               key={op.valor}
               type="button"
               onClick={() => onChange({ origenContenido: op.valor })}
-              className={`flex flex-col items-center gap-3 p-5 rounded-2xl border-2 text-center cursor-pointer transition-all duration-300 ease-in-out hover:scale-[1.03] group ${
+              className={`flex flex-col items-center gap-4 p-5 rounded-3xl border-2 text-center cursor-pointer transition-all duration-350 ease-out hover:scale-[1.03] group ${
                 isSelected
-                  ? "bg-morado-ia/5 border-morado-ia shadow-[0_8px_30px_rgba(124,108,242,0.1)]"
-                  : "bg-white border-[#E8EDF3] hover:border-slate-300 hover:shadow-[0_8px_30px_rgba(0,0,0,0.02)]"
+                  ? "bg-gradient-to-br from-[#7C6CF2]/10 via-[#7C6CF2]/5 to-transparent border-[#7C6CF2] shadow-[0_12px_30px_rgba(124,108,242,0.08)]"
+                  : "bg-white dark:bg-slate-900 border-[#E8EDF3] dark:border-slate-800 hover:border-slate-350 dark:hover:border-slate-700 hover:shadow-[0_8px_30px_rgba(0,0,0,0.02)]"
               }`}
             >
-              {/* Ícono */}
+              {/* Ícono con color de la marca */}
               <div
-                className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors duration-300 ${
+                className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 group-hover:scale-108 group-hover:rotate-2 shadow-inner ${
                   isSelected
-                    ? "bg-[#7C6CF2]/10 text-[#7C6CF2]"
-                    : "bg-slate-50 text-slate-500 group-hover:bg-slate-100 shadow-inner"
+                    ? `${op.iconBg} ${op.iconColor}`
+                    : "bg-slate-50 dark:bg-slate-800 text-slate-550 group-hover:bg-slate-100"
                 }`}
               >
                 {op.icon}
@@ -85,25 +93,25 @@ export default function StepContenido({ config, onChange }: StepContenidoProps) 
 
               {/* Título */}
               <span
-                className={`font-headings font-bold text-sm leading-tight transition-colors duration-300 ${
-                  isSelected ? "text-[#7C6CF2]" : "text-slate-800"
+                className={`font-montserrat font-bold text-sm leading-tight transition-colors duration-300 ${
+                  isSelected ? "text-[#7C6CF2]" : "text-slate-800 dark:text-slate-200"
                 }`}
               >
                 {op.titulo}
               </span>
 
               {/* Descripción */}
-              <p className="text-[11px] text-slate-500 leading-relaxed">
+              <p className="text-[11px] text-slate-500 dark:text-slate-450 leading-relaxed font-body font-semibold">
                 {op.descripcion}
               </p>
 
               {/* Check indicador de selección */}
               {isSelected ? (
-                <div className="w-5 h-5 rounded-full bg-morado-ia text-white flex items-center justify-center mt-auto shadow-sm shadow-[#7C6CF2]/30">
+                <div className="w-5 h-5 rounded-full bg-[#7C6CF2] text-white flex items-center justify-center mt-auto shadow-sm shadow-[#7C6CF2]/30">
                   <Check className="w-3.5 h-3.5 stroke-[3]" />
                 </div>
               ) : (
-                <div className="w-5 h-5 rounded-full border border-slate-200 mt-auto" />
+                <div className="w-5 h-5 rounded-full border border-slate-200 dark:border-slate-800 mt-auto" />
               )}
             </button>
           );

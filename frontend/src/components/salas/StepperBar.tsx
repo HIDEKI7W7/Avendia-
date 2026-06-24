@@ -39,10 +39,10 @@ export default function StepperBar({ currentStep }: StepperBarProps) {
               <div
                 className={`w-8 h-8 rounded-full flex items-center justify-center font-headings font-black text-sm transition-all duration-300 ${
                   isCompleted
-                    ? "bg-emerald-500 text-white shadow-sm shadow-emerald-200"
+                    ? "bg-[#34D399] text-white shadow-sm shadow-emerald-200"
                     : isActive
-                    ? "bg-[#7C6CF2] text-white shadow-[0_4px_12px_rgba(124,108,242,0.3)] ring-4 ring-[#7C6CF2]/25"
-                    : "bg-slate-50 text-slate-400 border border-slate-200/50 shadow-[inset_0_1px_2px_rgba(0,0,0,0.01)]"
+                    ? "bg-[#7C6CF2] text-white shadow-[0_0_15px_rgba(124,108,242,0.5)] ring-4 ring-[#7C6CF2]/30 animate-[pulse_2s_infinite]"
+                    : "bg-slate-100/50 dark:bg-slate-800/40 text-slate-400 border border-slate-200/40 shadow-[inset_0_1px_2.5px_rgba(0,0,0,0.01)]"
                 }`}
               >
                 {isCompleted ? (

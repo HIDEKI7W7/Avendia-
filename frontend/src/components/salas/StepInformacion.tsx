@@ -58,10 +58,10 @@ export default function StepInformacion({
           onChange={(e) => onChange({ nombre: e.target.value })}
           placeholder="Ej: Examen de Biología — 5to Secundaria"
           maxLength={100}
-          className={`w-full px-4 py-3 text-sm text-slate-800 placeholder:text-slate-400 bg-white border rounded-xl outline-none transition-all duration-300 font-body leading-relaxed ${
+          className={`w-full px-5 py-3.5 text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 bg-white dark:bg-slate-900 border rounded-2xl outline-none transition-all duration-300 font-body leading-relaxed ${
             error && !config.nombre
-              ? "border-red-300 ring-4 ring-red-100"
-              : "border-slate-200 focus:border-morado-ia focus:ring-4 focus:ring-morado-ia/10 focus:shadow-[0_4px_12px_rgba(124,108,242,0.04)]"
+              ? "border-red-300 ring-4 ring-red-100/50"
+              : "border-slate-200/80 dark:border-slate-800 focus:border-[#7C6CF2] focus:ring-4 focus:ring-[#7C6CF2]/15 focus:shadow-[0_8px_30px_rgba(124,108,242,0.06)]"
           }`}
         />
         <span className="text-[10px] text-slate-400 text-right">
@@ -70,8 +70,8 @@ export default function StepInformacion({
       </div>
 
       {/* Campo: Instrucciones para los estudiantes */}
-      <div className="flex flex-col gap-1.5">
-        <label className="text-xs font-bold text-slate-700">
+      <div className="flex flex-col gap-1.5 font-body">
+        <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
           Instrucciones para los estudiantes
         </label>
         <textarea
@@ -79,16 +79,16 @@ export default function StepInformacion({
           onChange={(e) => onChange({ instruccionesEstudiante: e.target.value })}
           placeholder="Ej: Lee con atención cada pregunta antes de responder. Dispones de 30 minutos para completar la evaluación."
           rows={4}
-          className="w-full px-4 py-3 text-sm text-slate-800 placeholder:text-slate-400 bg-white border border-slate-200 rounded-xl outline-none focus:border-morado-ia focus:ring-4 focus:ring-morado-ia/10 focus:shadow-[0_4px_12px_rgba(124,108,242,0.04)] transition-all duration-300 resize-none font-body leading-relaxed"
+          className="w-full px-5 py-3.5 text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl outline-none focus:border-[#7C6CF2] focus:ring-4 focus:ring-[#7C6CF2]/15 focus:shadow-[0_8px_30px_rgba(124,108,242,0.06)] transition-all duration-300 resize-none font-body leading-relaxed"
         />
-        <p className="text-[10px] text-slate-400 leading-relaxed">
+        <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-relaxed font-semibold">
           Estas instrucciones aparecerán al inicio de la sesión para orientar al estudiante.
         </p>
       </div>
 
       {/* Campo: Vincular a un aula */}
-      <div className="flex flex-col gap-1.5">
-        <label className="text-xs font-bold text-slate-700">
+      <div className="flex flex-col gap-1.5 font-body">
+        <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
           Vincular a un aula
         </label>
         <div className="relative">
@@ -97,7 +97,7 @@ export default function StepInformacion({
             onChange={(e) =>
               onChange({ aulaVinculadaId: e.target.value || null })
             }
-            className="w-full appearance-none pl-4 pr-10 py-3 text-sm text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-morado-ia focus:ring-4 focus:ring-morado-ia/10 focus:shadow-[0_4px_12px_rgba(124,108,242,0.04)] transition-all duration-300 cursor-pointer font-body"
+            className="w-full appearance-none pl-5 pr-10 py-3.5 text-sm text-slate-750 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl outline-none focus:border-[#7C6CF2] focus:ring-4 focus:ring-[#7C6CF2]/15 focus:shadow-[0_8px_30px_rgba(124,108,242,0.06)] transition-all duration-300 cursor-pointer font-body"
           >
             {AULAS_MOCK.map((a) => (
               <option key={String(a.id)} value={a.id ?? ""}>

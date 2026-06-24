@@ -189,7 +189,7 @@ export default function CrearSalaPage() {
                 type="button"
                 onClick={handleCrear}
                 disabled={isCreating}
-                className="flex items-center gap-2 px-7 py-2.5 rounded-xl bg-[#FF7657] hover:bg-[#e86646] text-white text-xs font-black transition-all duration-300 ease-in-out hover:scale-[1.02] active:scale-[0.97] shadow-[0_4px_12px_rgba(255,118,87,0.2)] hover:shadow-[0_6px_16px_rgba(255,118,87,0.3)] cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 px-7 py-2.5 rounded-xl bg-gradient-to-r from-[#4A90E2] to-[#7C6CF2] hover:brightness-110 text-white text-xs font-headings font-black transition-all duration-300 ease-in-out hover:scale-[1.02] active:scale-[0.97] shadow-[0_4px_14px_rgba(124,108,242,0.2)] hover:shadow-[0_6px_20px_rgba(124,108,242,0.3)] cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
               >
                 {isCreating ? (
                   <>
@@ -207,7 +207,7 @@ export default function CrearSalaPage() {
               <button
                 type="button"
                 onClick={handleNext}
-                className="flex items-center gap-1.5 px-7 py-2.5 rounded-xl bg-morado-ia hover:bg-[#6b5ae0] text-white text-xs font-black transition-all duration-300 ease-in-out hover:scale-[1.02] active:scale-[0.97] shadow-[0_4px_12px_rgba(124,108,242,0.2)] hover:shadow-[0_6px_16px_rgba(124,108,242,0.3)] cursor-pointer"
+                className="flex items-center gap-1.5 px-7 py-2.5 rounded-xl bg-[#7C6CF2] hover:bg-[#6858E0] text-white text-xs font-headings font-black transition-all duration-300 ease-in-out hover:scale-[1.02] active:scale-[0.97] shadow-[0_4px_12px_rgba(124,108,242,0.15)] hover:shadow-[0_6px_16px_rgba(124,108,242,0.25)] cursor-pointer"
               >
                 Siguiente
                 <ArrowRight className="w-3.5 h-3.5" />
