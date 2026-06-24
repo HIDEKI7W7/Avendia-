@@ -113,7 +113,7 @@ export default function CommandPalette() {
       name: "Historial de Documentos",
       category: "Navegación",
       icon: <FileText className="w-4 h-4" />,
-      action: () => router.push("/dashboard/documentos"),
+      action: () => router.push("/dashboard/historial"),
     },
     {
       id: "salas",

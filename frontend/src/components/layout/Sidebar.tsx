@@ -40,7 +40,7 @@ export default function Sidebar() {
     { name: "Herramientas", icon: <LayoutGrid className="w-4.5 h-4.5" />, path: "/dashboard/herramientas" },
     { name: "EduAsesor Chat", icon: <MessageSquare className="w-4.5 h-4.5" />, path: "/dashboard/chat" },
     { name: "Mis aulas", icon: <GraduationCap className="w-4.5 h-4.5" />, path: "/dashboard/aulas" },
-    { name: "Documentos", icon: <FileText className="w-4.5 h-4.5" />, path: "/dashboard/documentos" },
+    { name: "Documentos", icon: <FileText className="w-4.5 h-4.5" />, path: "/dashboard/historial" },
     { name: "Salas Avendia", icon: <Users className="w-4.5 h-4.5" />, path: "/dashboard/salas" },
   ];
 
