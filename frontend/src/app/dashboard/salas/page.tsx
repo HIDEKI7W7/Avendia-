@@ -274,16 +274,25 @@ function SalasPageContent() {
       ) : (
         /* ── Empty State con Escena de Sala Flotante Kawaii ── */
         <div className="flex flex-col items-center justify-center border-2 border-dashed border-[#E8EDF3] dark:border-slate-800 rounded-[2rem] py-16 px-8 gap-6 text-center bg-white/40 dark:bg-slate-900/20 hover:bg-white/70 dark:hover:bg-slate-900/40 transition-all duration-500 shadow-[inset_0_2px_10px_rgba(0,0,0,0.01)] hover:shadow-[0_20px_50px_rgba(124,108,242,0.04)]">
-          {/* Ilustración Kawaii 3D Flotante */}
-          <div className="relative w-48 h-48 group select-none flex items-center justify-center">
+          {/* Ilustración de Icono Premium Flotante */}
+          <div className="relative w-36 h-36 group select-none flex items-center justify-center">
             {/* Halo background */}
-            <div className="absolute inset-0 bg-gradient-to-tr from-[#7C6CF2]/8 via-[#4A90E2]/8 to-transparent rounded-full blur-2xl animate-pulse group-hover:scale-110 transition-transform duration-500" />
-            <img
-              src="/floating_classroom.png"
-              alt="Sala Flotante Kawaii"
-              className="w-40 h-40 object-contain relative z-10 animate-bounce"
+            <div className="absolute inset-0 bg-gradient-to-tr from-[#7C6CF2]/15 via-[#4A90E2]/15 to-transparent rounded-full blur-2xl animate-pulse group-hover:scale-110 transition-transform duration-500" />
+            
+            {/* Círculo interior flotante */}
+            <div 
+              className="w-24 h-24 rounded-3xl bg-white/75 dark:bg-slate-900/70 border border-white/40 dark:border-slate-800/40 backdrop-blur-md flex items-center justify-center shadow-[0_15px_35px_rgba(124,108,242,0.1)] relative z-10 animate-[bounce_5s_infinite]"
               style={{ animationDuration: '6s' }}
-            />
+            >
+              {/* Estrellitas decorativas */}
+              <Sparkles className="w-4 h-4 text-amber-300 absolute -top-1.5 -right-1.5 animate-pulse" />
+              <Sparkles className="w-3 h-3 text-[#7C6CF2] absolute -bottom-1 -left-1 animate-pulse" />
+              
+              {/* Icono Principal */}
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#7C6CF2] to-[#4A90E2] flex items-center justify-center text-white shadow-lg shadow-[#7C6CF2]/30 transform group-hover:rotate-6 transition-transform duration-500">
+                <FolderOpen className="w-6 h-6 stroke-[2]" />
+              </div>
+            </div>
           </div>
 
           <div className="flex flex-col gap-2 max-w-md">

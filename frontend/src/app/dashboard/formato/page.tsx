@@ -217,11 +217,8 @@ function UploadCard({ title, templateName }: { title: string; templateName: stri
               <span className="font-bold text-[#7C6CF2]">Consejo Profe:</span> Sube solo el esqueleto vacío del colegio (sin contenido lleno).
             </p>
             <a 
-              href="#" 
-              onClick={(e) => {
-                e.preventDefault();
-                alert(`Descargando plantilla modelo para "${templateName}"`);
-              }}
+              href={`/${templateName}`}
+              download
               className="text-[10px] text-[#7C6CF2] dark:text-[#9A8DFF] font-bold hover:underline flex items-center gap-1 mt-0.5"
             >
               Ver ejemplo plantilla 📄
