@@ -58,8 +58,35 @@ Esta especificación detalla la homologación completa de los formularios, gener
 - Salida: Textos técnicos en tercera persona por campo y matriz anual completa en formato tabular.
 
 ### C. Formato Word Generado (.docx)
-- Encabezado formal PLAN CURRICULAR ANUAL - 2026.
-- Tabla I de datos generales sombreada en azul institucional tenue.
-- Imagen de calendarización incrustada o cuadro punteado rotulado.
-- Matriz anual en orientación horizontal con 8 columnas.
-- Firmas en dos columnas del Docente y Dirección.
+- Sistema de diseño compartido (`frontend/src/features/tools/docx/`): cabecera con logo
+  del Ministerio y lema del año, pie con "Página X de Y", bandas de título en azul
+  `2D7DD2`, cabeceras de tabla en `2E75B6` con texto blanco y filas alternas `EBF5FB`.
+- Portada, índice, I. Datos informativos, II. Síntesis, III. Calendarización por
+  periodos (cuadrícula construida desde la matriz de calendarización), IV. Matrices
+  anuales con color por familia (diagnóstico, currículo, evaluación, recursos),
+  V. Recomendaciones y VI. Validación con líneas de firma.
+- Orientación horizontal; las filas no se cortan entre páginas y las cabeceras se repiten.
+
+## 2. SESIÓN DE APRENDIZAJE (`/dashboard/sesiones`)
+
+### A. Contrato con la IA
+- Secciones: Necesidades de aprendizaje, DUA según contexto, Trabajo entre pares,
+  Evaluación y retroalimentación, Teoría del tema (tres subsecciones) e Ideas fuerza.
+- Matrices (`_TABLE_BLUEPRINTS["sesion-aprendizaje"]`): Secuencia didáctica, Propósitos
+  de aprendizaje, Alineamiento pedagógico (propósito ¿qué/cómo/para qué?, reto, evidencia,
+  producto, estándar del ciclo), Enfoques transversales, Instrumento de evaluación, Ficha
+  de trabajo (5 a 8 consignas de tipos variados) y Mapa mental.
+- Controles de calidad: `session_sequence` (P0: tres momentos, suma de minutos, acciones
+  observables) y `session_annexes` (P1: ficha y mapa completos).
+
+### B. Formato Word Generado (.docx)
+- Reproduce el formato de referencia del docente: título "SESIÓN DE APRENDIZAJE N° __",
+  bloques I a VIII con bandas de color, ilustración por momento (Inicio, Desarrollo,
+  Cierre) alternando lado, firmas del docente y del director.
+- Anexos en página nueva: Teoría del tema, Instrumento de evaluación (guía con la nómina
+  aportada o diez filas en blanco), Ficha de trabajo (tarjetas por consigna, espacio para
+  el producto y autoevaluación) y Mapa mental.
+- El contenido lo produce la IA y el documento ocupa las hojas que necesite; si falta un
+  bloque se usan los datos del formulario o líneas de llenado, nunca "No registrado".
+- Las ilustraciones y el logo van incrustados (`docx/assets.ts`), sin descargas externas.
+- La vista previa (`SessionDocumentPreview.tsx`) usa los mismos datos y colores que el Word.

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -25,6 +25,9 @@ import { HomeworkDocumentPreview } from "./HomeworkDocumentPreview";
 import { PdfDocumentPreview } from "./PdfDocumentPreview";
 import { PlanAnualDocumentPreview } from "./PlanAnualDocumentPreview";
 import "../../styles/word-preview.css";
+
+// La vista de la sesión incrusta las ilustraciones del formato; se carga solo cuando se necesita.
+const SessionDocumentPreview = lazy(() => import("./SessionDocumentPreview").then((module) => ({ default: module.SessionDocumentPreview })));
 
 /** Herramientas cuyo Word lleva portada e índice (ver LONG_DOCUMENTS en exportWorkflowDocx.ts). */
 const LONG_DOCUMENT_KINDS: Array<[string, string]> = [
@@ -246,7 +249,9 @@ export function WordDocumentPreview({
     || workflowKey === "planificamos/plan-curricular-anual";
   const usesHomeworkPreview = toolId === "tarea-extension-hogar"
     || workflowKey === "planificamos/tarea-extension-hogar";
-  const usesSpecialPreview = usesPlanAnualPreview || usesHomeworkPreview;
+  const usesSessionPreview = toolId === "sesion-aprendizaje"
+    || workflowKey === "planificamos/sesion-aprendizaje";
+  const usesSpecialPreview = usesPlanAnualPreview || usesHomeworkPreview || usesSessionPreview;
 
   if (usesSpecialPreview && exactPreviewStatus === "loading") {
     return (
@@ -291,6 +296,22 @@ export function WordDocumentPreview({
         onUpdateSection={onUpdateSection}
         onUpdateTableCell={onUpdateTableCell}
       />
+    );
+  }
+
+  // Sesión de Aprendizaje usa el formato de referencia (bloques I–VIII, ilustraciones y anexos)
+  if (usesSessionPreview) {
+    return (
+      <Suspense fallback={<div className="word-pdf-preview__loading" role="status"><LoaderCircle className="is-spinning" /><span><strong>Preparando la sesión…</strong></span></div>}>
+        <SessionDocumentPreview
+          artifact={artifact}
+          values={values}
+          onDownloadWord={onDownloadWord}
+          editingResult={editingResult}
+          onUpdateSection={onUpdateSection}
+          onUpdateTableCell={onUpdateTableCell}
+        />
+      </Suspense>
     );
   }
 

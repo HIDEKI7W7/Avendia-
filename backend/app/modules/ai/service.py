@@ -764,7 +764,33 @@ _TABLE_BLUEPRINTS: dict[str, tuple[str, ...]] = {
     "sesion-aprendizaje": (
         "Secuencia didáctica: Momento | Tiempo | Acciones del docente | Acciones del "
         "estudiante | Evidencia y retroalimentación. Usa exactamente Inicio, Desarrollo "
-        "y Cierre y haz que la suma coincida con la duración declarada.",
+        "y Cierre y haz que la suma coincida con la duración declarada. En Acciones del "
+        "docente desarrolla los procesos pedagógicos con su nombre al inicio de cada línea "
+        "(Inicio: Motivación, Saberes previos, Conflicto cognitivo, Propósito; Desarrollo: "
+        "Metodología activa, Problematización, Análisis de información, Pausa activa, Toma de "
+        "decisiones o el proceso didáctico del área; Cierre: Evaluación formativa, "
+        "Metacognición), una línea por proceso con la consigna literal para los estudiantes.",
+        "Propósitos de aprendizaje: Competencia y capacidades | Desempeños del grado | "
+        "Criterios de evaluación. Primera fila: competencia principal con sus capacidades "
+        "(una por línea) y de 2 a 4 criterios. Segunda fila: competencia de apoyo o "
+        "transversal con sus capacidades. Usa los nombres oficiales del CNEB.",
+        "Alineamiento pedagógico: Propósito | Reto y situación significativa | Evidencia | "
+        "Producto | Estándar del ciclo. Exactamente una fila. En Propósito escribe tres "
+        "líneas que empiecen con ¿Qué?, ¿Cómo? y ¿Para qué?. En Estándar del ciclo copia el "
+        "estándar oficial de la competencia principal para el ciclo del grado.",
+        "Enfoques transversales: Enfoque transversal | Valor | Actitud observable. Una fila "
+        "por enfoque seleccionado o, si no se indicó, dos enfoques pertinentes al tema.",
+        "Instrumento de evaluación: N° | Criterio observable | Evidencia | Escala. De 3 a 5 "
+        "criterios en tercera persona del singular; en Escala escribe Lo logró / En proceso / "
+        "Necesita ayuda.",
+        "Ficha de trabajo: N° | Consigna | Tipo de respuesta | Opciones o respuesta esperada. "
+        "De 5 a 8 consignas para el estudiante sobre el tema, adecuadas a la edad, con al "
+        "menos cuatro tipos distintos entre Opción múltiple, Verdadero o falso, Completar, "
+        "Respuesta breve, Desarrollo y Dibujo. Para Opción múltiple escribe las cuatro "
+        "alternativas separadas por | sin marcar la correcta; para el resto escribe la "
+        "respuesta esperada.",
+        "Mapa mental: Rama | Ideas clave. De 4 a 6 ramas del tema con 2 o 3 ideas breves "
+        "separadas por punto y coma.",
     ),
     "tarea-extension-hogar": (
         "Ruta de trabajo: Paso | Consigna para el estudiante | Material | Evidencia | "
@@ -1601,6 +1627,47 @@ def _quality_report(
             and row[2].casefold().strip() != row[3].casefold().strip()
             for row in sequence.rows
         )
+        worksheet = next(
+            (
+                table
+                for table in generated.tables
+                if _normalized_table_label(table.title).startswith("ficha")
+            ),
+            None,
+        )
+        worksheet_types = (
+            {row[2].casefold().strip() for row in worksheet.rows if len(row) >= 3}
+            if worksheet
+            else set()
+        )
+        mind_map = next(
+            (
+                table
+                for table in generated.tables
+                if _normalized_table_label(table.title).startswith("mapa")
+            ),
+            None,
+        )
+        annexes_ready = (
+            worksheet is not None
+            and 5 <= len(worksheet.rows) <= 8
+            and len(worksheet_types) >= 3
+            and mind_map is not None
+            and len(mind_map.rows) >= 3
+        )
+        checks.append(
+            GenerationQualityCheck(
+                code="session_annexes",
+                label="Ficha de trabajo y mapa mental completos",
+                severity="P1",
+                passed=annexes_ready,
+                detail=(
+                    "La ficha trae entre 5 y 8 consignas de tipos variados y el mapa mental tiene al menos tres ramas."
+                    if annexes_ready
+                    else "La ficha de trabajo o el mapa mental están incompletos; conviene regenerar los anexos."
+                ),
+            )
+        )
         checks.append(
             GenerationQualityCheck(
                 code="session_sequence",
@@ -2433,7 +2500,9 @@ async def _request_workflow_candidate(
         "contents": [{"role": "user", "parts": [{"text": prompt}]}],
         "generationConfig": {
             "temperature": 0.32,
-            "maxOutputTokens": 32768 if payload.tool_id == "plan-curricular-anual" else 16384,
+            "maxOutputTokens": 32768
+            if payload.tool_id in {"plan-curricular-anual", "sesion-aprendizaje"}
+            else 16384,
             "responseMimeType": "application/json",
             "responseSchema": _workflow_response_schema(
                 len(payload.requested_sections),

@@ -3,6 +3,9 @@ import { Download, FileText, LayoutGrid, Printer } from "lucide-react";
 
 import { isPlaceholder, stripNumbering } from "./documentFormat";
 import { DocumentCover, DocumentIndex, InfoTable, KeyPointList, Narrative, PreviewTables, SignatureBox, type IndexEntry } from "./DocumentText";
+import { assetDataUrl } from "./docx/images";
+import { YEAR_MOTTO } from "./docx/theme";
+import { matrixFamilyColor, periodGrid } from "./exportPlanAnualDocx";
 import type { WorkflowArtifact } from "./exportWorkflowDocx";
 import "../../styles/word-preview.css";
 
@@ -64,12 +67,16 @@ export function PlanAnualDocumentPreview({
     { label: "I. DATOS INFORMATIVOS" },
     { label: "II. SÍNTESIS DE LA PLANIFICACIÓN" },
     ...artifact.sections.map((section, index) => ({ label: `${index + 1}. ${stripNumbering(section.title)}`, level: 2 as const })),
-    { label: "III. MATRICES ANUALES" },
+    ...(periodGrid(tables) ? [{ label: "III. CALENDARIZACIÓN POR PERIODOS" }] : []),
+    { label: `${periodGrid(tables) ? "IV" : "III"}. MATRICES ANUALES` },
     ...tables.map((table, index) => ({ label: `${index + 1}. ${stripNumbering(table.title)}`, level: 2 as const })),
-    { label: "IV. RECOMENDACIONES PARA LA IMPLEMENTACIÓN" },
-    ...(signers.length ? [{ label: "V. VALIDACIÓN" }] : []),
+    { label: `${periodGrid(tables) ? "V" : "IV"}. RECOMENDACIONES PARA LA IMPLEMENTACIÓN` },
+    { label: `${periodGrid(tables) ? "VI" : "V"}. VALIDACIÓN` },
   ];
   const headerLine = [institution, area, year ? `Año lectivo ${year}` : ""].filter(Boolean).join(" · ");
+  const grid = periodGrid(tables);
+  const partLabel = (index: number) => ["I", "II", "III", "IV", "V", "VI"][index] ?? String(index + 1);
+  let part = 2;
 
   return (
     <div className="word-preview-wrapper">
@@ -86,6 +93,10 @@ export function PlanAnualDocumentPreview({
       {viewMode === "word" ? (
         <div className="word-preview-viewport">
           <article className="word-document-paper word-document-paper--landscape">
+            <div className="word-chrome-header">
+              <img src={assetDataUrl("minedu")} alt="Ministerio de Educación del Perú" className="word-chrome-logo" />
+              <div className="word-chrome-right"><span className="word-chrome-motto">{YEAR_MOTTO}</span>{headerLine ? <span className="word-chrome-line">{headerLine}</span> : null}</div>
+            </div>
             <DocumentCover
               institution={institution}
               kindLabel="Plan Curricular Anual"
@@ -121,28 +132,44 @@ export function PlanAnualDocumentPreview({
               ))}
             </section>
 
+            {grid ? (
+              <section className="word-section">
+                <h2 className="word-section-h1">{partLabel(part++)}. CALENDARIZACIÓN POR PERIODOS</h2>
+                <div className="word-table-responsive">
+                  <table className="word-table word-period-grid">
+                    <thead><tr>{grid.periods.map((period) => <th key={period}>{period}</th>)}</tr></thead>
+                    <tbody><tr>{grid.periods.map((period) => <td key={period}><ol>{grid.units[period].map((unit, index) => <li key={index}>{unit}</li>)}</ol></td>)}</tr></tbody>
+                  </table>
+                </div>
+              </section>
+            ) : null}
+
             <section className="word-section">
-              <h2 className="word-section-h1">III. MATRICES ANUALES</h2>
+              <h2 className="word-section-h1">{partLabel(part++)}. MATRICES ANUALES</h2>
               {tables.length ? (
-                <PreviewTables
-                  tables={tables.map((table, index) => ({ table: { ...table, title: `${index + 1}. ${stripNumbering(table.title)}` }, index }))}
-                  editingResult={editingResult}
-                  onUpdateTableCell={onUpdateTableCell}
-                />
+                <div className="word-matrix-families">
+                  {tables.map((table, index) => (
+                    <div key={`${table.title}-${index}`} style={{ "--matrix-color": `#${matrixFamilyColor(table.title)}` } as React.CSSProperties}>
+                      <PreviewTables
+                        tables={[{ table: { ...table, title: `${index + 1}. ${stripNumbering(table.title)}` }, index }]}
+                        editingResult={editingResult}
+                        onUpdateTableCell={onUpdateTableCell}
+                      />
+                    </div>
+                  ))}
+                </div>
               ) : <p className="word-paper-p">Las matrices deben regenerarse antes de descargar la versión final.</p>}
             </section>
 
             <section className="word-section">
-              <h2 className="word-section-h1">IV. RECOMENDACIONES PARA LA IMPLEMENTACIÓN</h2>
+              <h2 className="word-section-h1">{partLabel(part++)}. RECOMENDACIONES PARA LA IMPLEMENTACIÓN</h2>
               <ol className="word-list">{artifact.teacher_recommendations.map((recommendation, index) => <li key={`${index}-${recommendation.slice(0, 24)}`}>{recommendation}</li>)}</ol>
             </section>
 
-            {signers.length ? (
-              <section className="word-section">
-                <h2 className="word-section-h1">V. VALIDACIÓN</h2>
-                <SignatureBox people={signers} />
-              </section>
-            ) : null}
+            <section className="word-section">
+              <h2 className="word-section-h1">{partLabel(part++)}. VALIDACIÓN</h2>
+              <SignatureBox people={signers.length ? signers : [{ name: "", role: "Docente responsable" }, { name: "", role: "Director(a)" }]} />
+            </section>
           </article>
         </div>
       ) : (

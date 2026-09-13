@@ -1052,6 +1052,117 @@ def _semantic_artifact(
     )
 
 
+def _session_annex_tables() -> list[WorkflowArtifactTable]:
+    """Matrices que acompañan a la secuencia en el formato de sesión (orden del blueprint)."""
+    return [
+        WorkflowArtifactTable(
+            title="Propósitos de aprendizaje",
+            columns=[
+                "Competencia y capacidades",
+                "Desempeños del grado",
+                "Criterios de evaluación",
+            ],
+            rows=[
+                [
+                    "Resuelve problemas de cantidad",
+                    "Representa fracciones equivalentes.",
+                    "Explica la equivalencia.",
+                ],
+                [
+                    "Gestiona su aprendizaje de manera autónoma",
+                    "Organiza su trabajo.",
+                    "Cumple los acuerdos.",
+                ],
+            ],
+        ),
+        WorkflowArtifactTable(
+            title="Alineamiento pedagógico",
+            columns=[
+                "Propósito",
+                "Reto y situación significativa",
+                "Evidencia",
+                "Producto",
+                "Estándar del ciclo",
+            ],
+            rows=[
+                [
+                    "¿Qué? Fracciones.\n¿Cómo? Repartos.\n¿Para qué? Repartir justo.",
+                    "¿Cómo repartimos una pizza?",
+                    "Tarjetas resueltas",
+                    "Mural de repartos",
+                    "Resuelve problemas referidos a acciones de repartir.",
+                ]
+            ],
+        ),
+        WorkflowArtifactTable(
+            title="Enfoques transversales",
+            columns=["Enfoque transversal", "Valor", "Actitud observable"],
+            rows=[
+                ["Orientación al bien común", "Solidaridad", "Comparte materiales con sus pares."]
+            ],
+        ),
+        WorkflowArtifactTable(
+            title="Instrumento de evaluación",
+            columns=["N°", "Criterio observable", "Evidencia", "Escala"],
+            rows=[
+                [
+                    "1",
+                    "Representa fracciones equivalentes.",
+                    "Tarjeta",
+                    "Lo logró / En proceso / Necesita ayuda",
+                ],
+                [
+                    "2",
+                    "Justifica la equivalencia.",
+                    "Explicación oral",
+                    "Lo logró / En proceso / Necesita ayuda",
+                ],
+                [
+                    "3",
+                    "Usa material concreto.",
+                    "Registro",
+                    "Lo logró / En proceso / Necesita ayuda",
+                ],
+            ],
+        ),
+        WorkflowArtifactTable(
+            title="Ficha de trabajo",
+            columns=["N°", "Consigna", "Tipo de respuesta", "Opciones o respuesta esperada"],
+            rows=[
+                [
+                    "1",
+                    "¿Qué fracción representa la mitad?",
+                    "Opción múltiple",
+                    "1/3 | 1/2 | 2/3 | 3/4",
+                ],
+                ["2", "2/4 es equivalente a 1/2.", "Verdadero o falso", "Verdadero"],
+                ["3", "3/6 = ___/2", "Completar", "1"],
+                [
+                    "4",
+                    "Explica por qué 2/4 y 1/2 son iguales.",
+                    "Desarrollo",
+                    "Representan la misma parte del todo.",
+                ],
+                [
+                    "5",
+                    "Dibuja una pizza dividida en cuartos y pinta la mitad.",
+                    "Dibujo",
+                    "Dos cuartos pintados.",
+                ],
+            ],
+        ),
+        WorkflowArtifactTable(
+            title="Mapa mental",
+            columns=["Rama", "Ideas clave"],
+            rows=[
+                ["Definición", "Misma parte del todo; distinta escritura"],
+                ["Ejemplos", "1/2 = 2/4; 1/3 = 2/6"],
+                ["Cómo comprobar", "Dibujar; multiplicar numerador y denominador"],
+            ],
+        ),
+    ]
+
+
 def test_session_quality_gate_checks_moments_actions_and_total_time() -> None:
     payload = WorkflowGenerationRequest.model_validate(
         {
@@ -1096,11 +1207,12 @@ def test_session_quality_gate_checks_moments_actions_and_total_time() -> None:
             ],
         ],
     )
-    artifact = _semantic_artifact(payload.requested_sections, [table])
+    artifact = _semantic_artifact(payload.requested_sections, [table, *_session_annex_tables()])
     checks, _, status = _quality_report(
         artifact, payload, get_tool_contract("planificamos", "sesion-aprendizaje")
     )
     assert next(check for check in checks if check.code == "session_sequence").passed
+    assert next(check for check in checks if check.code == "session_annexes").passed
     assert status in {"ready", "review"}
 
     artifact.tables[0].rows[1][1] = "35 min"

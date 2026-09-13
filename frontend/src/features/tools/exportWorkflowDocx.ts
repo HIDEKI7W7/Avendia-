@@ -3,13 +3,9 @@ import {
   Bookmark,
   BorderStyle,
   Document,
-  Footer,
-  Header,
   HeadingLevel,
   Packer,
   PageBreak,
-  PageNumber,
-  PageOrientation,
   Paragraph,
   ShadingType,
   Table,
@@ -42,6 +38,19 @@ import {
   buildPlanAnualDocxDocument,
   type ExportPlanAnualContext,
 } from "./exportPlanAnualDocx";
+import { buildSessionDocx } from "./docx/buildSessionDocx";
+import { documentFooter as themeFooter, documentHeader as themeHeader, pageProperties as themePageProperties, signaturesBlock } from "./docx/chrome";
+import {
+  COLORS,
+  COLOR_BORDER,
+  COLOR_MUTED,
+  COLOR_PRIMARY,
+  COLOR_SECONDARY,
+  COLOR_TEXT,
+  COLOR_ZEBRA_BG,
+  FONT_DISPLAY,
+  documentStyles,
+} from "./docx/theme";
 
 export type WorkflowArtifactSection = {
   title: string;
@@ -87,14 +96,7 @@ export type StructuredArtifact = WorkflowArtifact;
 
 export type ExportWorkflowDocxOptions = ExportPlanAnualContext;
 
-const COLOR_PRIMARY = "1F4D78"; // Azul institucional MINEDU oscuro
-const COLOR_SECONDARY = "2E74B5"; // Azul secundario encabezados
-const COLOR_HEADER_BG = "BDD7EE"; // Azul suave para cabeceras de tablas
-const COLOR_ZEBRA_BG = "F8FAFC"; // Fondo alterno sutil
-const COLOR_BORDER = "BDD7EE"; // Borde suave institucional
-const COLOR_TEXT = "1F2937"; // Texto oscuro legible
-const COLOR_MUTED = "64748B"; // Texto secundario
-const COLOR_HEADING = "000000";
+const COLOR_HEADING = COLORS.heading;
 
 function safeFileName(value: string) {
   return (
@@ -256,76 +258,11 @@ function displayValue(value: unknown, fallback = "________________"): string {
   return isPlaceholder(value) ? fallback : String(value).trim();
 }
 
-/** Hoja de estilos Word: fuente base y jerarquía de títulos reutilizable por el docente. */
-const documentStyles = {
-  default: {
-    document: { run: { font: "Calibri", size: 21, color: COLOR_TEXT } },
-  },
-  paragraphStyles: [
-    {
-      id: "Heading1",
-      name: "Heading 1",
-      basedOn: "Normal",
-      next: "Normal",
-      quickFormat: true,
-      run: { font: "Calibri", size: 24, bold: true, color: COLOR_PRIMARY },
-      paragraph: {
-        spacing: { before: 260, after: 100 },
-        keepNext: true,
-        outlineLevel: 0,
-        border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: COLOR_BORDER, space: 2 } },
-      },
-    },
-    {
-      id: "Heading2",
-      name: "Heading 2",
-      basedOn: "Normal",
-      next: "Normal",
-      quickFormat: true,
-      run: { font: "Calibri", size: 22, bold: true, color: COLOR_SECONDARY },
-      paragraph: { spacing: { before: 180, after: 80 }, keepNext: true, outlineLevel: 1 },
-    },
-    // Entradas del índice precargado (se ven en cualquier visor; Word las actualiza con páginas).
-    {
-      id: "TOC1", name: "toc 1", basedOn: "Normal", next: "Normal",
-      run: { font: "Calibri", size: 20, bold: true, color: COLOR_PRIMARY },
-      paragraph: { spacing: { before: 60, after: 40 } },
-    },
-    {
-      id: "TOC2", name: "toc 2", basedOn: "Normal", next: "Normal",
-      run: { font: "Calibri", size: 19, color: COLOR_TEXT },
-      paragraph: { spacing: { after: 30 }, indent: { left: 360 } },
-    },
-    {
-      id: "Heading3",
-      name: "Heading 3",
-      basedOn: "Normal",
-      next: "Normal",
-      quickFormat: true,
-      run: { font: "Calibri", size: 21, bold: true, color: COLOR_PRIMARY },
-      paragraph: { spacing: { before: 140, after: 60 }, keepNext: true, outlineLevel: 2 },
-    },
-  ],
-};
-
 type PageMode = "portrait" | "landscape";
 
 /** Tamaño A4 y márgenes homogéneos para todas las familias de documentos. */
 function pageProperties(mode: PageMode = "portrait") {
-  const landscape = mode === "landscape";
-  return {
-    page: {
-      size: {
-        // docx intercambia ancho y alto cuando la orientación es horizontal: siempre se pasa A4 vertical.
-        orientation: landscape ? PageOrientation.LANDSCAPE : PageOrientation.PORTRAIT,
-        width: 11906,
-        height: 16838,
-      },
-      margin: landscape
-        ? { top: 720, bottom: 720, left: 1080, right: 1080 }
-        : { top: 900, bottom: 900, left: 1080, right: 1080 },
-    },
-  };
+  return themePageProperties(mode);
 }
 
 function headerText(values: ReturnType<typeof extractCommonValues>, label: string): string {
@@ -333,36 +270,11 @@ function headerText(values: ReturnType<typeof extractCommonValues>, label: strin
 }
 
 function documentHeader(text: string) {
-  return {
-    default: new Header({
-      children: [
-        new Paragraph({
-          alignment: AlignmentType.RIGHT,
-          border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: COLOR_BORDER, space: 4 } },
-          children: [new TextRun({ text: cleanText(text), size: 16, color: COLOR_MUTED, font: "Calibri" })],
-        }),
-      ],
-    }),
-  };
+  return themeHeader({ headerRight: cleanText(text) });
 }
 
-function documentFooter() {
-  const muted = { size: 16, color: COLOR_MUTED, font: "Calibri" };
-  return {
-    default: new Footer({
-      children: [
-        new Paragraph({
-          alignment: AlignmentType.RIGHT,
-          children: [
-            new TextRun({ text: "Elaborado con Avendia · Página ", ...muted }),
-            new TextRun({ children: [PageNumber.CURRENT], ...muted }),
-            new TextRun({ text: " de ", ...muted }),
-            new TextRun({ children: [PageNumber.TOTAL_PAGES], ...muted }),
-          ],
-        }),
-      ],
-    }),
-  };
+function documentFooter(text = "") {
+  return themeFooter(text);
 }
 
 /** Texto en negrita para "Etiqueta: contenido" (etiqueta de una a cuatro palabras). */
@@ -483,8 +395,8 @@ function createStyledCell(
   } = {}
 ): TableCell {
   const isHeader = options.isHeader ?? false;
-  const fillColor = options.fillColor ?? (isHeader ? COLOR_HEADER_BG : undefined);
-  const fontSize = options.fontSize ?? (isHeader ? 19 : 18);
+  const fillColor = options.fillColor ?? (isHeader ? COLORS.bandDark : undefined);
+  const fontSize = options.fontSize ?? (isHeader ? 18 : 18);
 
   let paragraphs: Paragraph[];
   if (Array.isArray(content)) {
@@ -508,7 +420,7 @@ function createStyledCell(
             new TextRun({
               text: cleanText(cleanLine),
               bold: options.bold ?? isHeader,
-              color: options.color ?? (isHeader ? COLOR_PRIMARY : COLOR_TEXT),
+              color: options.color ?? (isHeader ? COLORS.white : COLOR_TEXT),
               italics: options.italics,
               size: fontSize,
               font: "Calibri",
@@ -525,7 +437,7 @@ function createStyledCell(
             new TextRun({
               text: cleanText(raw),
               bold: options.bold ?? isHeader,
-              color: options.color ?? (isHeader ? COLOR_PRIMARY : COLOR_TEXT),
+              color: options.color ?? (isHeader ? COLORS.white : COLOR_TEXT),
               italics: options.italics,
               size: fontSize,
               font: "Calibri",
@@ -556,20 +468,37 @@ function createHeading(
 ) {
   const fullText = num ? `${num} ${text}` : text;
   const isH1 = level === HeadingLevel.HEADING_1;
+  if (isH1) {
+    return new Paragraph({
+      heading: level,
+      keepNext: true,
+      shading: { type: ShadingType.CLEAR, fill: COLORS.band, color: "auto" },
+      indent: { left: 120, right: 120 },
+      spacing: { before: 220, after: 0 },
+      children: [
+        new TextRun({
+          text: cleanText(fullText).toLocaleUpperCase("es"),
+          bold: true,
+          color: COLORS.white,
+          size: 22,
+          font: FONT_DISPLAY,
+        }),
+      ],
+    });
+  }
   return new Paragraph({
     heading: level,
     keepNext: true,
     children: [
       new TextRun({
-        text: isH1 ? cleanText(fullText).toLocaleUpperCase("es") : cleanText(fullText),
+        text: cleanText(fullText),
         bold: true,
-        color: isH1 ? COLOR_PRIMARY : COLOR_SECONDARY,
-        size: isH1 ? 24 : 22,
+        color: COLOR_SECONDARY,
+        size: 22,
         font: "Calibri",
       }),
     ],
-    border: isH1 ? { bottom: { style: BorderStyle.SINGLE, size: 6, color: COLOR_BORDER, space: 2 } } : undefined,
-    spacing: { before: isH1 ? 260 : 180, after: isH1 ? 100 : 80 },
+    spacing: { before: 180, after: 80 },
   });
 }
 
@@ -815,109 +744,10 @@ function createSignaturesTable(
   rightName: string,
   rightRole: string
 ) {
-  const borderNone = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
-  const transparentBorders = {
-    top: borderNone,
-    bottom: borderNone,
-    left: borderNone,
-    right: borderNone,
-  };
-
-  return new Table({
-    width: { size: 100, type: WidthType.PERCENTAGE },
-    rows: [
-      new TableRow({
-        children: [
-          new TableCell({
-            width: { size: 50, type: WidthType.PERCENTAGE },
-            borders: transparentBorders,
-            margins: { top: 120, bottom: 30, left: 100, right: 100 },
-            children: [
-              new Paragraph({
-                alignment: AlignmentType.CENTER,
-                children: [
-                  new TextRun({
-                    text: "____________________________________________",
-                    color: "94A3B8",
-                    size: 18,
-                    font: "Calibri",
-                  }),
-                ],
-                spacing: { after: 40 },
-              }),
-              new Paragraph({
-                alignment: AlignmentType.CENTER,
-                children: [
-                  new TextRun({
-                    text: cleanText(leftName),
-                    bold: true,
-                    color: COLOR_PRIMARY,
-                    size: 20,
-                    font: "Calibri",
-                  }),
-                ],
-                spacing: { after: 20 },
-              }),
-              new Paragraph({
-                alignment: AlignmentType.CENTER,
-                children: [
-                  new TextRun({
-                    text: cleanText(leftRole),
-                    color: COLOR_MUTED,
-                    size: 17,
-                    font: "Calibri",
-                  }),
-                ],
-              }),
-            ],
-          }),
-          new TableCell({
-            width: { size: 50, type: WidthType.PERCENTAGE },
-            borders: transparentBorders,
-            margins: { top: 120, bottom: 30, left: 100, right: 100 },
-            children: [
-              new Paragraph({
-                alignment: AlignmentType.CENTER,
-                children: [
-                  new TextRun({
-                    text: "____________________________________________",
-                    color: "94A3B8",
-                    size: 18,
-                    font: "Calibri",
-                  }),
-                ],
-                spacing: { after: 40 },
-              }),
-              new Paragraph({
-                alignment: AlignmentType.CENTER,
-                children: [
-                  new TextRun({
-                    text: cleanText(rightName),
-                    bold: true,
-                    color: COLOR_PRIMARY,
-                    size: 20,
-                    font: "Calibri",
-                  }),
-                ],
-                spacing: { after: 20 },
-              }),
-              new Paragraph({
-                alignment: AlignmentType.CENTER,
-                children: [
-                  new TextRun({
-                    text: cleanText(rightRole),
-                    color: COLOR_MUTED,
-                    size: 17,
-                    font: "Calibri",
-                  }),
-                ],
-              }),
-            ],
-          }),
-        ],
-      }),
-    ],
-  });
+  return signaturesBlock([
+    { name: cleanText(leftName), role: cleanText(leftRole) },
+    { name: cleanText(rightName), role: cleanText(rightRole) },
+  ]);
 }
 
 /** Sustituye un dato no aportado por una línea de llenado en cabeceras y textos corridos. */
@@ -1296,68 +1126,9 @@ export function buildInstrumentDocx(
     styles: documentStyles,
     sections: [
       {
-        properties: {
-          page: {
-            size: {
-              orientation: isLandscape ? PageOrientation.LANDSCAPE : PageOrientation.PORTRAIT,
-              width: 11906,
-              height: 16838,
-            },
-            margin: { top: 900, bottom: 900, left: 1080, right: 1080 },
-          },
-        },
-        headers: {
-          default: new Header({
-            children: [
-              new Paragraph({
-                alignment: AlignmentType.RIGHT,
-                children: [
-                  new TextRun({
-                    text: headerText(v, "Evaluación Formativa CNEB"),
-                    size: 16,
-                    color: COLOR_MUTED,
-                    font: "Calibri",
-                  }),
-                ],
-              }),
-            ],
-          }),
-        },
-        footers: {
-          default: new Footer({
-            children: [
-              new Paragraph({
-                alignment: AlignmentType.RIGHT,
-                children: [
-                  new TextRun({
-                    text: "Página ",
-                    size: 16,
-                    color: COLOR_MUTED,
-                    font: "Calibri",
-                  }),
-                  new TextRun({
-                    children: [PageNumber.CURRENT],
-                    size: 16,
-                    color: COLOR_MUTED,
-                    font: "Calibri",
-                  }),
-                  new TextRun({
-                    text: " de ",
-                    size: 16,
-                    color: COLOR_MUTED,
-                    font: "Calibri",
-                  }),
-                  new TextRun({
-                    children: [PageNumber.TOTAL_PAGES],
-                    size: 16,
-                    color: COLOR_MUTED,
-                    font: "Calibri",
-                  }),
-                ],
-              }),
-            ],
-          }),
-        },
+        properties: pageProperties(isLandscape ? "landscape" : "portrait"),
+        headers: documentHeader(headerText(v, "Evaluación Formativa CNEB")),
+        footers: documentFooter(),
         children,
       },
     ],
@@ -3457,37 +3228,9 @@ export function buildHomeworkDocx(
   return new Document({
     styles: documentStyles,
     sections: [{
-      properties: {
-        page: {
-          size: { orientation: PageOrientation.PORTRAIT, width: 11906, height: 16838 },
-          margin: { top: 850, bottom: 850, left: 980, right: 980 },
-        },
-      },
-      headers: {
-        default: new Header({
-          children: [new Paragraph({
-            children: [new TextRun({
-              text: headerText(v, isPlaceholder(v.area) ? "Tarea de extensión" : v.area),
-              color: COLOR_MUTED,
-              size: 16,
-              font: "Calibri",
-            })],
-          })],
-        }),
-      },
-      footers: {
-        default: new Footer({
-          children: [new Paragraph({
-            alignment: AlignmentType.RIGHT,
-            children: [
-              new TextRun({ text: "Página ", color: COLOR_MUTED, size: 16, font: "Calibri" }),
-              new TextRun({ children: [PageNumber.CURRENT], color: COLOR_MUTED, size: 16, font: "Calibri" }),
-              new TextRun({ text: " de ", color: COLOR_MUTED, size: 16, font: "Calibri" }),
-              new TextRun({ children: [PageNumber.TOTAL_PAGES], color: COLOR_MUTED, size: 16, font: "Calibri" }),
-            ],
-          })],
-        }),
-      },
+      properties: pageProperties("portrait"),
+      headers: documentHeader(headerText(v, isPlaceholder(v.area) ? "Tarea de extensión" : v.area)),
+      footers: documentFooter(),
       children,
     }],
   });
@@ -3783,64 +3526,9 @@ export function buildDocumentDocx(
     styles: documentStyles,
     sections: [
       {
-        properties: {
-          page: {
-            size: { orientation: PageOrientation.PORTRAIT, width: 11906, height: 16838 },
-            margin: { top: 900, bottom: 900, left: 1080, right: 1080 },
-          },
-        },
-        headers: {
-          default: new Header({
-            children: [
-              new Paragraph({
-                alignment: AlignmentType.RIGHT,
-                children: [
-                  new TextRun({
-                    text: headerText(v, "Planificación Curricular CNEB"),
-                    size: 16,
-                    color: COLOR_MUTED,
-                    font: "Calibri",
-                  }),
-                ],
-              }),
-            ],
-          }),
-        },
-        footers: {
-          default: new Footer({
-            children: [
-              new Paragraph({
-                alignment: AlignmentType.RIGHT,
-                children: [
-                  new TextRun({
-                    text: "Página ",
-                    size: 16,
-                    color: COLOR_MUTED,
-                    font: "Calibri",
-                  }),
-                  new TextRun({
-                    children: [PageNumber.CURRENT],
-                    size: 16,
-                    color: COLOR_MUTED,
-                    font: "Calibri",
-                  }),
-                  new TextRun({
-                    text: " de ",
-                    size: 16,
-                    color: COLOR_MUTED,
-                    font: "Calibri",
-                  }),
-                  new TextRun({
-                    children: [PageNumber.TOTAL_PAGES],
-                    size: 16,
-                    color: COLOR_MUTED,
-                    font: "Calibri",
-                  }),
-                ],
-              }),
-            ],
-          }),
-        },
+        properties: pageProperties("portrait"),
+        headers: documentHeader(headerText(v, "Planificación Curricular CNEB")),
+        footers: documentFooter(),
         children,
       },
     ],
@@ -3862,7 +3550,15 @@ export async function buildWorkflowDocxBlob(
     return { blob, fileName };
   }
 
-  // 2. Determinar arquetipo según workflowKey
+  // 2. Sesión de Aprendizaje con el formato de referencia (bloques I–VIII y anexos)
+  if (options.workflowKey === "planificamos/sesion-aprendizaje") {
+    const doc = buildSessionDocx(artifact, options.values ?? {});
+    const blob = await Packer.toBlob(doc);
+    const fileName = `${safeFileName(artifact.document_title || "sesion-de-aprendizaje")}.docx`;
+    return { blob, fileName };
+  }
+
+  // 3. Determinar arquetipo según workflowKey
   const key = options.workflowKey || "";
   let doc: Document;
 

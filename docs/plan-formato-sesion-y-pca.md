@@ -7,6 +7,26 @@ anexos con fichas), pero **funcional**: el contenido lo produce la IA con los da
 docente y el documento ocupa las hojas que necesite. Nada de plantillas estáticas de
 3 páginas con texto recortado.
 
+## Estado
+
+Implementado en esta rama:
+
+- Sistema de diseño compartido en `frontend/src/features/tools/docx/` (`theme.ts`,
+  `chrome.ts`, `blocks.ts`, `images.ts`, `assets.ts`) y aplicado a todos los
+  exportadores de `exportWorkflowDocx.ts` (cabecera con logo y lema, pie, bandas,
+  cabeceras de tabla, firmas).
+- Sesión de Aprendizaje: `buildSessionDocx.ts` + `sessionContent.ts` con los bloques
+  I–VIII, ilustraciones por momento y anexos; contrato de la IA ampliado en el backend
+  (siete matrices, secciones de teoría, control `session_annexes`).
+- PCA: `exportPlanAnualDocx.ts` sobre el sistema compartido, con cuadrícula de periodos
+  y color por familia de matriz.
+- Vistas previas: `SessionDocumentPreview.tsx` nueva, `PlanAnualDocumentPreview.tsx`
+  con cabecera y cuadrícula, y paleta de `word-preview.css` alineada con el Word.
+
+Pendiente (fase 3 del plan): generación opcional de ilustraciones por tema con IA y lema
+del año configurable desde administración. Hoy las ilustraciones son el set base
+incrustado y el lema es el del año en curso.
+
 ## 1. Diagnóstico del estado actual
 
 | Aspecto | Hoy | Referencia |
