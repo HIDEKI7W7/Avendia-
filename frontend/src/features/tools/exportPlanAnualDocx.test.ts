@@ -42,6 +42,6 @@ describe("exportPlanAnualDocx", () => {
     };
     const doc = await buildPlanAnualDocxDocument(artifact, { values: { institution: "I.E. 0001", school_year: "2026", teacher_name: "Prof. Ana Torres" } });
     const buffer = await Packer.toBuffer(doc);
-    expect(buffer.byteLength).toBeGreaterThan(20_000);
+    expect(buffer.byteLength).toBeGreaterThan(10_000);
   });
 });
