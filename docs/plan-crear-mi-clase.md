@@ -162,3 +162,79 @@ el formato mientras se construye la cadena.
 4. ¿Qué observación quedó pendiente cuando se cortó el audio en "cuando estoy en
    sesión..."?
 5. ¿Enviará el nuevo modelo de Word que descargó, por si difiere del ya usado?
+
+## 5. Segundo video: el formulario debe ser corto y guiado (referencia "Caicedo")
+
+Fuente: segundo video del cliente (3 min 53 s). Compara el formulario actual de
+Avendia con un generador externo (`.../generadores/ebr-secundaria.html`, al que llama
+"Caicedo") y pide que el nuestro sea igual de rápido.
+
+### 5.1 Reglas que fija el cliente
+
+- **"Crear mi clase" es la ruta principal.** Sesión → Siguiente → Instrumento →
+  Siguiente → Materiales. La herramienta "Sesión de aprendizaje" del catálogo queda
+  solo para quien quiera una sesión suelta, no ligada a instrumento ni materiales.
+- **Al maestro no le interesa la información técnica.** Señala como ruido: el panel
+  "Control de calidad de la generación" (Contrato 2026.09, Estructura completa P0,
+  Apartados propios P0, Columnas propias P0, Tema y contexto P1...), el texto
+  "Contexto coherente", el stepper "Empezar de cero o continuar una secuencia" y las
+  etiquetas "Necesario para crear / Puedes completarlo después / Escrito por ti".
+  Nada de eso debe verse en la ruta principal.
+- **Pocos campos, seleccionables, en bloques.** "Paso uno, paso dos, selecciona pam,
+  pam, pam". Prefiere bloques de color numerados que guían, no una página larga con
+  cajas de texto grandes ("espacio por aquí, espacio por allá").
+- **La IA sugiere, el docente elige.** Sugerencia de título con un clic, sugerencia
+  de competencia (o checkbox "Dejar que la IA sugiera la competencia"), máximo dos
+  competencias marcadas y "la IA redacta el resto".
+- **El diálogo "Sugerencia contextual"** (el que se abre en "Propósito de la unidad"
+  con nivel de ayuda, preguntas y sugerencias de un solo clic) no tiene sentido para
+  el docente en este flujo: "¿por qué entraría el maestro aquí?". Se elimina de la
+  ruta principal; el propósito lo genera la IA.
+- **Datos institucionales ya definidos.** Aparecen precargados desde el perfil y el
+  docente puede cambiarlos, pero no los vuelve a escribir.
+- Detalle menor: cambiar el rótulo "Curso" del paso por otro nombre; se decide después.
+
+### 5.2 Pasos del generador de referencia (lo que hay que igualar)
+
+| Paso | Campos que muestra | Comportamiento |
+| --- | --- | --- |
+| 1 Datos | Nivel, grado, área (selects), tema específico, título de la unidad, título de la sesión con botón **"Sugerir con IA"** (si se deja vacío se usa el tema) | Bloque "Con tu unidad (opcional)" plegado para pegar el propósito de una unidad ya creada |
+| 2 Curso / tema | (se fusiona con el paso 1 en la referencia) | — |
+| 3 Competencias | Lista de competencias del área según el CNEB, **máximo 2 marcadas**, checkbox "Dejar que la IA sugiera la competencia" | La lista cambia con el área elegida; la IA redacta capacidades, desempeños y criterios |
+| 4 Enfoques | Enfoques transversales (elige 2) | Igual patrón de selección |
+| 5 Evaluación | Duración ("90 min (2 h clase)"), instrumento (select: guía de observación, lista de cotejo, rúbrica...), **lista de alumnos opcional** con "Seleccionar lista guardada" o pegar nombres | La nómina alimenta la tabla del instrumento |
+| Generar | Un botón | Resultado: Competencia 1 principal, Competencia 2 complementaria, teoría del tema, etc. |
+
+Elementos visuales de la referencia: barra de progreso verde con círculos numerados
+y marcas de listo, cada paso con un cuadro numerado y subtítulo de una línea, bandas
+de color como título de cada bloque, botón "Atrás".
+
+### 5.3 Comparación con el formulario actual de Avendia
+
+| Avendia hoy | Problema señalado | Cambio |
+| --- | --- | --- |
+| Pasos: Datos institucionales, Fuente, Propósito, Secuencia, Evaluación, Recursos (6 pasos, ~30 campos) | Demasiados campos y cajas de texto largas (contexto real, propósito de la unidad, inicio, desarrollo, cierre, criterios, retroalimentación, materiales, bibliografía, DUA) | Ruta "Crear mi clase" con 4 pasos y unos 10 campos; todo lo demás lo redacta la IA o queda en un desplegable "Opciones avanzadas" |
+| Panel "Control de calidad de la generación" visible al generar | Ruido técnico | Ocultarlo en la ruta principal; dejar solo un aviso corto si la generación está bloqueada. El detalle sigue disponible en el panel de administración |
+| Stepper "Empezar de cero o continuar una secuencia" (Datos, Curso, Competencias, Enfoques) | El cliente no entiende su función | Quitarlo de la ruta principal; en la herramienta suelta, reemplazarlo por un solo enlace "Continuar desde una unidad guardada" |
+| Diálogo "Sugerencia contextual" por campo | Innecesario para el docente | Sustituirlo por botones "Sugerir con IA" junto a título y competencia, que rellenan el campo sin abrir diálogos |
+| Etiquetas "Necesario para crear / Puedes completarlo después / Escrito por ti" | Ruido | Quitar; los obligatorios llevan asterisco y nada más |
+| Competencias en caja de texto libre | El docente no debería escribir nombres del CNEB | Lista de competencias por área y nivel (ya existe el catálogo de educación en el backend, `education_catalog`); máximo 2 + opción "que la IA sugiera" |
+| Lista de estudiantes en un textarea | — | Selector de nóminas guardadas (`rosters`) + pegar nombres |
+
+### 5.4 Ajuste al plan de fases
+
+- La **fase 2 (Portada y asistente)** absorbe lo anterior: el asistente tendrá 4
+  pasos (Datos, Competencias, Enfoques, Evaluación) con la estética de bloques de
+  color, campos precargados, botones "Sugerir con IA" y sin panel de calidad.
+- Se añade una **fase 2b: limpieza de la herramienta suelta** de sesión: mismos
+  cuatro pasos, "Opciones avanzadas" plegado con los campos largos actuales, sin
+  stepper de secuencia ni panel de calidad para el docente.
+- El resto de fases (encadenamiento, paquete de clase, prueba con el cliente) no
+  cambia.
+
+### 5.5 Preguntas nuevas
+
+6. ¿"Curso" se llama "Área y tema" o prefiere otro nombre?
+7. ¿Los datos institucionales precargados se muestran en el paso 1 (editables) o
+   solo en el perfil?
+8. ¿La lista de alumnos se pide en la sesión o solo al generar el instrumento?
