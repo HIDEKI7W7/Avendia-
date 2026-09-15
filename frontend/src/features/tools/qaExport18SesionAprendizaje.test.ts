@@ -144,6 +144,15 @@ export function sessionArtifactSample(): StructuredArtifact {
         note: "",
       },
       {
+        title: "Competencias transversales",
+        columns: ["Competencia transversal", "Capacidades", "Estándar", "Desempeño", "Criterio"],
+        rows: [
+          ["Se desenvuelve en entornos virtuales generados por las TIC", "Personaliza entornos virtuales\nGestiona información del entorno virtual", "Elabora material digital (presentaciones, videos, documentos) comparando y seleccionando distintas actividades según sus necesidades.", "Modifica un entorno virtual personalizado cuando clasifica aplicaciones y herramientas de navegación.", "Busca imágenes del fenómeno en el entorno virtual con ayuda del docente."],
+          ["Gestiona su aprendizaje de manera autónoma", "Define metas de aprendizaje\nMonitorea y ajusta su desempeño", "Comprende que debe organizarse lo más específicamente posible y que lo planteado incluya más de una estrategia.", "Determina metas de aprendizaje viables, asociadas a sus necesidades y prioridades.", "Revisa su organizador con la lista de la autoevaluación."],
+        ],
+        note: "",
+      },
+      {
         title: "Instrumento de evaluación",
         columns: ["N°", "Criterio observable", "Evidencia", "Escala"],
         rows: [
@@ -216,6 +225,10 @@ describe("QA Generator: 18-planificamos-sesion-aprendizaje", () => {
     expect(content.worksheet).toHaveLength(6);
     expect(content.worksheet[0].options).toHaveLength(4);
     expect(content.mindMap.branches).toHaveLength(5);
+    expect(content.transversal).toHaveLength(2);
+    expect(content.transversal[0].competency).toMatch(/entornos virtuales/);
+    expect(content.transversal[1].performance).toMatch(/metas/);
+    expect(content.approaches).toHaveLength(2);
     expect(content.theory.length).toBeGreaterThanOrEqual(3);
     expect(content.students).toHaveLength(4);
     expect(content.info.find(([label]) => label === "Duración")?.[1]).toBe("90 minutos");

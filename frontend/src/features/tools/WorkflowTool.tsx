@@ -927,7 +927,7 @@ export function WorkflowTool() {
   const fieldLabel = (field: WorkflowField, value: FieldValue, canGuide: boolean) => (
     <span className="workflow-field__label">
       <span>{field.label}</span>
-      {field.required ? <b>Necesario para crear</b> : <em>Puedes completarlo después</em>}
+      {field.required ? <b aria-label="Obligatorio">*</b> : <em>Opcional</em>}
       {displayValue(value).trim() && draft.fieldSources?.[field.id] ? (
         <small className={`workflow-field__source is-${draft.fieldSources[field.id]}`}>
           {draft.fieldSources[field.id] === "profile" ? "De tu perfil" : draft.fieldSources[field.id] === "reference" ? "Del documento anterior" : draft.fieldSources[field.id] === "ai" ? "Propuesto por Avendia" : "Escrito por ti"}
@@ -1220,7 +1220,10 @@ export function WorkflowTool() {
         <section className="workflow-result-actions"><button type="button" className="secondary-button" onClick={() => setDraft((current) => ({ ...current, artifact: null, currentStep: workflow.steps.length - 1 }))}><ChevronLeft /> Editar datos</button><button type="button" className="secondary-button" onClick={() => setEditingResult((current) => !current)}><Pencil /> {editingResult ? "Cerrar edición" : "Editar resultado"}</button><button type="button" className="secondary-button" onClick={() => generate()} disabled={status === "generating"}><RefreshCw /> Regenerar todo</button><button type="button" className="secondary-button" onClick={() => void copyArtifact()}><Clipboard /> {workflow.artifactType === "comunicacion" ? "Copiar correo" : "Copiar"}</button>{renderTemplateExport()}</section>
         {message ? <div className={`workflow-message ${status === "error" ? "workflow-message--error" : ""}`}>{message}</div> : null}
         {draft.artifact.activity?.items.length ? <InteractiveArtifact activity={draft.artifact.activity} toolId={tool.id} values={draft.values} /> : null}
-        {renderQualityPanel()}
+        <details className="generation-quality-details">
+          <summary>Detalle técnico de la generación</summary>
+          {renderQualityPanel()}
+        </details>
         <StructuredArtifactPreview artifact={draft.artifact} artifactType={workflow.artifactType} toolId={tool.id} values={draft.values} workflowKey={workflow.key} onDownloadWord={downloadWord} editingResult={editingResult} onUpdateSection={updateArtifactSection} onUpdateTableCell={updateArtifactTableCell} onRegenerateSection={regenerateArtifactSection} regeneratingSection={regeneratingSection} onPrepareExactPreview={prepareExactPreview} />
         <GenerationProgressOverlay open={status === "generating"} toolTitle={tool.title} family={tool.module} />
       </div></main>

@@ -1102,6 +1102,26 @@ def _session_annex_tables() -> list[WorkflowArtifactTable]:
             ],
         ),
         WorkflowArtifactTable(
+            title="Competencias transversales",
+            columns=["Competencia transversal", "Capacidades", "Estándar", "Desempeño", "Criterio"],
+            rows=[
+                [
+                    "Se desenvuelve en entornos virtuales generados por las TIC",
+                    "Personaliza entornos virtuales",
+                    "Elabora material digital comparando actividades.",
+                    "Usa una aplicación para comparar fracciones.",
+                    "Registra sus repartos en la aplicación.",
+                ],
+                [
+                    "Gestiona su aprendizaje de manera autónoma",
+                    "Monitorea y ajusta su desempeño",
+                    "Organiza su trabajo con metas viables.",
+                    "Define metas para resolver el reparto.",
+                    "Revisa su avance con la lista de cotejo.",
+                ],
+            ],
+        ),
+        WorkflowArtifactTable(
             title="Instrumento de evaluación",
             columns=["N°", "Criterio observable", "Evidencia", "Escala"],
             rows=[

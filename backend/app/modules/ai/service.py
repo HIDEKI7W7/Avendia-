@@ -778,8 +778,14 @@ _TABLE_BLUEPRINTS: dict[str, tuple[str, ...]] = {
         "Producto | Estándar del ciclo. Exactamente una fila. En Propósito escribe tres "
         "líneas que empiecen con ¿Qué?, ¿Cómo? y ¿Para qué?. En Estándar del ciclo copia el "
         "estándar oficial de la competencia principal para el ciclo del grado.",
-        "Enfoques transversales: Enfoque transversal | Valor | Actitud observable. Una fila "
-        "por enfoque seleccionado o, si no se indicó, dos enfoques pertinentes al tema.",
+        "Enfoques transversales: Enfoque transversal | Valor | Actitud observable. Exactamente "
+        "dos filas: los dos primeros enfoques seleccionados por el docente o, si no indicó, "
+        "los dos más pertinentes al tema.",
+        "Competencias transversales: Competencia transversal | Capacidades | Estándar | "
+        "Desempeño | Criterio. Exactamente dos filas, en este orden: 'Se desenvuelve en "
+        "entornos virtuales generados por las TIC' y 'Gestiona su aprendizaje de manera "
+        "autónoma', con sus capacidades oficiales del CNEB, el estándar del ciclo y un "
+        "desempeño y un criterio contextualizados al tema de la sesión.",
         "Instrumento de evaluación: N° | Criterio observable | Evidencia | Escala. De 3 a 5 "
         "criterios en tercera persona del singular; en Escala escribe Lo logró / En proceso / "
         "Necesita ayuda.",

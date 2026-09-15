@@ -231,7 +231,7 @@ export function columnWidths(columns: string[], rows: string[][]): number[] {
   return widths;
 }
 
-export type LabeledRow = { label: string; text: string; color?: string; check?: boolean };
+export type LabeledRow = { label: string; text: string; color?: string; check?: boolean; fill?: string };
 
 /** Filas "ETIQUETA | contenido" con etiqueta en banda de color (enfoques, DUA, necesidades). */
 export function labeledRowsTable(rows: LabeledRow[], options: { labelWidth?: number; title?: string; titleColor?: string } = {}): Table {
@@ -242,7 +242,7 @@ export function labeledRowsTable(rows: LabeledRow[], options: { labelWidth?: num
   const body = rows.map((item) =>
     row([
       cell(item.label.toLocaleUpperCase("es"), { fill: item.color ?? COLORS.bandTeal, bold: true, color: COLORS.white, size: 17, width: labelWidth, align: AlignmentType.CENTER }),
-      cell(item.text, { width: 100 - labelWidth, size: 18, check: item.check }),
+      cell(item.text, { width: 100 - labelWidth, size: 18, check: item.check, fill: item.fill }),
     ])
   );
   return table([...head, ...body], { widths: [labelWidth, 100 - labelWidth] });

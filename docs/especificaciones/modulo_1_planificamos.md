@@ -90,3 +90,19 @@ Esta especificación detalla la homologación completa de los formularios, gener
   bloque se usan los datos del formulario o líneas de llenado, nunca "No registrado".
 - Las ilustraciones y el logo van incrustados (`docx/assets.ts`), sin descargas externas.
 - La vista previa (`SessionDocumentPreview.tsx`) usa los mismos datos y colores que el Word.
+
+## 3. CREAR MI CLASE (`/dashboard/crear-clase`)
+
+Ruta principal para el docente: un asistente de cuatro pasos (Datos, Competencias,
+Enfoques, Evaluación) genera la Sesión de Aprendizaje con el formato de referencia y,
+con "Siguiente", encadena el Instrumento de evaluación (lista de cotejo, guía de
+observación, rúbrica o escala) y los Materiales (teoría, ficha de trabajo y mapa
+mental). Cada etapa se guarda como documento en el historial y queda relacionada con la
+sesión de origen (`/documents/relations`). La lógica vive en
+`frontend/src/features/classes/classWizard.ts` y la página en `CreateClassPage.tsx`.
+
+- Datos institucionales precargados desde el perfil; competencias del CNEB por área
+  (máximo dos) o sugeridas por la IA; exactamente dos enfoques; título sugerido con IA.
+- No se muestran el panel de control de calidad ni los diálogos de sugerencia por campo.
+- La herramienta suelta "Sesión de Aprendizaje" sigue disponible para sesiones no
+  ligadas a instrumento ni materiales.

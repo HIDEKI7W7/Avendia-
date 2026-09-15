@@ -14,6 +14,13 @@ export type SessionCriterion = { number: string; criterion: string; evidence: st
 export type SessionWorksheetItem = { number: string; prompt: string; type: string; options: string[]; expected: string };
 export type SessionMindBranch = { title: string; items: string[] };
 export type SessionTheoryBlock = { title: string; narrative: string; points: string[] };
+export type SessionTransversal = { competency: string; capacities: string; standard: string; performance: string; criteria: string };
+
+/** Las dos competencias transversales del CNEB que el formato de referencia muestra siempre. */
+export const TRANSVERSAL_COMPETENCIES: Array<[string, string]> = [
+  ["Se desenvuelve en entornos virtuales generados por las TIC", "Personaliza entornos virtuales\nGestiona información del entorno virtual\nInteractúa en entornos virtuales\nCrea objetos virtuales en diversos formatos"],
+  ["Gestiona su aprendizaje de manera autónoma", "Define metas de aprendizaje\nOrganiza acciones estratégicas para alcanzar sus metas\nMonitorea y ajusta su desempeño durante el proceso de aprendizaje"],
+];
 
 export type SessionContent = {
   title: string;
@@ -24,6 +31,7 @@ export type SessionContent = {
   needs: string;
   instrument: string;
   approaches: SessionApproach[];
+  transversal: SessionTransversal[];
   duaContext: string;
   dua: string;
   peerWork: string;
@@ -164,9 +172,22 @@ export function readSessionContent(artifact: WorkflowArtifact, values: Record<st
 
   // V. Enfoques, DUA, pares
   const approachesTable = findTable(tables, "enfoques");
-  const approaches: SessionApproach[] = approachesTable
+  // El formato de referencia muestra siempre dos enfoques: los dos primeros marcados por el docente.
+  const approaches: SessionApproach[] = (approachesTable
     ? approachesTable.rows.map((row) => ({ approach: row[0] ?? "", value: row[1] ?? "", attitude: row[2] ?? "" }))
-    : splitList(text(values, "transversal_approaches"), /\s*,\s*/).map((approach) => ({ approach: `Enfoque ${approach}`, value: "", attitude: "" }));
+    : splitList(text(values, "transversal_approaches"), /\s*,\s*/).map((approach) => ({ approach: `Enfoque ${approach}`, value: "", attitude: "" }))
+  ).slice(0, 2);
+  const transversalTable = findTable(tables, "competencias transversales");
+  const transversal: SessionTransversal[] = TRANSVERSAL_COMPETENCIES.map(([competency, capacities], index) => {
+    const row = transversalTable?.rows.find((cells) => norm(cells[0] ?? "").includes(index === 0 ? "virtuales" : "autonoma")) ?? transversalTable?.rows[index];
+    return {
+      competency,
+      capacities: row?.[1] || capacities,
+      standard: row?.[2] ?? "",
+      performance: row?.[3] ?? "",
+      criteria: row?.[4] ?? "",
+    };
+  });
   const duaSection = findSection(artifact, used, "dua", "diversidad", "inclusi");
   const peerSection = findSection(artifact, used, "pares", "colaborativo");
   const duaContext = text(values, "student_context", "dua_adjustments");
@@ -255,6 +276,7 @@ export function readSessionContent(artifact: WorkflowArtifact, values: Record<st
     needs,
     instrument,
     approaches,
+    transversal,
     duaContext,
     dua,
     peerWork,

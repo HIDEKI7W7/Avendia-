@@ -10,6 +10,7 @@ import { useWorkspacePreferences } from "../../context/WorkspacePreferencesConte
 import type { SessionUser } from "../../lib/session";
 import type { DashboardActivity } from "./dashboardActivity";
 import { HomePedagogicalCalendar } from "./HomePedagogicalCalendar";
+import "../../styles/class-wizard.css";
 
 const MOST_USED_IDS = [
   "plan-curricular-anual", "unidad-aprendizaje", "sesion-aprendizaje", "ficha-aprendizaje",
@@ -104,6 +105,24 @@ export function HomeDashboardContent({ user, activity, activityLoading, onNewCre
               <div><small>Documentos creados</small><strong>{activityLoading ? "—" : activity.documentCount}</strong><p>Disponibles en tu historial</p></div>
             </article>
           </div>
+        </section>
+
+        <section className="home-class-flow" aria-labelledby="home-class-flow-title">
+          <div className="home-class-flow__head">
+            <div>
+              <span className="home-eyebrow"><Sparkles aria-hidden="true" /> Ruta principal</span>
+              <h2 id="home-class-flow-title">Crea tu clase completa</h2>
+              <p>Con un solo botón preparas la sesión de aprendizaje y, a partir de ella, el instrumento de evaluación y los materiales para tus estudiantes.</p>
+            </div>
+            <button type="button" className="primary-button home-class-flow__cta" onClick={() => navigate("/dashboard/crear-clase")}>Crear mi clase <ArrowRight aria-hidden="true" /></button>
+          </div>
+          <ol className="home-class-flow__steps" aria-label="Etapas de la clase">
+            <li><span data-step="1" aria-hidden="true" /><div>Sesión de aprendizaje<small>Formato oficial con inicio, desarrollo y cierre</small></div></li>
+            <li className="home-class-flow__arrow" aria-hidden="true">→</li>
+            <li><span data-step="2" aria-hidden="true" /><div>Instrumento de evaluación<small>Con los criterios de esa sesión</small></div></li>
+            <li className="home-class-flow__arrow" aria-hidden="true">→</li>
+            <li><span data-step="3" aria-hidden="true" /><div>Materiales<small>Teoría, ficha de trabajo y mapa mental</small></div></li>
+          </ol>
         </section>
 
         <ToolSection

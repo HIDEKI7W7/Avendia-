@@ -14,6 +14,8 @@ type Props = {
   editingResult?: boolean;
   onUpdateSection?: (index: number, key: "title" | "narrative", value: string) => void;
   onUpdateTableCell?: (tableIndex: number, rowIndex: number, cellIndex: number, value: string) => void;
+  /** "materials" muestra solo los anexos para el estudiante (teoría, ficha y mapa mental). */
+  part?: "full" | "materials";
 };
 
 const CIRCLED = ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨", "⑩"];
@@ -135,7 +137,56 @@ function Worksheet({ content }: { content: SessionContent }) {
   );
 }
 
-export function SessionDocumentPreview({ artifact, values, onDownloadWord, editingResult = false, onUpdateSection }: Props) {
+function TheoryBlock({ content }: { content: SessionContent }) {
+  return (
+    <section className="word-section word-page-break">
+      <Band tone="deep">Teoría del tema</Band>
+      {content.theory.map((block, index) => (
+        <div key={`${index}-${block.title}`}>
+          <h3 className="word-section-h2 is-deep">{block.title}</h3>
+          <CellText text={block.narrative} />
+          {block.points.map((point, position) => <p key={position} className="word-cell-line word-cell-line--check"><span className="word-check is-deep">–</span><span>{point}</span></p>)}
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function MindMapBlock({ content }: { content: SessionContent }) {
+  if (!content.mindMap.branches.length) return null;
+  return (
+    <section className="word-section word-page-break">
+      <Band tone="navy" center>Mapa mental · Infografía</Band>
+      <p className="word-mindmap__meta">{content.headerLine}</p>
+      <div className="word-mindmap__center">{content.mindMap.center.toLocaleUpperCase("es")}</div>
+      <div className="word-mindmap__arrow">▼</div>
+      <div className="word-mindmap__branches">
+        {content.mindMap.branches.map((branch, index) => (
+          <div key={`${index}-${branch.title}`} className={`word-mindmap__branch word-card--${index % 5}`}>
+            <div className="word-mindmap__branch-title">{branch.title}</div>
+            <ul>{branch.items.map((item, position) => <li key={position}>{item}</li>)}</ul>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function MaterialsBody({ content }: { content: SessionContent }) {
+  return (
+    <>
+      <header className="word-paper-header word-paper-header--session">
+        <h1 className="word-paper-title">Materiales de la sesión</h1>
+        <p className="word-paper-subtitle word-paper-subtitle--session">“{content.title}”</p>
+      </header>
+      {content.theory.length ? <TheoryBlock content={content} /> : null}
+      {content.worksheet.length ? <Worksheet content={content} /> : null}
+      <MindMapBlock content={content} />
+    </>
+  );
+}
+
+export function SessionDocumentPreview({ artifact, values, onDownloadWord, editingResult = false, onUpdateSection, part = "full" }: Props) {
   const [viewMode, setViewMode] = useState<"word" | "grid">("word");
   const content = readSessionContent(artifact, values);
   const number = content.sessionNumber ? `N° ${content.sessionNumber.padStart(2, "0")}` : "N° ____";
@@ -158,6 +209,7 @@ export function SessionDocumentPreview({ artifact, values, onDownloadWord, editi
         <div className="word-preview-viewport">
           <article className="word-document-paper word-document-paper--session">
             <ChromeHeader right={content.headerLine} />
+            {part === "materials" ? <MaterialsBody content={content} /> : <>
             <header className="word-paper-header word-paper-header--session">
               <h1 className="word-paper-title">Sesión de aprendizaje {number}</h1>
               <p className="word-paper-subtitle word-paper-subtitle--session">“{content.title}”</p>
@@ -185,7 +237,7 @@ export function SessionDocumentPreview({ artifact, values, onDownloadWord, editi
                       </tr>
                     </>
                   ))}
-                  {content.alignment.standard ? <tr><th scope="row" className="word-kv__label">Estándar del ciclo<br /><small>(lo que se espera al final del ciclo)</small></th><td colSpan={2} className="word-cell-italic">{content.alignment.standard}</td></tr> : null}
+                  {content.alignment.standard ? <tr className="is-standard"><th scope="row" className="word-kv__label">Estándar del ciclo<br /><small>(lo que se espera al final del ciclo)</small></th><td colSpan={2} className="word-cell-italic">{content.alignment.standard}</td></tr> : null}
                 </tbody>
               </table>
             </section>
@@ -200,21 +252,38 @@ export function SessionDocumentPreview({ artifact, values, onDownloadWord, editi
                     <td><CellText text={content.alignment.challenge || "________________"} /></td>
                     <td><CellText text={content.alignment.evidence || "________________"} /></td>
                   </tr>
-                  <tr><th scope="row" className="word-kv__label">Producto</th><td colSpan={2}><strong>{content.alignment.product || content.alignment.evidence || "________________"}</strong></td></tr>
+                  <tr className="is-product"><th scope="row" className="word-kv__label">Producto</th><td colSpan={2}><strong>{content.alignment.product || content.alignment.evidence || "________________"}</strong></td></tr>
                 </tbody>
               </table>
             </section>
 
             <section className="word-section">
-              <Band>IV. Necesidades de aprendizaje e instrumento</Band>
-              <table className="word-table word-labeled"><tbody>
-                <tr><th scope="row" className="is-teal">Necesidades de aprendizaje</th><td><CellText text={content.needs || "________________"} check /></td></tr>
-                <tr><th scope="row" className="is-teal">Instrumento de evaluación</th><td>{content.instrument}</td></tr>
+              <table className="word-table word-labeled word-labeled--deep"><tbody>
+                <tr><th scope="row">Necesidades de aprendizaje</th><td><CellText text={content.needs || "________________"} check /></td></tr>
+                <tr><th scope="row">Instrumento de evaluación</th><td>{content.instrument}</td></tr>
               </tbody></table>
             </section>
 
             <section className="word-section">
-              <Band>V. Enfoques transversales, DUA y trabajo entre pares</Band>
+              <Band>IV. Competencias transversales</Band>
+              <table className="word-table word-table--session word-transversal">
+                <thead><tr><th>Competencias y capacidades</th><th>Estándar</th><th>Desempeños</th><th>Criterios</th><th>Evidencia</th></tr></thead>
+                <tbody>
+                  {content.transversal.map((item) => (
+                    <tr key={item.competency}>
+                      <td><p className="word-cell-line word-cell-line--check"><span className="word-check">✓</span><strong>{item.competency}</strong></p><p className="word-transversal__label">CAPACIDADES</p><CellText text={item.capacities} /></td>
+                      <td><CellText text={item.standard || "________________"} /></td>
+                      <td><CellText text={item.performance || "________________"} /></td>
+                      <td><CellText text={item.criteria || "________________"} /></td>
+                      <td><CellText text={content.alignment.evidence || "________________"} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+
+            <section className="word-section">
+              <Band>V. Enfoques transversales / Atención a la diversidad / DUA</Band>
               <table className="word-table word-labeled"><tbody>
                 {(content.approaches.length ? content.approaches : [{ approach: "Enfoque transversal", value: "", attitude: "" }]).map((item, index) => (
                   <tr key={`${index}-${item.approach}`}>
@@ -222,8 +291,8 @@ export function SessionDocumentPreview({ artifact, values, onDownloadWord, editi
                     <td><CellText text={[item.value ? `Valor: ${item.value}` : "", item.attitude ? `Actitud: ${item.attitude}` : ""].filter(Boolean).join("\n") || "________________"} /></td>
                   </tr>
                 ))}
-                <tr><th scope="row">Diseño Universal para el Aprendizaje (DUA) / Atención a la diversidad</th><td>{content.duaContext || "________________"}</td></tr>
-                <tr><th scope="row">DUA según contexto</th><td><CellText text={content.dua || "________________"} check /></td></tr>
+                <tr className="is-dua"><th scope="row">Diseño Universal para el Aprendizaje (DUA) / Atención a la diversidad</th><td>{content.duaContext || "________________"}</td></tr>
+                <tr className="is-dua"><th scope="row">DUA según contexto</th><td><CellText text={content.dua || "________________"} check /></td></tr>
                 <tr><th scope="row">Trabajo entre pares</th><td><CellText text={content.peerWork || "Los estudiantes interactúan de manera colaborativa para movilizar capacidades y resolver el reto de la sesión."} /></td></tr>
               </tbody></table>
             </section>
@@ -318,6 +387,7 @@ export function SessionDocumentPreview({ artifact, values, onDownloadWord, editi
                 </div>
               </section>
             ) : null}
+            </>}
           </article>
         </div>
       ) : (

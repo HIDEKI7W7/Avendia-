@@ -25,6 +25,7 @@ const CommunityPage = lazy(() => import("../features/utilities/CommunityPage").t
 const UtilitiesAdminPage = lazy(() => import("../features/utilities/UtilitiesAdminPage").then((module) => ({ default: module.UtilitiesAdminPage })));
 const AdminControlCenterPage = lazy(() => import("../features/admin/AdminControlCenterPage").then((module) => ({ default: module.AdminControlCenterPage })));
 const PresentationTool = lazy(() => import("../features/tools/PresentationTool").then((module) => ({ default: module.PresentationTool })));
+const CreateClassPage = lazy(() => import("../features/classes/CreateClassPage").then((module) => ({ default: module.CreateClassPage })));
 const RosterPage = lazy(() => import("../features/rosters/RosterPage").then((module) => ({ default: module.RosterPage })));
 
 function RequireSession({ children, admin = false }: { children: ReactNode; admin?: boolean }) {
@@ -70,6 +71,7 @@ export function App() {
       <Route path="/registro" element={<RegisterPage />} />
       <Route path="/dashboard" element={<RequireSession><AppShell /></RequireSession>}>
         <Route index element={<DashboardPage />} />
+        <Route path="crear-clase" element={<CreateClassPage />} />
         <Route path="calendario" element={<CalendarPage />} />
         <Route path="mis-estudiantes" element={<Suspense fallback={<div className="roster-load-state">Cargando tus estudiantes…</div>}><RosterPage /></Suspense>} />
         <Route path="recursos/presentaciones-didacticas" element={<Suspense fallback={<div className="admin-state">Cargando editor de presentaciones…</div>}><PresentationTool /></Suspense>} />

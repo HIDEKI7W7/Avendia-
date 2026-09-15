@@ -1,5 +1,32 @@
 # Plan: flujo "Crear mi clase" y ajustes al formato de sesión
 
+## Estado de ejecución
+
+Implementado en la rama (ver sección 7 para el detalle):
+
+- Word de sesión: bloque IV Competencias transversales (dos filas fijas), exactamente
+  dos enfoques, filas Estándar (amarillo), Producto (verde) y DUA (salmón) resaltadas,
+  numeración como la referencia. Vista previa alineada.
+- Herramientas: etiquetas "Necesario para crear / Puedes completarlo después"
+  sustituidas por asterisco y "Opcional"; panel "Control de calidad" plegado bajo
+  "Detalle técnico de la generación"; el bloque "Crear desde cero o continuar una
+  secuencia" pasa a llamarse "Reutilizar datos de un documento guardado (opcional)";
+  zoom de la vista previa ampliado hasta 240 %.
+- Portada: bloque "Crea tu clase completa" con la línea de tres etapas y un solo botón
+  "Crear mi clase". Entrada "Crear mi clase" en el menú lateral.
+- Asistente `/dashboard/crear-clase`: cuatro pasos (Datos, Competencias, Enfoques,
+  Evaluación), datos del perfil precargados, competencias del CNEB por área con máximo
+  dos, "Dejar que la IA sugiera la competencia", enfoques como chips (elige 2),
+  "Sugerir con IA" para el título, duración en horas pedagógicas, instrumento y nómina
+  desde las listas guardadas. Sin panel de calidad ni diálogos por campo.
+- Cadena: la sesión generada alimenta el instrumento (lista de cotejo, guía de
+  observación, rúbrica o escala) con sus criterios, evidencia y nómina; los materiales
+  (teoría, ficha, mapa mental) se entregan como Word propio. Los tres documentos se
+  guardan en el historial y quedan relacionados entre sí.
+
+Pendiente: ilustraciones generadas por tema, lema del año configurable, prueba con
+Gemini real y las preguntas abiertas de las secciones 4 y 5.5.
+
 Fuente: audio y video del cliente (WhatsApp, 11/09/2026, 3 min 52 s) donde muestra
 la pantalla de inicio de Avendia, el asistente "Nueva Clase" de nitia.ai y el Word de
 referencia `Sesion-Fenómeno_El_Niño`. Este documento solo planifica; no se ha
@@ -238,3 +265,42 @@ de color como título de cada bloque, botón "Atrás".
 7. ¿Los datos institucionales precargados se muestran en el paso 1 (editables) o
    solo en el perfil?
 8. ¿La lista de alumnos se pide en la sesión o solo al generar el instrumento?
+
+## 6. Tercer video: confirmaciones y detalles
+
+Fuente: tercer video (1 min 48 s). No aporta pedidos nuevos; confirma con más detalle
+los anteriores.
+
+- Vuelve a mostrar el diálogo "Sugerencia contextual" (en "Propósito de la unidad" y
+  "Título de la sesión") como ejemplo de lo que sobra. En el asistente nuevo no existe:
+  la sugerencia de título es un botón que rellena el campo.
+- Muestra los enfoques transversales de Avendia como filas anchas con casillas; en la
+  referencia son chips compactos "elige 1 o 2". El asistente usa chips y fija dos.
+- En la referencia, el bloque "Recursos y materiales" tiene tres columnas (Recursos,
+  Materiales, ...) cada una con "Sugerir con IA". En "Crear mi clase" los recursos y
+  materiales los redacta la IA dentro de la sesión (bloque VIII) y no se piden al
+  docente; en la herramienta suelta siguen disponibles bajo opciones avanzadas.
+- La pantalla "Generación en progreso" con pasos numerados se cubre con la superposición
+  de progreso existente (`GenerationProgressOverlay`).
+
+## 7. Cómo quedó implementado
+
+| Pieza | Archivo |
+| --- | --- |
+| Lógica del asistente (valores, validación, campos para la IA, encadenado) | `frontend/src/features/classes/classWizard.ts` |
+| Página del asistente y cadena de tres etapas | `frontend/src/features/classes/CreateClassPage.tsx` |
+| Estilos de pasos, bloques, chips y bloque de portada | `frontend/src/styles/class-wizard.css` |
+| Bloque "Crea tu clase completa" | `frontend/src/features/dashboard/HomeDashboardContent.tsx` |
+| Ruta `crear-clase` y entrada de menú | `frontend/src/app/App.tsx`, `frontend/src/config/tools.ts` |
+| Bloque IV y colores del Word | `frontend/src/features/tools/docx/buildSessionDocx.ts`, `sessionContent.ts`, `theme.ts` |
+| Materiales como Word propio | `buildSessionDocx(artifact, values, { part: "materials" })` |
+| Matriz "Competencias transversales" pedida a la IA | `backend/app/modules/ai/service.py` (`_TABLE_BLUEPRINTS`) |
+
+Decisiones tomadas sin confirmación del cliente (fáciles de revertir):
+
+1. El bloque VII "Evaluación de los aprendizajes" se mantiene.
+2. Los materiales son teoría + ficha + mapa mental; la presentación queda fuera.
+3. La descarga es un Word por etapa (tres archivos), no un solo documento.
+4. La lista de alumnos se pide en el paso Evaluación de la sesión y se hereda al
+   instrumento.
+5. El paso se llama "Datos" (no "Curso").

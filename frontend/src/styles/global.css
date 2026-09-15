@@ -1348,3 +1348,7 @@ textarea { padding: 12px; line-height: 1.55; resize: vertical; }
   .generation-quality > header > strong { grid-column:2; justify-self:start; }
   .generation-quality ul { grid-template-columns:1fr; }
 }
+
+.generation-quality-details { border: 1px dashed var(--line); border-radius: 12px; padding: 6px 14px; background: #fbfcff; }
+.generation-quality-details > summary { cursor: pointer; font-size: 13px; font-weight: 700; color: var(--muted); padding: 8px 0; }
+.generation-quality-details[open] > summary { margin-bottom: 8px; }

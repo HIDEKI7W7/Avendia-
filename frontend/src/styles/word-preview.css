@@ -2285,3 +2285,11 @@
 @media print {
   .word-page-break { break-before: page; border-top: 0; margin-top: 0; padding-top: 0; }
 }
+
+/* Filas resaltadas como en la referencia */
+.word-table tr.is-standard th, .word-table tr.is-standard td { background: #fff3b0 !important; }
+.word-table tr.is-product th, .word-table tr.is-product td { background: #e3f4e1 !important; }
+.word-labeled tr.is-dua td { background: #fbe3d5 !important; }
+.word-labeled--deep th[scope="row"] { background: #0f4761; }
+.word-transversal td { font-size: 0.78rem; }
+.word-transversal__label { margin: 0.3rem 0 0.1rem; font-weight: 700; font-size: 0.72rem; text-decoration: underline; color: #1f4d78; }

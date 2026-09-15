@@ -187,7 +187,7 @@ export function WordDocumentPreview({
       const widthScale = Math.min(1, availableWidth / paperWidth);
       const resultScale = Math.min(widthScale, availableHeight / paperHeight);
       const baseScale = documentMode === "fit-result" ? resultScale : widthScale;
-      const scale = Math.max(0.03, Math.min(1.75, baseScale * zoom));
+      const scale = Math.max(0.03, Math.min(2.6, baseScale * zoom));
       const nextLayout = {
         scale,
         width: Math.ceil(paperWidth * scale),
@@ -452,7 +452,7 @@ export function WordDocumentPreview({
               <>
                 <button type="button" aria-label="Alejar documento" disabled={zoom <= 0.55} onClick={() => setZoom((value) => Math.max(0.5, Number((value - 0.1).toFixed(2))))}><ZoomOut size={17} /></button>
                 <output aria-live="polite">{Math.round(documentLayout.scale * 100)}%</output>
-                <button type="button" aria-label="Acercar documento" disabled={zoom >= 1.55} onClick={() => setZoom((value) => Math.min(1.6, Number((value + 0.1).toFixed(2))))}><ZoomIn size={17} /></button>
+                <button type="button" aria-label="Acercar documento" disabled={zoom >= 2.35} onClick={() => setZoom((value) => Math.min(2.4, Number((value + 0.15).toFixed(2))))}><ZoomIn size={17} /></button>
               </>
             ) : <span>Vista adaptada al dispositivo</span>}
             <button type="button" aria-label={isFullscreen ? "Salir de pantalla completa" : "Abrir en pantalla completa"} aria-pressed={isFullscreen} onClick={() => setIsFullscreen((value) => !value)}>

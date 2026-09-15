@@ -30,6 +30,12 @@ export const COLORS = {
   /** Fondo cálido de la ficha del estudiante. */
   warmBg: "FFF7EC",
   warmBorder: "F6C5AC",
+  /** Fila del estándar del ciclo (amarillo de la referencia). */
+  standardBg: "FFF3B0",
+  /** Fila del producto (verde claro de la referencia). */
+  productBg: "E3F4E1",
+  /** Filas DUA (salmón de la referencia). */
+  duaBg: "FBE3D5",
   /** Acentos por momento didáctico. */
   inicio: "3FA34D",
   desarrollo: "EE964B",

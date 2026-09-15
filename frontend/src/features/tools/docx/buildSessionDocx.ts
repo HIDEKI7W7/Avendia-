@@ -80,8 +80,8 @@ function purposesTable(content: SessionContent): Table {
   });
   if (content.alignment.standard) {
     rows.push(row([
-      labelCell("Estándar del ciclo\n(lo que se espera al final del ciclo)", { width: widths[0], align: AlignmentType.CENTER }),
-      cell(content.alignment.standard, { width: 64, colSpan: 2, size: 17, italics: true }),
+      labelCell("Estándar del ciclo\n(lo que se espera al final del ciclo)", { width: widths[0], align: AlignmentType.CENTER, fill: COLORS.standardBg }),
+      cell(content.alignment.standard, { width: 64, colSpan: 2, size: 17, italics: true, fill: COLORS.standardBg }),
     ]));
   }
   return table(rows, { widths });
@@ -97,11 +97,31 @@ function alignmentTable(content: SessionContent): Table {
       cell(content.alignment.evidence || "________________", { width: widths[2] }),
     ]),
     row([
-      labelCell("Producto", { width: widths[0], align: AlignmentType.CENTER }),
-      cell(content.alignment.product || content.alignment.evidence || "________________", { width: 66, colSpan: 2, bold: true }),
+      labelCell("Producto", { width: widths[0], align: AlignmentType.CENTER, fill: COLORS.productBg }),
+      cell(content.alignment.product || content.alignment.evidence || "________________", { width: 66, colSpan: 2, bold: true, fill: COLORS.productBg }),
     ]),
   ];
   return table(rows, { widths });
+}
+
+function transversalTable(content: SessionContent): Table {
+  const widths = [24, 22, 18, 18, 18];
+  return table([
+    row([
+      headerCell("Competencias y capacidades", { width: widths[0] }),
+      headerCell("Estándar", { width: widths[1] }),
+      headerCell("Desempeños", { width: widths[2] }),
+      headerCell("Criterios", { width: widths[3] }),
+      headerCell("Evidencia", { width: widths[4] }),
+    ], { header: true }),
+    ...content.transversal.map((item) => row([
+      cell(`✓ ${item.competency}\nCAPACIDADES\n${item.capacities}`, { width: widths[0], size: 17 }),
+      cell(item.standard || "________________", { width: widths[1], size: 17 }),
+      cell(item.performance || "________________", { width: widths[2], size: 17 }),
+      cell(item.criteria || "________________", { width: widths[3], size: 17 }),
+      cell(content.alignment.evidence || "________________", { width: widths[4], size: 17 }),
+    ])),
+  ], { widths });
 }
 
 function evaluationTable(content: SessionContent): Table {
@@ -244,8 +264,37 @@ function mindMapBlocks(content: SessionContent): Block[] {
   ];
 }
 
-export function buildSessionDocx(artifact: WorkflowArtifact, values: Record<string, unknown> = {}): Document {
+export type SessionDocxPart = "full" | "materials";
+
+/**
+ * `part: "materials"` produce solo los anexos para el estudiante (teoría, ficha y mapa
+ * mental), que en la cadena "Crear mi clase" se entregan como documento propio.
+ */
+export function buildSessionDocx(artifact: WorkflowArtifact, values: Record<string, unknown> = {}, options: { part?: SessionDocxPart } = {}): Document {
   const content = readSessionContent(artifact, values);
+  if (options.part === "materials") {
+    const materials: Block[] = [
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 40 },
+        children: [new TextRun({ text: "MATERIALES DE LA SESIÓN", bold: true, color: COLORS.heading, size: 30, font: FONT_DISPLAY })],
+      }),
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 160 },
+        children: [new TextRun({ text: `“${clean(content.title).toLocaleUpperCase("es")}”`, bold: true, color: COLORS.band, size: 24, font: FONT_DISPLAY })],
+      }),
+      keyValueTable(content.info.filter(([label]) => ["Docente", "Institución educativa", "Grado", "Área", "Tema"].includes(label)), { labelWidth: 30 }),
+    ];
+    const theory = content.theory.length ? theoryBlocks(content) : [];
+    if (theory.length) { theory[0] = bandTitle("Teoría del tema", { color: COLORS.bandDeep }); materials.push(...theory); }
+    if (content.worksheet.length) materials.push(...worksheetBlocks(content));
+    materials.push(...mindMapBlocks(content));
+    return new Document({
+      styles: documentStyles,
+      sections: [{ properties: pageProperties("portrait"), headers: documentHeader({ headerRight: content.headerLine }), footers: documentFooter(`Materiales · ${clean(content.title)}`), children: materials }],
+    });
+  }
   const children: Block[] = [...titleBlocks(content)];
 
   children.push(bandTitle("I. Datos informativos"));
@@ -257,20 +306,24 @@ export function buildSessionDocx(artifact: WorkflowArtifact, values: Record<stri
   children.push(bandTitle("III. Alineamiento pedagógico de la sesión"));
   children.push(alignmentTable(content));
 
-  children.push(bandTitle("IV. Necesidades de aprendizaje e instrumento"));
+  // Como en la referencia, necesidades e instrumento van sin numeración entre III y IV.
+  children.push(spacer(80));
   children.push(labeledRowsTable([
-    { label: "Necesidades de aprendizaje", text: content.needs || "________________", color: COLORS.bandTeal, check: true },
-    { label: "Instrumento de evaluación", text: content.instrument, color: COLORS.bandTeal },
+    { label: "Necesidades de aprendizaje", text: content.needs || "________________", color: COLORS.bandDeep, check: true },
+    { label: "Instrumento de evaluación", text: content.instrument, color: COLORS.bandDeep },
   ]));
 
-  children.push(bandTitle("V. Enfoques transversales, DUA y trabajo entre pares"));
+  children.push(bandTitle("IV. Competencias transversales"));
+  children.push(transversalTable(content));
+
+  children.push(bandTitle("V. Enfoques transversales / Atención a la diversidad / DUA"));
   const approachRows = content.approaches.length
     ? content.approaches.map((item) => ({ label: item.approach.replace(/^enfoque\s+(de\s+)?/i, "Enfoque de "), text: [item.value ? `Valor: ${item.value}` : "", item.attitude ? `Actitud: ${item.attitude}` : ""].filter(Boolean).join("\n") || "________________", color: COLORS.bandTeal }))
     : [{ label: "Enfoque transversal", text: "________________", color: COLORS.bandTeal }];
   children.push(labeledRowsTable([
     ...approachRows,
-    { label: "Diseño Universal para el Aprendizaje (DUA) / Atención a la diversidad", text: content.duaContext || "________________", color: COLORS.bandDark },
-    { label: "DUA según contexto", text: content.dua || "________________", color: COLORS.bandDark, check: true },
+    { label: "Diseño Universal para el Aprendizaje (DUA) / Atención a la diversidad", text: content.duaContext || "________________", color: COLORS.bandDark, fill: COLORS.duaBg },
+    { label: "DUA según contexto", text: content.dua || "________________", color: COLORS.bandDark, check: true, fill: COLORS.duaBg },
     { label: "Trabajo entre pares", text: content.peerWork || "Los estudiantes interactúan de manera colaborativa para movilizar capacidades y resolver el reto de la sesión, intercambiando estrategias y retroalimentándose mutuamente.", color: COLORS.bandDark },
   ], { labelWidth: 26 }));
 
