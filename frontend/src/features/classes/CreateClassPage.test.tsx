@@ -166,7 +166,7 @@ describe("CreateClassPage", () => {
     expect(body.fields.opening).toBe("Observamos fotos de la última lluvia intensa en el barrio.");
     expect(body.fields.development).toBeUndefined();
     expect(body.fields.planning_mode).toMatch(/opciones avanzadas/);
-    const saved = mocks.apiRequest.mock.calls.find(([path]) => path === "/documents");
+    const saved = mocks.apiRequest.mock.calls.find(([path, init]) => path === "/documents" && (init as { method?: string })?.method === "POST");
     expect(JSON.parse(String((saved?.[1] as { body: string }).body)).metadata.class_flow).toBe(false);
     expect(screen.queryByRole("button", { name: /Siguiente: instrumento/ })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Descargar Word/ })).toBeInTheDocument();
@@ -175,5 +175,127 @@ describe("CreateClassPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /Editar datos/ }));
     expect(screen.getByRole("heading", { name: /^Evaluación$/ })).toBeInTheDocument();
     expect(screen.getByLabelText(/Inicio: motivación/)).toHaveValue("Observamos fotos de la última lluvia intensa en el barrio.");
+  });
+
+  it("encadena en el servidor: envía la sesión guardada como documento de origen y guarda los datos de la clase", async () => {
+    mocks.apiRequest.mockImplementation(async (path: string, init?: { body?: string; method?: string }) => {
+      if (path === "/ai/tools/workflow/generate") {
+        const body = JSON.parse(String(init?.body));
+        return body.tool_id === "sesion-aprendizaje" ? sessionArtifactSample() : instrumentArtifact;
+      }
+      if (path === "/documents" && init?.method === "POST") {
+        const body = JSON.parse(String(init?.body));
+        return { id: body.metadata.class_stage === "sesion" ? "doc-sesion" : `doc-${body.metadata.class_stage}` };
+      }
+      if (path === "/documents") return [];
+      return {};
+    });
+    render(<MemoryRouter initialEntries={["/dashboard/crear-clase"]}><CreateClassPage /></MemoryRouter>);
+    fillStepOne();
+    fireEvent.click(screen.getByRole("button", { name: /^Siguiente/ }));
+    fireEvent.click(screen.getByLabelText(/Dejar que la IA sugiera/));
+    fireEvent.click(screen.getByRole("button", { name: /^Siguiente/ }));
+    fireEvent.click(screen.getByLabelText("Inclusivo"));
+    fireEvent.click(screen.getByLabelText("Bien común"));
+    fireEvent.click(screen.getByRole("button", { name: /^Siguiente/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Crear mi clase/ }));
+    await screen.findByRole("button", { name: /Siguiente: instrumento/ });
+
+    const sessionSave = mocks.apiRequest.mock.calls.find(([path, init]) => path === "/documents" && (init as { method?: string })?.method === "POST");
+    const sessionMeta = JSON.parse(String((sessionSave?.[1] as { body: string }).body)).metadata;
+    expect(sessionMeta.class_flow).toBe(true);
+    expect(sessionMeta.wizard_values.transversal_approaches).toEqual(["Inclusivo", "Bien común"]);
+
+    fireEvent.click(screen.getByRole("button", { name: /Siguiente: instrumento/ }));
+    await screen.findByRole("button", { name: /Siguiente: materiales/ });
+    const instrumentCall = mocks.apiRequest.mock.calls.filter(([path]) => path === "/ai/tools/workflow/generate").at(-1);
+    const body = JSON.parse(String((instrumentCall?.[1] as { body: string }).body));
+    expect(body.source_document_id).toBe("doc-sesion");
+    const instrumentSave = mocks.apiRequest.mock.calls.filter(([path, init]) => path === "/documents" && (init as { method?: string })?.method === "POST").at(-1);
+    const instrumentMeta = JSON.parse(String((instrumentSave?.[1] as { body: string }).body)).metadata;
+    expect(instrumentMeta.class_stage).toBe("instrumento");
+    expect(instrumentMeta.class_session_id).toBe("doc-sesion");
+  });
+
+  it("alinea la sesión con una unidad guardada y la deja vinculada", async () => {
+    mocks.apiRequest.mockImplementation(async (path: string, init?: { body?: string; method?: string }) => {
+      if (path === "/documents" && !init?.method) {
+        return [
+          { id: "unit-1", title: "Unidad 3: Cuidamos el agua", document_type: "planificamos/unidad-aprendizaje", metadata_json: { fields: { unit_title: "Cuidamos el agua", learning_purposes: "Explicar el ciclo del agua y proponer acciones de cuidado.", curricular_area: "Personal Social", grade: "2° de Primaria" } } },
+          { id: "other", title: "Sesión vieja", document_type: "planificamos/sesion-aprendizaje", metadata_json: {} },
+        ];
+      }
+      if (path === "/ai/tools/workflow/generate") return sessionArtifactSample();
+      if (path === "/documents") return { id: "doc-sesion" };
+      return {};
+    });
+    render(<MemoryRouter initialEntries={["/dashboard/crear-clase"]}><CreateClassPage /></MemoryRouter>);
+    const unitSelect = await screen.findByLabelText(/Alinear con una unidad guardada/);
+    expect(screen.queryByRole("option", { name: /Sesión vieja/ })).not.toBeInTheDocument();
+    fireEvent.change(unitSelect, { target: { value: "unit-1" } });
+    expect(screen.getByLabelText(/Título de la unidad/)).toHaveValue("Cuidamos el agua");
+
+    fillStepOne();
+    fireEvent.click(screen.getByRole("button", { name: /^Siguiente/ }));
+    fireEvent.click(screen.getByLabelText(/Dejar que la IA sugiera/));
+    fireEvent.click(screen.getByRole("button", { name: /^Siguiente/ }));
+    fireEvent.click(screen.getByLabelText("Inclusivo"));
+    fireEvent.click(screen.getByLabelText("Bien común"));
+    fireEvent.click(screen.getByRole("button", { name: /^Siguiente/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Crear mi clase/ }));
+    await screen.findByRole("button", { name: /Siguiente: instrumento/ });
+
+    const generate = mocks.apiRequest.mock.calls.find(([path]) => path === "/ai/tools/workflow/generate");
+    const body = JSON.parse(String((generate?.[1] as { body: string }).body));
+    expect(body.source_document_id).toBe("unit-1");
+    expect(body.fields.unit_title).toBe("Cuidamos el agua");
+    expect(body.fields.unit_purpose).toMatch(/ciclo del agua/);
+    const relation = mocks.apiRequest.mock.calls.find(([path]) => path === "/documents/relations");
+    const relationBody = JSON.parse(String((relation?.[1] as { body: string }).body));
+    expect(relationBody).toMatchObject({ parent_document_id: "unit-1", child_document_id: "doc-sesion", relation_type: "continuation" });
+  });
+
+  it("reabre una clase guardada desde el historial en la etapa donde quedó y arma el ZIP", async () => {
+    mocks.apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/documents/doc-sesion") {
+        return { id: "doc-sesion", title: "Sesión guardada", document_type: "planificamos/sesion-aprendizaje", metadata_json: { artifact: sessionArtifactSample(), class_flow: true, class_stage: "sesion", wizard_values: { level: "Primaria", grade: "2° de Primaria", curricular_area: "Personal Social", session_topic: "El Fenómeno del Niño", transversal_approaches: ["Ambiental", "Bien común"], instrument: "Guía de observación", ai_competency: true } } };
+      }
+      if (path === "/documents/doc-sesion/relations") return [{ parent_document_id: "doc-sesion", child_document_id: "doc-instrumento", relation_type: "assessment" }];
+      if (path === "/documents/doc-instrumento") return { id: "doc-instrumento", title: "Guía", document_type: "evaluamos/lista-cotejo", metadata_json: { artifact: instrumentArtifact, class_flow: true, class_stage: "instrumento" } };
+      if (path === "/documents") return [];
+      return {};
+    });
+    render(<MemoryRouter initialEntries={["/dashboard/crear-clase?class=doc-sesion"]}><CreateClassPage /></MemoryRouter>);
+
+    await screen.findByRole("button", { name: /Siguiente: materiales/ });
+    expect(screen.getByRole("heading", { level: 1, name: /Instrumento de evaluación/ })).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /tutorial/i }).length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: /Siguiente: materiales/ }));
+    await screen.findByRole("button", { name: /Descargar clase completa/ });
+    fireEvent.click(screen.getByRole("button", { name: /Descargar clase completa/ }));
+    await waitFor(() => expect(mocks.downloadApiBlob).toHaveBeenCalled(), { timeout: 15_000 });
+    const [{ filename, blob }] = mocks.downloadApiBlob.mock.calls.at(-1) as [{ filename: string; blob: Blob }];
+    expect(filename).toBe("clase-el-fenomeno-del-nino.zip");
+    expect(blob.size).toBeGreaterThan(1000);
+  }, 30_000);
+
+  it("muestra al docente qué está preparando la IA mientras genera", async () => {
+    mocks.apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/ai/tools/workflow/generate") return new Promise(() => undefined);
+      if (path === "/documents") return [];
+      return {};
+    });
+    render(<MemoryRouter initialEntries={["/dashboard/crear-clase"]}><CreateClassPage /></MemoryRouter>);
+    fillStepOne();
+    fireEvent.click(screen.getByRole("button", { name: /^Siguiente/ }));
+    fireEvent.click(screen.getByLabelText(/Dejar que la IA sugiera/));
+    fireEvent.click(screen.getByRole("button", { name: /^Siguiente/ }));
+    fireEvent.click(screen.getByLabelText("Inclusivo"));
+    fireEvent.click(screen.getByLabelText("Bien común"));
+    fireEvent.click(screen.getByRole("button", { name: /^Siguiente/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Crear mi clase/ }));
+    expect(await screen.findByText(/Plantilla Word oficial y datos informativos/)).toBeInTheDocument();
+    expect(screen.getByText(/Teoría del tema, ficha de trabajo y mapa mental/)).toBeInTheDocument();
   });
 });

@@ -6,9 +6,9 @@
  * En modo "sesion" es la herramienta suelta "Sesión de aprendizaje": mismos cuatro
  * pasos, sin cadena, con los campos largos plegados bajo "Opciones avanzadas".
  */
-import { ArrowLeft, ArrowRight, Check, Download, FileText, LoaderCircle, Sparkles, WandSparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, CirclePlay, Download, FileText, FolderArchive, LoaderCircle, Sparkles, WandSparkles } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { GenerationProgressOverlay } from "../../components/GenerationProgressOverlay";
 import { ApiError, apiRequest, downloadApiBlob } from "../../lib/api";
@@ -33,17 +33,21 @@ import {
   instrumentFields,
   instrumentTarget,
   instrumentWorkflow,
+  defaultValues as defaultValuesFor,
   levelOptions,
   profileFields,
   readDraft,
+  savedUnitsFromDocuments,
   sessionFields,
   sessionWorkflow,
   stepErrors,
   toggleLimited,
+  valuesFromSessionFields,
   type ClassDraft,
   type ClassStage,
   type ClassWizardValues,
   type InstrumentOption,
+  type SavedUnit,
   type WizardMode,
 } from "./classWizard";
 import "../../styles/class-wizard.css";
@@ -66,10 +70,19 @@ async function withRetry<T>(request: () => Promise<T>): Promise<T> {
 }
 
 const SESSION_ROUTE = "/dashboard/planificamos/sesion-aprendizaje";
+const TUTORIALS_ROUTE = "/dashboard/videos-tutorial";
+
+type StoredDocument = { id: string; title: string; document_type: string; status?: string; metadata_json?: Record<string, unknown> };
+type StoredRelation = { parent_document_id: string; child_document_id: string; relation_type: string };
+
+function slug(value: string): string {
+  return value.trim().toLocaleLowerCase("es").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
 
 export function CreateClassPage({ mode = "clase" }: { mode?: WizardMode } = {}) {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const single = mode === "sesion";
   const user = useMemo(() => readSessionUser(), []);
   const storageKey = useMemo(() => draftStorageKey(sessionDraftScope(), mode), [mode]);
@@ -86,7 +99,9 @@ export function CreateClassPage({ mode = "clase" }: { mode?: WizardMode } = {}) 
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState<"" | "generating" | "suggesting" | "saving">("");
   const [rosters, setRosters] = useState<Roster[]>([]);
+  const [units, setUnits] = useState<SavedUnit[]>([]);
   const values = draft.values;
+  const classToOpen = single ? "" : (searchParams.get("class") ?? "").trim();
 
   useEffect(() => {
     localStorage.setItem(storageKey, JSON.stringify({ ...draft, updatedAt: new Date().toISOString() }));
@@ -96,8 +111,49 @@ export function CreateClassPage({ mode = "clase" }: { mode?: WizardMode } = {}) 
     if (!readAccessToken()) return;
     const controller = new AbortController();
     void listRosters({ signal: controller.signal }).then(setRosters).catch(() => undefined);
+    void apiRequest<StoredDocument[]>("/documents", { headers: authHeaders(), signal: controller.signal })
+      .then((documents) => setUnits(savedUnitsFromDocuments(documents)))
+      .catch(() => undefined);
     return () => controller.abort();
   }, []);
+
+  // Reabrir una clase guardada desde el historial: ?class=<id de la sesión>.
+  useEffect(() => {
+    if (!classToOpen || draft.documentIds.sesion === classToOpen || !readAccessToken()) return;
+    const controller = new AbortController();
+    const headers = authHeaders();
+    (async () => {
+      try {
+        const session = await apiRequest<StoredDocument>(`/documents/${classToOpen}`, { headers, signal: controller.signal });
+        const metadata = session.metadata_json ?? {};
+        const artifact = metadata.artifact as WorkflowArtifact | undefined;
+        if (!artifact?.sections) throw new Error("La sesión guardada no tiene contenido generado.");
+        const savedValues = metadata.wizard_values && typeof metadata.wizard_values === "object"
+          ? { ...defaultValuesFor(user), ...(metadata.wizard_values as Partial<ClassWizardValues>) }
+          : valuesFromSessionFields((metadata.fields as Record<string, unknown>) ?? {}, user);
+        const relations = await apiRequest<StoredRelation[]>(`/documents/${classToOpen}/relations`, { headers, signal: controller.signal }).catch(() => [] as StoredRelation[]);
+        const childIds = relations.filter((relation) => relation.parent_document_id === classToOpen).map((relation) => relation.child_document_id);
+        const children = await Promise.all(childIds.map((id) => apiRequest<StoredDocument>(`/documents/${id}`, { headers, signal: controller.signal }).catch(() => null)));
+        let instrument: WorkflowArtifact | null = null;
+        const documentIds: ClassDraft["documentIds"] = { sesion: classToOpen };
+        for (const child of children) {
+          const childMeta = child?.metadata_json ?? {};
+          if (!child || child.status === "archived") continue;
+          if (childMeta.class_stage === "instrumento" && childMeta.artifact) { instrument = childMeta.artifact as WorkflowArtifact; documentIds.instrumento = child.id; }
+          if (childMeta.class_stage === "materiales") documentIds.materiales = child.id;
+        }
+        const stage: ClassStage = documentIds.materiales ? "materiales" : instrument ? "instrumento" : "sesion";
+        setDraft({ version: 1, step: WIZARD_STEPS.length - 1, stage, values: savedValues, session: artifact, instrument, documentIds, updatedAt: "" });
+        setMessage("");
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setMessage(error instanceof Error ? error.message : "No se pudo reabrir la clase guardada.");
+      }
+    })();
+    return () => controller.abort();
+    // Solo al cambiar la clase pedida en la URL.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [classToOpen]);
 
   const setValue = useCallback(<K extends keyof ClassWizardValues>(key: K, value: ClassWizardValues[K]) => {
     setDraft((current) => {
@@ -173,7 +229,16 @@ export function CreateClassPage({ mode = "clase" }: { mode?: WizardMode } = {}) 
         title: artifact.document_title,
         document_type: documentType,
         content: artifactText(artifact),
-        metadata: { version: 1, fields, artifact, source_route: sourceRoute, class_flow: !single, class_stage: stage },
+        metadata: {
+          version: 1,
+          fields,
+          artifact,
+          source_route: sourceRoute,
+          class_flow: !single,
+          class_stage: stage,
+          class_session_id: stage === "sesion" ? existing ?? null : draft.documentIds.sesion ?? null,
+          wizard_values: values,
+        },
       }),
     });
     if (stage !== "sesion" && draft.documentIds.sesion && !existing) {
@@ -208,8 +273,24 @@ export function CreateClassPage({ mode = "clase" }: { mode?: WizardMode } = {}) 
         artifact_type: workflow.artifactType,
         fields,
         requested_sections: workflow.outputSections,
+        ...(values.unit_document_id ? { source_document_id: values.unit_document_id } : {}),
       });
       const documentId = await saveDocument("sesion", artifact, workflow.key, fields, SESSION_ROUTE).catch(() => undefined);
+      if (documentId && values.unit_document_id && !draft.documentIds.sesion) {
+        await apiRequest("/documents/relations", {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({
+            parent_document_id: values.unit_document_id,
+            child_document_id: documentId,
+            relation_type: "continuation",
+            inherited_fields: ["unit_title", "unit_purpose", "curricular_area", "grade", "level"],
+            context: { class_flow: !single, aligned_unit: true },
+            compatibility_status: "compatible",
+            consent: true,
+          }),
+        }).catch(() => undefined);
+      }
       setDraft((current) => ({ ...current, session: artifact, instrument: null, stage: "sesion", documentIds: { ...current.documentIds, sesion: documentId ?? current.documentIds.sesion } }));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "No se pudo generar la sesión.");
@@ -234,6 +315,8 @@ export function CreateClassPage({ mode = "clase" }: { mode?: WizardMode } = {}) 
         artifact_type: target.artifactType,
         fields,
         requested_sections: workflow.outputSections,
+        // El servidor carga la sesión guardada, inyecta sus matrices y verifica la coherencia.
+        ...(draft.documentIds.sesion ? { source_document_id: draft.documentIds.sesion } : {}),
       });
       const documentId = await saveDocument("instrumento", artifact, workflow.key, fields, `/dashboard/evaluamos/${target.toolId}`).catch(() => undefined);
       setDraft((current) => ({ ...current, instrument: artifact, stage: "instrumento", documentIds: { ...current.documentIds, instrumento: documentId ?? current.documentIds.instrumento } }));
@@ -256,23 +339,60 @@ export function CreateClassPage({ mode = "clase" }: { mode?: WizardMode } = {}) 
     }
   };
 
-  const download = async (stage: ClassStage) => {
+  /** Word de una etapa, listo para descargar o para el paquete de la clase. */
+  const buildStageFile = async (stage: ClassStage): Promise<{ blob: Blob; filename: string } | null> => {
+    if (!draft.session) return null;
     const { buildWorkflowDocxBlob } = await import("../tools/exportWorkflowDocx");
-    const { Packer } = await import("docx");
-    const { buildSessionDocx } = await import("../tools/docx/buildSessionDocx");
-    if (stage === "sesion" && draft.session) {
+    if (stage === "sesion") {
       const generated = await buildWorkflowDocxBlob(draft.session, { workflowKey: "planificamos/sesion-aprendizaje", values: sessionFields(values, user), toolTitle: "Sesión de Aprendizaje" });
-      downloadApiBlob({ blob: generated.blob, filename: generated.fileName });
+      return { blob: generated.blob, filename: generated.fileName };
     }
-    if (stage === "instrumento" && draft.instrument && draft.session) {
+    if (stage === "instrumento") {
+      if (!draft.instrument) return null;
       const target = instrumentTarget(values.instrument);
       const generated = await buildWorkflowDocxBlob(draft.instrument, { workflowKey: `evaluamos/${target.toolId}`, values: instrumentFields(values, draft.session, user), toolTitle: target.toolTitle });
-      downloadApiBlob({ blob: generated.blob, filename: generated.fileName });
+      return { blob: generated.blob, filename: generated.fileName };
     }
-    if (stage === "materiales" && draft.session) {
-      const blob = await Packer.toBlob(buildSessionDocx(draft.session, sessionFields(values, user), { part: "materials" }));
-      downloadApiBlob({ blob, filename: `materiales-${values.session_topic.trim().toLocaleLowerCase("es").replace(/[^a-z0-9ñ]+/g, "-") || "sesion"}.docx` });
+    const { Packer } = await import("docx");
+    const { buildSessionDocx } = await import("../tools/docx/buildSessionDocx");
+    const blob = await Packer.toBlob(buildSessionDocx(draft.session, sessionFields(values, user), { part: "materials" }));
+    return { blob, filename: `materiales-${slug(values.session_topic) || "sesion"}.docx` };
+  };
+
+  const download = async (stage: ClassStage) => {
+    const file = await buildStageFile(stage);
+    if (file) downloadApiBlob(file);
+  };
+
+  /** Los tres Word de la clase en un solo ZIP. */
+  const downloadBundle = async () => {
+    setBusy("saving");
+    try {
+      const { default: JSZip } = await import("jszip");
+      const zip = new JSZip();
+      const files = await Promise.all(CLASS_STAGES.map((stage) => buildStageFile(stage)));
+      for (const file of files) if (file) zip.file(file.filename, file.blob);
+      const blob = await zip.generateAsync({ type: "blob" });
+      downloadApiBlob({ blob, filename: `clase-${slug(values.session_topic) || "completa"}.zip` });
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "No se pudo preparar el paquete de la clase.");
+    } finally {
+      setBusy("");
     }
+  };
+
+  const pickUnit = (unitId: string) => {
+    const unit = units.find((item) => item.id === unitId);
+    setDraft((current) => ({
+      ...current,
+      values: {
+        ...current.values,
+        unit_document_id: unitId,
+        unit_title: unit ? unit.unit_title : current.values.unit_title,
+        advanced: { ...current.values.advanced, unit_purpose: unit ? unit.purpose : "" },
+      },
+    }));
+    setErrors([]);
   };
 
   const restart = () => {
@@ -322,6 +442,7 @@ export function CreateClassPage({ mode = "clase" }: { mode?: WizardMode } = {}) 
           <header className="class-wizard__header">
             <div><span className="home-eyebrow">Sesión de aprendizaje</span><h1>{draft.session.document_title}</h1><p>{draft.session.executive_summary}</p></div>
             <div className="class-wizard__header-actions">
+              <Link className="secondary-button" to={TUTORIALS_ROUTE}><CirclePlay aria-hidden="true" /> Ver tutorial</Link>
               <button type="button" className="secondary-button" onClick={editData}><ArrowLeft aria-hidden="true" /> Editar datos</button>
               <button type="button" className="secondary-button" onClick={restart}>Nueva sesión</button>
             </div>
@@ -334,7 +455,7 @@ export function CreateClassPage({ mode = "clase" }: { mode?: WizardMode } = {}) 
           </footer>
           <p className="class-wizard__hint">¿Necesitas también el instrumento y los materiales de esta sesión? Usa <button type="button" className="class-link" onClick={() => navigate("/dashboard/crear-clase")}>Crear mi clase</button>.</p>
         </div>
-        <GenerationProgressOverlay open={busy === "generating"} toolTitle="Sesión de Aprendizaje" family="planificamos" />
+        <GenerationProgressOverlay open={busy === "generating"} toolTitle="Sesión de Aprendizaje" family="planificamos" toolId="sesion-aprendizaje" />
       </main>
     );
   }
@@ -347,7 +468,10 @@ export function CreateClassPage({ mode = "clase" }: { mode?: WizardMode } = {}) 
         <div className="workflow-shell">
           <header className="class-wizard__header">
             <div><span className="home-eyebrow">Crear mi clase</span><h1>{STAGE_LABELS[draft.stage]}</h1><p>{draft.session.document_title}</p></div>
-            <button type="button" className="secondary-button" onClick={restart}>Nueva clase</button>
+            <div className="class-wizard__header-actions">
+              <Link className="secondary-button" to={TUTORIALS_ROUTE}><CirclePlay aria-hidden="true" /> Ver tutorial</Link>
+              <button type="button" className="secondary-button" onClick={restart}>Nueva clase</button>
+            </div>
           </header>
           {chain}
           {message ? <div className="workflow-message workflow-message--error" role="alert">{message}</div> : null}
@@ -384,7 +508,10 @@ export function CreateClassPage({ mode = "clase" }: { mode?: WizardMode } = {}) 
                 <button type="button" className="workflow-primary" disabled={busy !== ""} onClick={() => void goToMaterials()}>Siguiente: materiales <ArrowRight aria-hidden="true" /></button>
               ) : null}
               {draft.stage === "materiales" ? (
-                <button type="button" className="workflow-primary" onClick={() => navigate("/dashboard/historial")}>Ver mi clase en el historial <ArrowRight aria-hidden="true" /></button>
+                <>
+                  <button type="button" className="secondary-button" disabled={busy !== ""} onClick={() => void downloadBundle()}>{busy === "saving" ? <LoaderCircle className="is-spinning" aria-hidden="true" /> : <FolderArchive aria-hidden="true" />} Descargar clase completa (ZIP)</button>
+                  <button type="button" className="workflow-primary" onClick={() => navigate("/dashboard/historial")}>Ver mi clase en el historial <ArrowRight aria-hidden="true" /></button>
+                </>
               ) : null}
             </div>
           </footer>
@@ -392,7 +519,7 @@ export function CreateClassPage({ mode = "clase" }: { mode?: WizardMode } = {}) 
             <p className="class-wizard__hint">El instrumento se preparará con los criterios y la evidencia de esta sesión. Instrumento elegido: <strong>{values.instrument}</strong>.</p>
           ) : null}
         </div>
-        <GenerationProgressOverlay open={busy === "generating"} toolTitle={draft.stage === "sesion" ? instrumentTarget(values.instrument).toolTitle : "Materiales"} family={draft.stage === "sesion" ? "evaluamos" : "planificamos"} />
+        <GenerationProgressOverlay open={busy === "generating"} toolTitle={draft.stage === "sesion" ? instrumentTarget(values.instrument).toolTitle : "Materiales"} family={draft.stage === "sesion" ? "evaluamos" : "planificamos"} toolId={draft.stage === "sesion" ? instrumentTarget(values.instrument).toolId : "materiales-sesion"} />
       </main>
     );
   }
@@ -408,6 +535,9 @@ export function CreateClassPage({ mode = "clase" }: { mode?: WizardMode } = {}) 
           {single
             ? <div><span className="home-eyebrow">Planificamos</span><h1>Tu sesión de aprendizaje en cuatro pasos</h1><p>Elige los datos mínimos y Avendia redacta la sesión completa con el formato oficial. Si quieres precisar algún apartado, ábrelo en "Opciones avanzadas".</p></div>
             : <div><span className="home-eyebrow">Crear mi clase</span><h1>Tu clase completa en cuatro pasos</h1><p>Elige los datos mínimos y Avendia redacta la sesión; luego preparará el instrumento y los materiales a partir de ella.</p></div>}
+          <div className="class-wizard__header-actions">
+            <Link className="secondary-button" to={TUTORIALS_ROUTE}><CirclePlay aria-hidden="true" /> Ver tutorial</Link>
+          </div>
         </header>
         {single ? null : chain}
 
@@ -422,7 +552,7 @@ export function CreateClassPage({ mode = "clase" }: { mode?: WizardMode } = {}) 
         </ol>
 
         <form className="workflow-card class-card" onSubmit={(event) => { event.preventDefault(); next(); }}>
-          <div className="class-card__intro"><span>{draft.step + 1}</span><div><h2>{step.title}</h2><p>{step.description}</p></div></div>
+          <div className="class-card__intro"><span>{draft.step + 1}</span><div><h2>{step.title}</h2><p>{step.description}</p></div><Link className="class-tutorial-link" to={TUTORIALS_ROUTE} aria-label={`Ver tutorial del paso ${step.title}`}><CirclePlay aria-hidden="true" /> Tutorial</Link></div>
 
           {draft.step === 0 ? (
             <div className="class-block">
@@ -432,7 +562,20 @@ export function CreateClassPage({ mode = "clase" }: { mode?: WizardMode } = {}) 
                 <label><span>Grado *</span><select value={values.grade} onChange={(event) => setValue("grade", event.target.value)}><option value="">Selecciona</option>{gradeOptions(values.level).map((grade) => <option key={grade}>{grade}</option>)}</select></label>
                 <label><span>Área curricular *</span><select value={values.curricular_area} onChange={(event) => setValue("curricular_area", event.target.value)}><option value="">Selecciona</option>{areaOptions(values.level).map((area) => <option key={area}>{area}</option>)}</select></label>
                 <label><span>Tema específico de la sesión *</span><input value={values.session_topic} placeholder="Ej. El Fenómeno del Niño" onChange={(event) => setValue("session_topic", event.target.value)} /></label>
-                <label><span>Título de la unidad</span><input value={values.unit_title} placeholder="Ej. Cuidamos nuestra naturaleza" onChange={(event) => setValue("unit_title", event.target.value)} /></label>
+                <label>
+                  <span>Título de la unidad</span>
+                  <input value={values.unit_title} placeholder="Ej. Cuidamos nuestra naturaleza" onChange={(event) => setValue("unit_title", event.target.value)} />
+                </label>
+                {units.length ? (
+                  <label className="class-grid__wide">
+                    <span>Alinear con una unidad guardada</span>
+                    <select value={values.unit_document_id} onChange={(event) => pickUnit(event.target.value)}>
+                      <option value="">Sin unidad de referencia</option>
+                      {units.map((unit) => <option key={unit.id} value={unit.id}>{unit.title}{unit.area ? ` · ${unit.area}` : ""}{unit.grade ? ` · ${unit.grade}` : ""}</option>)}
+                    </select>
+                    <small className="class-block__help">Toma el título y el propósito de la unidad y deja la sesión vinculada a ella en el historial.</small>
+                  </label>
+                ) : null}
                 <label className="class-grid__wide">
                   <span>Título de la sesión <button type="button" className="class-ai-button" disabled={busy === "suggesting"} onClick={() => void suggestTitle()}>{busy === "suggesting" ? <LoaderCircle className="is-spinning" aria-hidden="true" /> : <WandSparkles aria-hidden="true" />} Sugerir con IA</button></span>
                   <input value={values.session_title} placeholder="(Opcional) Si lo dejas vacío se usa el tema como título" onChange={(event) => setValue("session_title", event.target.value)} />
@@ -517,7 +660,7 @@ export function CreateClassPage({ mode = "clase" }: { mode?: WizardMode } = {}) 
           </footer>
         </form>
       </div>
-      <GenerationProgressOverlay open={busy === "generating"} toolTitle="Sesión de Aprendizaje" family="planificamos" />
+      <GenerationProgressOverlay open={busy === "generating"} toolTitle="Sesión de Aprendizaje" family="planificamos" toolId="sesion-aprendizaje" />
     </main>
   );
 }

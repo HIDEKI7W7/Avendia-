@@ -97,4 +97,34 @@ describe("WorkflowTool validation", () => {
     fireEvent.click(screen.getByRole("button", { name: "Editar resultado" }));
     expect(screen.getByRole("button", { name: /Regenerar solo esta sección/i })).toBeInTheDocument();
   });
+
+  it("muestra la unidad de aprendizaje como formulario corto sin bloques técnicos", () => {
+    render(
+      <MemoryRouter initialEntries={["/dashboard/planificamos/unidad-aprendizaje"]}>
+        <WorkflowTool />
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByText(/Antes de comenzar/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Reutilizar datos de un documento guardado/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Contexto coherente/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/complejidad/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Sugerir con IA/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Opcional$/)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Producto y evaluación/ }));
+    expect(screen.getByText(/Opciones avanzadas: escribe tú algún apartado/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Situación significativa/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Producto o actuación final/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Sugerir con IA/ })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Enfoques/ }));
+    fireEvent.click(screen.getByLabelText("Derechos"));
+    fireEvent.click(screen.getByLabelText("Ambiental"));
+    fireEvent.click(screen.getByLabelText("Bien común"));
+    // Máximo dos: la primera marcada se reemplaza.
+    expect(screen.getByLabelText("Derechos")).not.toBeChecked();
+    expect(screen.getByLabelText("Ambiental")).toBeChecked();
+    expect(screen.getByLabelText("Bien común")).toBeChecked();
+  });
 });

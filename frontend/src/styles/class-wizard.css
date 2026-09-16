@@ -32,6 +32,10 @@
 
 .class-card { display: grid; gap: 18px; }
 .class-card__intro { display: flex; align-items: center; gap: 14px; }
+.class-card__intro > div { flex: 1 1 auto; }
+.class-tutorial-link { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 8px; background: #fdecec; color: #b3261e; font-size: 12px; font-weight: 700; text-decoration: none; white-space: nowrap; }
+.class-tutorial-link svg { width: 16px; height: 16px; }
+.class-wizard__header-actions a.secondary-button { text-decoration: none; }
 .class-card__intro > span { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 12px; background: #17a398; color: white; font: 800 20px/1 Manrope, sans-serif; }
 .class-card__intro h2 { margin: 0; font: 800 20px/1.2 Manrope, sans-serif; }
 .class-card__intro p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }

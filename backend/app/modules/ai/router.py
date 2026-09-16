@@ -19,6 +19,7 @@ from app.modules.admin.service import (
     refund_ai_credits,
     reserve_ai_credits,
 )
+from app.modules.ai.chaining import chained_source_from_document
 from app.modules.ai.presentation_export import build_presentation_pptx
 from app.modules.ai.presentation_images import find_presentation_image
 from app.modules.ai.schemas import (
@@ -47,6 +48,7 @@ from app.modules.ai.service import (
     generate_word_grouping,
     generate_workflow_artifact,
 )
+from app.modules.documents.model import Document
 from app.modules.users.model import User
 
 router = APIRouter(prefix="/ai/tools", tags=["ai"])
@@ -328,6 +330,28 @@ async def create_workflow_artifact(
     request_fingerprint = hashlib.sha256(
         payload.model_dump_json(exclude={"request_id"}).encode("utf-8")
     ).hexdigest()
+    # El documento de origen se resuelve antes de registrar la generación: un error aquí
+    # no debe dejar una solicitud pendiente ni cobrar créditos.
+    source = None
+    if payload.source_document_id is not None:
+        source_document = await db.scalar(
+            select(Document).where(
+                Document.id == payload.source_document_id,
+                Document.owner_id == user.id,
+                Document.status != "trashed",
+            )
+        )
+        if source_document is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="El documento de origen no existe o no pertenece a tu cuenta.",
+            )
+        source = chained_source_from_document(source_document)
+        if source is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="El documento de origen no tiene matrices para encadenar.",
+            )
     try:
         if payload.request_id is not None:
             request_id = str(payload.request_id)
@@ -374,7 +398,7 @@ async def create_workflow_artifact(
 
         reserved = await reserve_ai_credits(db, user, 300)
         try:
-            result = await generate_workflow_artifact(payload)
+            result = await generate_workflow_artifact(payload, source=source)
         except Exception:
             await refund_ai_credits(db, user, reserved)
             raise

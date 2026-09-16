@@ -44,6 +44,8 @@ export type WorkflowFieldGroup = {
   description?: string;
   fieldIds: string[];
   columns?: 2 | 3;
+  /** Se muestra plegado ("Opciones avanzadas"): campos que la IA redacta si el docente no escribe. */
+  collapsed?: boolean;
 };
 
 export type WorkflowStep = {
@@ -67,7 +69,16 @@ export type WorkflowDefinition = {
   steps: WorkflowStep[];
   outputSections: string[];
   embeddedResult?: boolean;
+  /**
+   * Formulario corto para el docente: sin panel de calidad, sin reutilización de
+   * documentos, sin diálogos por campo ni etiquetas técnicas. Los campos largos
+   * viven en un grupo plegado.
+   */
+  simple?: boolean;
 };
+
+/** Herramientas que usan el formulario corto (ver `simple`). */
+const SIMPLE_WORKFLOWS = new Set(["planificamos/unidad-aprendizaje"]);
 
 export const workflowModalities = ["EBR — Educación Básica Regular", "EBA — Educación Básica Alternativa", "EBE — Educación Básica Especial"];
 const levels = ["Inicial", "Primaria", "Secundaria"];
@@ -354,6 +365,7 @@ const define = (
     artifactType,
     sourceRoute,
     embeddedResult: legacyShape.embeddedResult,
+    simple: SIMPLE_WORKFLOWS.has(workflowKey),
     steps: normalizedSteps.map((item) => ({
       ...item,
       fields: item.fields.map((field) => {
@@ -424,12 +436,48 @@ export const workflowDefinitions: WorkflowDefinition[] = [
 
   define("planificamos", "unidad-aprendizaje", "alta", "documento", "/dashboard/unidades", [
     official(),
-    step("scope", "Alcance", "Duración, periodo y características del grupo.", [select("planning_scope", "Planificar por", ["Grado", "Ciclo"]), text("unit_duration", "Duración de la unidad", true, "Ej. 4 semanas"), number("school_year", "Año lectivo", 2025, 2035), number("student_count", "Número de estudiantes", 1, 80), select("shift", "Turno", ["Mañana", "Tarde", "Noche"]), date("start_date", "Fecha de inicio"), date("end_date", "Fecha de término"), select("academic_period", "Periodo académico", ["Bimestre 1", "Bimestre 2", "Bimestre 3", "Bimestre 4", "Trimestre 1", "Trimestre 2", "Trimestre 3"])]),
-    step("challenge", "Situación", "Reto auténtico que organiza la unidad.", [text("unit_title", "Título de la unidad"), long("key_topics", "Temas clave"), long("student_context", "Contexto y barreras de aprendizaje (DUA)"), long("cross_area_links", "Vinculación con otras áreas"), long("significant_situation", "Situación significativa"), long("student_challenges", "Desafíos identificados en los estudiantes"), long("challenge_question", "Reto o pregunta desafiante")]),
-    step("purpose", "Propósitos", "Competencias y resultados esperados.", [long("competencies", "Competencias y capacidades"), long("performances", "Desempeños y estándares"), long("learning_purposes", "Propósitos de aprendizaje"), multi("transversal_approaches", "Enfoques transversales", ["Derechos", "Inclusivo", "Intercultural", "Igualdad de género", "Ambiental", "Bien común", "Excelencia"])]),
-    step("evidence", "Evidencias", "Producto, criterios e instrumentos.", [long("final_product", "Producto o actuación final"), long("evidence", "Evidencias de aprendizaje"), long("criteria", "Criterios de evaluación"), select("instrument", "Instrumento", ["Rúbrica", "Lista de cotejo", "Escala de estimación", "Ficha de observación", "Portafolio"])]),
-    step("sequence", "Secuencia", "Actividades y sesiones de la unidad.", [number("session_count", "Cantidad de sesiones", 2, 20), long("activity_sequence", "Secuencia de actividades / sesiones"), long("resources", "Recursos y materiales")]),
-    step("review", "Cierre", "Decisiones de inclusión y validación.", [long("dua_adjustments", "Ajustes DUA y atención a la diversidad"), long("family_connection", "Vinculación con familias o comunidad", "", false), cards("generate_instruments", "Generar instrumentos de evaluación", ["Sí, incluirlos", "No incluirlos"], false), cards("generate_worksheets", "Generar fichas de trabajo", ["Sí, incluirlas", "No incluirlas"], false), long("observations", "Observaciones finales", "", false)]),
+    step("scope", "Alcance", "Título, tema, periodo y duración de la unidad.", [
+      text("unit_title", "Título de la unidad", true, "Ej. Cuidamos el agua de nuestra comunidad"),
+      text("key_topics", "Tema o eje central de la unidad", true, "Ej. El ciclo del agua y su cuidado"),
+      select("academic_period", "Periodo académico", ["Bimestre 1", "Bimestre 2", "Bimestre 3", "Bimestre 4", "Trimestre 1", "Trimestre 2", "Trimestre 3"]),
+      select("unit_duration", "Duración de la unidad", ["2 semanas", "3 semanas", "4 semanas", "5 semanas", "6 semanas", "8 semanas"]),
+      number("session_count", "Cantidad de sesiones", 2, 20),
+      number("school_year", "Año lectivo", 2025, 2035),
+      date("start_date", "Fecha de inicio", false),
+      date("end_date", "Fecha de término", false),
+      select("planning_scope", "Planificar por", ["Grado", "Ciclo"], false),
+      number("student_count", "Número de estudiantes", 1, 80, false),
+      select("shift", "Turno", ["Mañana", "Tarde", "Noche"], false),
+    ]),
+    step("purpose", "Competencias", "Marca hasta dos competencias del área; la IA redacta capacidades, desempeños y propósitos.", [
+      { ...long("competencies", "Competencias del área (CNEB)"), maxItems: 2 },
+    ]),
+    step("approaches", "Enfoques", "Elige dos enfoques transversales.", [
+      { ...multi("transversal_approaches", "Enfoques transversales (elige 2)", ["Derechos", "Inclusivo", "Intercultural", "Igualdad de género", "Ambiental", "Bien común", "Excelencia"]), maxItems: 2 },
+    ]),
+    step("evidence", "Producto y evaluación", "Producto final, instrumento y, si quieres, apartados escritos por ti.", [
+      text("final_product", "Producto o actuación final", true, "Ej. Manifiesto por el agua para la comunidad"),
+      select("instrument", "Instrumento", ["Rúbrica", "Lista de cotejo", "Escala de estimación", "Ficha de observación", "Portafolio"]),
+      cards("generate_instruments", "Generar instrumentos de evaluación", ["Sí, incluirlos", "No incluirlos"], false),
+      cards("generate_worksheets", "Generar fichas de trabajo", ["Sí, incluirlas", "No incluirlas"], false),
+      long("significant_situation", "Situación significativa", "", false),
+      long("challenge_question", "Reto o pregunta desafiante", "", false),
+      long("student_context", "Contexto y barreras de aprendizaje (DUA)", "", false),
+      long("cross_area_links", "Vinculación con otras áreas", "", false),
+      long("student_challenges", "Desafíos identificados en los estudiantes", "", false),
+      long("performances", "Desempeños y estándares", "", false),
+      long("learning_purposes", "Propósitos de aprendizaje", "", false),
+      long("evidence", "Evidencias de aprendizaje", "", false),
+      long("criteria", "Criterios de evaluación", "", false),
+      long("activity_sequence", "Secuencia de actividades / sesiones", "", false),
+      long("resources", "Recursos y materiales", "", false),
+      long("dua_adjustments", "Ajustes DUA y atención a la diversidad", "", false),
+      long("family_connection", "Vinculación con familias o comunidad", "", false),
+      long("observations", "Observaciones finales", "", false),
+    ], 2, [
+      { id: "core", title: "Producto e instrumento", fieldIds: ["final_product", "instrument", "generate_instruments", "generate_worksheets"] },
+      { id: "advanced", title: "Opciones avanzadas: escribe tú algún apartado (opcional)", description: "Todo lo que dejes vacío lo redacta la IA a partir de tus elecciones. Lo que escribas se respeta tal cual.", fieldIds: ["significant_situation", "challenge_question", "student_context", "cross_area_links", "student_challenges", "performances", "learning_purposes", "evidence", "criteria", "activity_sequence", "resources", "dua_adjustments", "family_connection", "observations"], collapsed: true },
+    ]),
   ], ["Datos informativos", "Situación significativa", "Propósitos de aprendizaje", "Enfoques transversales", "Producto y evidencias", "Criterios e instrumento", "Secuencia de sesiones", "Recursos", "Ajustes DUA"]),
 
   define("planificamos", "sesion-aprendizaje", "alta", "documento", "/dashboard/sesiones", [

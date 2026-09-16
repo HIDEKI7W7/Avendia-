@@ -34,6 +34,32 @@ Implementado en la rama (ver sección 7 para el detalle):
   editor completo (`WorkflowTool`), que sigue siendo el de las demás herramientas.
   El pedido escrito en la portada llega al asistente como tema.
 
+- Fase 3 hecha (encadenamiento en el servidor): `WorkflowGenerationRequest` acepta
+  `source_document_id`. El servidor carga el documento del mismo docente
+  (`app/modules/ai/chaining.py`), extrae competencia, evidencia, producto y criterios de
+  sus matrices, los añade al prompt con una regla vinculante y agrega el control
+  `chained_consistency` (P0 en instrumentos: todos los criterios de la sesión deben
+  sobrevivir; P1 en los demás casos). El asistente envía la sesión guardada como origen
+  del instrumento y la unidad elegida como origen de la sesión.
+- Alineación con unidad guardada: el paso 1 ofrece "Alinear con una unidad guardada"
+  (unidades del historial); rellena título y propósito, se envía como origen y la sesión
+  queda vinculada a la unidad con `documents/relations` (`continuation`).
+- Fase 4 hecha (clase completa): cada documento de la clase guarda `class_stage`,
+  `class_session_id` y `wizard_values`; el historial los marca "Clase completa · etapa" y
+  ofrece "Abrir clase" (`/dashboard/crear-clase?class=<id de la sesión>`), que reconstruye
+  el borrador con la sesión y sus documentos relacionados en la etapa donde quedó. En la
+  etapa Materiales, "Descargar clase completa (ZIP)" empaqueta los tres Word (JSZip en el
+  navegador; no pasa por el servidor).
+- Unidad de aprendizaje con formulario corto: `WorkflowDefinition.simple` oculta en
+  `WorkflowTool` el panel de calidad, la reutilización de documentos, el estado de
+  contexto, la barra de completitud, las etiquetas de origen y los diálogos por campo;
+  los grupos `collapsed` se muestran plegados. La unidad queda en Datos, Competencias
+  (máximo 2 del CNEB), Enfoques (2) y Producto y evaluación, con los catorce campos largos
+  bajo "Opciones avanzadas".
+- Botón "Ver tutorial" en la cabecera y en cada paso del asistente (página de videos).
+- Pantalla de generación con etapas en palabras del docente para sesión, unidad,
+  instrumentos y materiales (`GenerationProgressOverlay`, por `toolId`).
+
 Pendiente: ilustraciones generadas por tema, prueba con Gemini real y las preguntas
 abiertas de las secciones 4 y 5.5. El lema del año ya se configura desde administración
 (ver `plan-formato-sesion-y-pca.md`).
@@ -147,9 +173,9 @@ Después de la sesión, barra de progreso superior con tres etapas y botón
 | 2 Instrumento | Criterios, evidencia, competencia y nómina de la sesión + tipo elegido | Artefacto del instrumento (`lista-cotejo`, `rubrica-evaluacion`, `ficha-observacion` o `escala-estimacion`, según elección) | `instrumento.docx` |
 | 3 Materiales | Sesión + instrumento | Teoría del tema, ficha de trabajo, mapa mental (ya generados con la sesión) y, opcionalmente, presentación didáctica | `materiales.docx` (+ `.pptx`) |
 
-- El backend recibe en la etapa 2 y 3 un campo `source_session_id` y añade al prompt
+- El backend recibe en la etapa 2 un campo `source_document_id` y añade al prompt
   las matrices de la sesión guardada, con la regla "usa exactamente estos criterios y
-  esta evidencia".
+  esta evidencia". (Hecho; la etapa 3 no genera con IA: reutiliza la sesión.)
 - Se guarda un registro `class_bundle` (sesión, instrumento, materiales) para
   reabrir la clase completa y descargar los tres archivos en un ZIP.
 - Ya existe `documents/relations` para vincular documentos; se reutiliza en lugar de

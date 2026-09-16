@@ -1092,6 +1092,14 @@ textarea { padding: 12px; line-height: 1.55; resize: vertical; }
 .workflow-group:last-child { padding-bottom: 0; border-bottom: 0; }
 .workflow-group > header { margin-bottom: 20px; }
 .workflow-group > header h3 { margin: 0; color: #6143e7; font-size: 13px; font-weight: 850; letter-spacing: .025em; text-transform: uppercase; }
+.workflow-group--collapsed { padding: 12px 14px; border: 1px dashed #d7dfeb; border-radius: 12px; }
+.workflow-group--collapsed > summary { cursor: pointer; list-style: none; }
+.workflow-group--collapsed > summary::-webkit-details-marker { display: none; }
+.workflow-group--collapsed > summary h3 { display: inline; margin: 0; color: #1f4d78; font-size: 13px; font-weight: 800; letter-spacing: 0; text-transform: none; }
+.workflow-group--collapsed > summary h3::before { content: "▸ "; }
+.workflow-group--collapsed[open] > summary h3::before { content: "▾ "; }
+.workflow-group--collapsed > summary p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+.workflow-group--collapsed[open] > summary { margin-bottom: 14px; }
 .workflow-group > header p { margin: 7px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
 .workflow-group .workflow-grid { padding-top: 0; }
 .workflow-field { display: grid; align-content: start; gap: 8px; min-width: 0; color: #28354e; font-size: 11px; font-weight: 750; }

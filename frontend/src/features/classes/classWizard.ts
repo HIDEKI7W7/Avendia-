@@ -67,9 +67,14 @@ export type ClassWizardValues = {
   student_context: string;
   source_content: string;
   academic_period: string;
+  /** Unidad guardada con la que se alinea la sesión (id del documento) y su título. */
+  unit_document_id: string;
   /** Campos de "Opciones avanzadas" (solo sesión suelta), por id de campo. */
   advanced: Record<string, string>;
 };
+
+/** Unidad de aprendizaje guardada en el historial, tal como la ofrece el selector. */
+export type SavedUnit = { id: string; title: string; unit_title: string; purpose: string; area: string; grade: string };
 
 export type ClassDraft = {
   version: 1;
@@ -105,6 +110,7 @@ export function defaultValues(user: Partial<SessionUser> = {}): ClassWizardValue
     student_context: "",
     source_content: "",
     academic_period: "",
+    unit_document_id: "",
     advanced: {},
   };
 }
@@ -124,6 +130,69 @@ export function readDraft(storageKey: string, user: Partial<SessionUser> = {}): 
   } catch {
     return fallback;
   }
+}
+
+type StoredDocument = {
+  id: string;
+  title: string;
+  document_type: string;
+  status?: string;
+  metadata_json?: Record<string, unknown>;
+};
+
+function stringField(record: Record<string, unknown> | undefined, key: string): string {
+  const value = record?.[key];
+  return typeof value === "string" ? value : Array.isArray(value) ? value.join(", ") : "";
+}
+
+/** Unidades de aprendizaje guardadas, listas para alinear la sesión. */
+export function savedUnitsFromDocuments(documents: StoredDocument[]): SavedUnit[] {
+  return documents
+    .filter((document) => document.document_type.endsWith("unidad-aprendizaje") && document.status !== "archived")
+    .map((document) => {
+      const metadata = document.metadata_json ?? {};
+      const fields = metadata.fields && typeof metadata.fields === "object" ? metadata.fields as Record<string, unknown> : undefined;
+      const artifact = metadata.artifact && typeof metadata.artifact === "object" ? metadata.artifact as { sections?: Array<{ title: string; narrative: string }> } : undefined;
+      const purposeSection = artifact?.sections?.find((section) => /prop[oó]sitos? de aprendizaje/i.test(section.title));
+      const situation = artifact?.sections?.find((section) => /situaci[oó]n significativa/i.test(section.title));
+      return {
+        id: document.id,
+        title: document.title,
+        unit_title: stringField(fields, "unit_title") || document.title,
+        purpose: stringField(fields, "learning_purposes") || purposeSection?.narrative || stringField(fields, "significant_situation") || situation?.narrative || "",
+        area: stringField(fields, "curricular_area"),
+        grade: stringField(fields, "grade"),
+      };
+    });
+}
+
+/** Valores del asistente a partir de los campos guardados de una sesión (para reabrir una clase). */
+export function valuesFromSessionFields(fields: Record<string, unknown>, user: Partial<SessionUser> = {}): ClassWizardValues {
+  const base = defaultValues(user);
+  const text = (key: string) => stringField(fields, key);
+  const competencies = text("competencies").split("\n").map((line) => line.replace(/^Competencia (principal|de apoyo):\s*/i, "").trim()).filter((line) => line && !/^Selecciona la competencia/i.test(line));
+  const instrument = INSTRUMENT_OPTIONS.find((option) => option === text("instrument")) ?? base.instrument;
+  const advanced = Object.fromEntries(ADVANCED_FIELDS.map((field) => [field.id, text(field.id)]).filter(([, value]) => value));
+  return {
+    ...base,
+    level: text("level") || base.level,
+    grade: text("grade") || base.grade,
+    curricular_area: text("curricular_area") || base.curricular_area,
+    session_topic: text("session_topic"),
+    unit_title: text("unit_title"),
+    session_title: text("session_title"),
+    competencies,
+    ai_competency: !competencies.length,
+    transversal_approaches: text("transversal_approaches").split(",").map((item) => item.trim()).filter(Boolean),
+    duration_minutes: text("duration_minutes") || base.duration_minutes,
+    instrument,
+    student_names: text("student_names"),
+    student_context: text("student_context"),
+    source_content: text("source_content"),
+    academic_period: text("academic_period"),
+    unit_document_id: text("unit_document_id"),
+    advanced,
+  };
 }
 
 export function levelOptions(): string[] {
@@ -224,6 +293,7 @@ export function sessionFields(values: ClassWizardValues, user: Partial<SessionUs
     include_theory: "Sí",
     include_worksheet: "Sí",
     include_nee: "Sí",
+    ...(values.unit_document_id ? { unit_document_id: values.unit_document_id } : {}),
     ...advanced,
     planning_mode: `Crear mi clase: el docente seleccionó los datos mínimos; desarrolla capacidades, desempeños, criterios, propósito, secuencia, recursos y retroalimentación completos y contextualizados.${advancedRule}`,
   };
