@@ -1,11 +1,15 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { resetYearMotto, setYearMotto } from "./docx/motto";
 import { SessionDocumentPreview } from "./SessionDocumentPreview";
 import { sessionArtifactSample, sessionValuesSample } from "./qaExport18SesionAprendizaje.test";
 
 describe("SessionDocumentPreview", () => {
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    resetYearMotto();
+  });
 
   it("reproduce los bloques del formato de referencia con ilustraciones y anexos", () => {
     render(<SessionDocumentPreview artifact={sessionArtifactSample()} values={sessionValuesSample} />);
@@ -35,5 +39,17 @@ describe("SessionDocumentPreview", () => {
     expect(screen.queryByRole("heading", { name: /^ficha de trabajo$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: /mapa mental/i })).not.toBeInTheDocument();
     expect(screen.getAllByText("________________________").length).toBeGreaterThan(3);
+  });
+
+  it("encabeza cada página con el lema fijado por administración y lo omite si está vacío", () => {
+    setYearMotto("“Año del Bicentenario”");
+    const { unmount } = render(<SessionDocumentPreview artifact={sessionArtifactSample()} values={sessionValuesSample} />);
+    expect(screen.getAllByText("“Año del Bicentenario”").length).toBeGreaterThan(0);
+    unmount();
+
+    setYearMotto("");
+    render(<SessionDocumentPreview artifact={sessionArtifactSample()} values={sessionValuesSample} />);
+    expect(screen.queryByText(/Año del Bicentenario/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Año de la Esperanza/)).not.toBeInTheDocument();
   });
 });

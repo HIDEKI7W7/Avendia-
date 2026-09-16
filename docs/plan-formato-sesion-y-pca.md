@@ -23,9 +23,14 @@ Implementado en esta rama:
 - Vistas previas: `SessionDocumentPreview.tsx` nueva, `PlanAnualDocumentPreview.tsx`
   con cabecera y cuadrícula, y paleta de `word-preview.css` alineada con el Word.
 
-Pendiente (fase 3 del plan): generación opcional de ilustraciones por tema con IA y lema
-del año configurable desde administración. Hoy las ilustraciones son el set base
-incrustado y el lema es el del año en curso.
+Pendiente (fase 3 del plan): generación opcional de ilustraciones por tema con IA. Hoy
+las ilustraciones son el set base incrustado.
+
+Hecho: el lema del año se fija desde Administración → Reglas de la plataforma
+(`PATCH /api/v1/admin/settings`, campo `year_motto`). La aplicación lo lee al iniciar
+sesión con `GET /api/v1/dashboard/branding` y lo imprime en la cabecera de todos los
+Word y de sus vistas previas; vacío significa sin lema. Hasta que responde el servidor
+se usa el lema incrustado en `docx/theme.ts`.
 
 ## 1. Diagnóstico del estado actual
 

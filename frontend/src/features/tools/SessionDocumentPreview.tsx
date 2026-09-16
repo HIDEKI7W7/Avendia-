@@ -3,7 +3,7 @@ import { Download, FileText, LayoutGrid, Printer } from "lucide-react";
 
 import { assetDataUrl, momentAsset, WORKSHEET_ASSETS } from "./docx/images";
 import { readSessionContent, type SessionContent } from "./docx/sessionContent";
-import { YEAR_MOTTO } from "./docx/theme";
+import { useYearMotto } from "./docx/motto";
 import type { WorkflowArtifact } from "./exportWorkflowDocx";
 import "../../styles/word-preview.css";
 
@@ -51,11 +51,12 @@ export function CellText({ text, check = false }: { text: string; check?: boolea
 }
 
 function ChromeHeader({ right }: { right: string }) {
+  const motto = useYearMotto();
   return (
     <div className="word-chrome-header">
       <img src={assetDataUrl("minedu")} alt="Ministerio de Educación del Perú" className="word-chrome-logo" />
       <div className="word-chrome-right">
-        <span className="word-chrome-motto">{YEAR_MOTTO}</span>
+        {motto ? <span className="word-chrome-motto">{motto}</span> : null}
         {right ? <span className="word-chrome-line">{right}</span> : null}
       </div>
     </div>

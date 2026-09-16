@@ -11,7 +11,7 @@ Todas las rutas cuelgan de `/api/v1`. Salvo `health`, `ready`, `auth/*` y las im
 
 Errores: cuerpo `{ detail, error: { code, message, field, retryable, request_id } }`. Códigos: `authentication_required` (401), `permission_denied` (403), `not_found` (404), `revision_conflict` (409), `validation_failed` (422), `rate_limited` (429, con cabecera `Retry-After`), `service_unavailable` (5xx).
 
-Total: 129 operaciones.
+Total: 130 operaciones.
 
 ## admin
 
@@ -84,6 +84,7 @@ Total: 129 operaciones.
 
 | Método | Ruta | Operación |
 |---|---|---|
+| `GET` | `/api/v1/dashboard/branding` | Document Branding |
 | `GET` | `/api/v1/dashboard/overview` | Dashboard Overview |
 
 ## documents

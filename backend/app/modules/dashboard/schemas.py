@@ -25,3 +25,9 @@ class DashboardOverview(BaseModel):
     most_used_tool_ids: list[str]
     notifications: list[DashboardNotification]
     generated_at: datetime
+
+
+class DocumentBranding(BaseModel):
+    """Elementos comunes de cabecera de los Word que fija administración."""
+
+    year_motto: str

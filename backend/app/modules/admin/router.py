@@ -964,14 +964,17 @@ async def update_settings(
         "registration_open": settings.registration_open,
         "default_ai_credits": settings.default_ai_credits,
         "low_credit_threshold": settings.low_credit_threshold,
+        "year_motto": settings.year_motto,
     }
     settings.registration_open = payload.registration_open
     settings.default_ai_credits = payload.default_ai_credits
     settings.low_credit_threshold = payload.low_credit_threshold
+    settings.year_motto = payload.year_motto
     after = {
         "registration_open": settings.registration_open,
         "default_ai_credits": settings.default_ai_credits,
         "low_credit_threshold": settings.low_credit_threshold,
+        "year_motto": settings.year_motto,
     }
     add_admin_audit(
         db,

@@ -3,7 +3,10 @@ from datetime import date, timedelta
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from app.db.session import session_factory
 from app.main import app
+from app.modules.admin.model import DEFAULT_YEAR_MOTTO, PlatformSettings
+from app.modules.admin.service import get_platform_settings
 
 
 async def _register_and_login(client: AsyncClient, email: str) -> dict[str, str]:
@@ -72,3 +75,26 @@ async def test_dashboard_overview_aggregates_owned_documents_and_upcoming_events
         assert payload["most_used_tool_ids"] == ["examen"]
         assert payload["notifications"][0]["id"] == f"event-{event.json()['id']}"
         assert f"month={event_date.month}" in payload["notifications"][0]["path"]
+
+
+@pytest.mark.asyncio
+async def test_document_branding_exposes_the_year_motto_to_teachers() -> None:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        headers = await _register_and_login(client, "branding@example.edu")
+        anonymous = await client.get("/api/v1/dashboard/branding")
+        initial = await client.get("/api/v1/dashboard/branding", headers=headers)
+
+        async with session_factory() as db:
+            settings = await get_platform_settings(db)
+            settings.year_motto = "“Año del Bicentenario”"
+            await db.commit()
+
+        updated = await client.get("/api/v1/dashboard/branding", headers=headers)
+
+    assert anonymous.status_code == 401
+    assert initial.status_code == 200
+    assert initial.json() == {"year_motto": DEFAULT_YEAR_MOTTO}
+    assert updated.json() == {"year_motto": "“Año del Bicentenario”"}
+    async with session_factory() as db:
+        stored = await db.get(PlatformSettings, 1)
+        assert stored is not None and stored.year_motto == "“Año del Bicentenario”"

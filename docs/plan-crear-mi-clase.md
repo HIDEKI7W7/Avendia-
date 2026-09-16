@@ -24,8 +24,9 @@ Implementado en la rama (ver sección 7 para el detalle):
   (teoría, ficha, mapa mental) se entregan como Word propio. Los tres documentos se
   guardan en el historial y quedan relacionados entre sí.
 
-Pendiente: ilustraciones generadas por tema, lema del año configurable, prueba con
-Gemini real y las preguntas abiertas de las secciones 4 y 5.5.
+Pendiente: ilustraciones generadas por tema, prueba con Gemini real y las preguntas
+abiertas de las secciones 4 y 5.5. El lema del año ya se configura desde administración
+(ver `plan-formato-sesion-y-pca.md`).
 
 Fuente: audio y video del cliente (WhatsApp, 11/09/2026, 3 min 52 s) donde muestra
 la pantalla de inicio de Avendia, el asistente "Nueva Clase" de nitia.ai y el Word de

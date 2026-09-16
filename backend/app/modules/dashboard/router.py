@@ -6,11 +6,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_current_user
 from app.db.session import get_db
+from app.modules.admin.service import get_platform_settings
 from app.modules.calendar.model import CalendarEvent
 from app.modules.dashboard.schemas import (
     DashboardNotification,
     DashboardOverview,
     DashboardRecentDocument,
+    DocumentBranding,
 )
 from app.modules.documents.model import Document
 from app.modules.users.model import User
@@ -27,6 +29,17 @@ def _document_path(document: Document) -> str:
 
 def _tool_id(document_type: str) -> str:
     return document_type.rsplit("/", 1)[-1]
+
+
+@router.get("/branding", response_model=DocumentBranding)
+async def document_branding(
+    _user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> DocumentBranding:
+    """Lema del año y demás datos de cabecera que comparten todos los Word."""
+    settings = await get_platform_settings(db)
+    await db.commit()
+    return DocumentBranding(year_motto=settings.year_motto)
 
 
 @router.get("/overview", response_model=DashboardOverview)

@@ -20,13 +20,13 @@ import {
 } from "docx";
 
 import { inlineImage } from "./images";
+import { getYearMotto } from "./motto";
 import {
   COLORS,
   FONT_BODY,
   MARGINS_LANDSCAPE,
   MARGINS_PORTRAIT,
   PAGE_A4,
-  YEAR_MOTTO,
   noBorder,
 } from "./theme";
 
@@ -48,7 +48,7 @@ export function pageProperties(mode: PageMode = "portrait") {
 }
 
 export type ChromeOptions = {
-  /** Lema del año; si es cadena vacía no se imprime. */
+  /** Lema del año; por defecto el fijado por administración. Si es cadena vacía no se imprime. */
   motto?: string;
   /** Texto pequeño a la derecha de la cabecera (p. ej. "I.E. 123 · Personal Social"). */
   headerRight?: string;
@@ -62,7 +62,7 @@ function tiny(text: string, options: { bold?: boolean; italics?: boolean; color?
 
 /** Cabecera con logo institucional a la izquierda y lema del año a la derecha. */
 export function documentHeader(options: ChromeOptions = {}) {
-  const motto = options.motto ?? YEAR_MOTTO;
+  const motto = options.motto ?? getYearMotto();
   const withLogo = options.withLogo ?? true;
   const rightLines: Paragraph[] = [];
   if (motto) {

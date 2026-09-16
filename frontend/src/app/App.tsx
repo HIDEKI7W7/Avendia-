@@ -7,6 +7,7 @@ import { RouteScrollManager } from "../components/RouteScrollManager";
 import { DashboardPage } from "../features/dashboard/DashboardPage";
 import { LoginPage } from "../features/auth/LoginPage";
 import { ModulePage } from "../features/tools/ModulePage";
+import { applyBrandingResponse, resetYearMotto } from "../features/tools/docx/motto";
 import { apiRequest } from "../lib/api";
 import { readAccessToken, readStoredSessionUser, updateStoredSessionUser, type SessionUser } from "../lib/session";
 
@@ -36,6 +37,7 @@ function RequireSession({ children, admin = false }: { children: ReactNode; admi
     const expire = () => {
       setUser(null);
       setSession("anonymous");
+      resetYearMotto();
     };
     window.addEventListener("avendia-session-expired", expire);
     return () => window.removeEventListener("avendia-session-expired", expire);
@@ -49,6 +51,10 @@ function RequireSession({ children, admin = false }: { children: ReactNode; admi
         updateStoredSessionUser(verifiedUser);
         setUser(verifiedUser);
         setSession("authenticated");
+        // Lema del año fijado por administración para los Word; si falla, queda el incrustado.
+        void apiRequest<unknown>("/dashboard/branding", { signal: controller.signal })
+          .then(applyBrandingResponse)
+          .catch(() => undefined);
       })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError") return;

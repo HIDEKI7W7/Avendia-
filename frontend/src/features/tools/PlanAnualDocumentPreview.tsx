@@ -4,7 +4,7 @@ import { Download, FileText, LayoutGrid, Printer } from "lucide-react";
 import { isPlaceholder, stripNumbering } from "./documentFormat";
 import { DocumentCover, DocumentIndex, InfoTable, KeyPointList, Narrative, PreviewTables, SignatureBox, type IndexEntry } from "./DocumentText";
 import { assetDataUrl } from "./docx/images";
-import { YEAR_MOTTO } from "./docx/theme";
+import { useYearMotto } from "./docx/motto";
 import { matrixFamilyColor, periodGrid } from "./exportPlanAnualDocx";
 import type { WorkflowArtifact } from "./exportWorkflowDocx";
 import "../../styles/word-preview.css";
@@ -32,6 +32,7 @@ export function PlanAnualDocumentPreview({
   artifact, values, onDownloadWord, editingResult = false, onUpdateSection, onUpdateTableCell,
 }: Props) {
   const [viewMode, setViewMode] = useState<"word" | "grid">("word");
+  const motto = useYearMotto();
   const year = value(values, "school_year");
   const institution = value(values, "institution");
   const area = value(values, "curricular_areas", "curricular_area");
@@ -95,7 +96,7 @@ export function PlanAnualDocumentPreview({
           <article className="word-document-paper word-document-paper--landscape">
             <div className="word-chrome-header">
               <img src={assetDataUrl("minedu")} alt="Ministerio de Educación del Perú" className="word-chrome-logo" />
-              <div className="word-chrome-right"><span className="word-chrome-motto">{YEAR_MOTTO}</span>{headerLine ? <span className="word-chrome-line">{headerLine}</span> : null}</div>
+              <div className="word-chrome-right">{motto ? <span className="word-chrome-motto">{motto}</span> : null}{headerLine ? <span className="word-chrome-line">{headerLine}</span> : null}</div>
             </div>
             <DocumentCover
               institution={institution}
