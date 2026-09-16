@@ -24,6 +24,16 @@ Implementado en la rama (ver sección 7 para el detalle):
   (teoría, ficha, mapa mental) se entregan como Word propio. Los tres documentos se
   guardan en el historial y quedan relacionados entre sí.
 
+- Fase 2b hecha: la herramienta suelta "Sesión de aprendizaje"
+  (`/dashboard/planificamos/sesion-aprendizaje`) abre el mismo asistente de cuatro pasos
+  en modo `sesion` (`CreateClassPage mode="sesion"`): sin cadena, sin panel de calidad,
+  sin stepper de secuencia ni diálogos por campo. Los campos largos (propósito, inicio,
+  desarrollo, cierre, criterios, retroalimentación, materiales, recursos, bibliografía,
+  DUA) quedan plegados en "Opciones avanzadas" y solo se envían si el docente escribe
+  algo; la IA respeta ese texto. Un documento guardado (`?document=`) se reabre en el
+  editor completo (`WorkflowTool`), que sigue siendo el de las demás herramientas.
+  El pedido escrito en la portada llega al asistente como tema.
+
 Pendiente: ilustraciones generadas por tema, prueba con Gemini real y las preguntas
 abiertas de las secciones 4 y 5.5. El lema del año ya se configura desde administración
 (ver `plan-formato-sesion-y-pca.md`).
@@ -256,7 +266,7 @@ de color como título de cada bloque, botón "Atrás".
   color, campos precargados, botones "Sugerir con IA" y sin panel de calidad.
 - Se añade una **fase 2b: limpieza de la herramienta suelta** de sesión: mismos
   cuatro pasos, "Opciones avanzadas" plegado con los campos largos actuales, sin
-  stepper de secuencia ni panel de calidad para el docente.
+  stepper de secuencia ni panel de calidad para el docente. (Hecha; ver "Estado de ejecución".)
 - El resto de fases (encadenamiento, paquete de clase, prueba con el cliente) no
   cambia.
 

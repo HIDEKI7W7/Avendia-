@@ -25,6 +25,31 @@ export const DURATION_OPTIONS: Array<[string, string]> = [["45", "45 min (1 hora
 export const INSTRUMENT_OPTIONS = ["Guía de observación", "Lista de cotejo", "Rúbrica", "Escala de estimación"] as const;
 export type InstrumentOption = (typeof INSTRUMENT_OPTIONS)[number];
 
+/** Modo del asistente: la clase completa encadenada o solo una sesión suelta. */
+export type WizardMode = "clase" | "sesion";
+
+/**
+ * Campos largos de la herramienta suelta de sesión. En "Crear mi clase" no se piden:
+ * la IA los redacta. En la sesión suelta quedan plegados bajo "Opciones avanzadas" y
+ * solo se envían cuando el docente escribe algo.
+ */
+export const ADVANCED_FIELDS: Array<{ id: string; label: string; placeholder?: string }> = [
+  { id: "unit_purpose", label: "Propósito de la unidad" },
+  { id: "purpose", label: "Propósito de aprendizaje de la sesión" },
+  { id: "performance", label: "Desempeño precisado" },
+  { id: "evidence", label: "Evidencia esperada" },
+  { id: "transversal_competency", label: "Competencia transversal" },
+  { id: "opening", label: "Inicio: motivación, saberes previos y conflicto cognitivo" },
+  { id: "development", label: "Desarrollo: mediación y actividades" },
+  { id: "closure", label: "Cierre: metacognición y compromiso" },
+  { id: "criteria", label: "Criterios de evaluación", placeholder: "Uno por línea" },
+  { id: "feedback", label: "Estrategia de retroalimentación" },
+  { id: "materials", label: "Materiales concretos" },
+  { id: "digital_resources", label: "Recursos digitales" },
+  { id: "bibliography", label: "Bibliografía y referencias" },
+  { id: "dua_adjustments", label: "Ajustes DUA y barreras del grupo" },
+];
+
 export type ClassWizardValues = {
   level: string;
   grade: string;
@@ -42,6 +67,8 @@ export type ClassWizardValues = {
   student_context: string;
   source_content: string;
   academic_period: string;
+  /** Campos de "Opciones avanzadas" (solo sesión suelta), por id de campo. */
+  advanced: Record<string, string>;
 };
 
 export type ClassDraft = {
@@ -55,7 +82,9 @@ export type ClassDraft = {
   updatedAt: string;
 };
 
-export const draftStorageKey = (scope: string) => `avendia.draft.crear-clase.v1.${scope}`;
+export const draftStorageKey = (scope: string, mode: WizardMode = "clase") => mode === "clase"
+  ? `avendia.draft.crear-clase.v1.${scope}`
+  : `avendia.draft.sesion-suelta.v1.${scope}`;
 
 export function defaultValues(user: Partial<SessionUser> = {}): ClassWizardValues {
   const level = user.education_level && gradesByLevel[user.education_level] ? user.education_level : "Primaria";
@@ -76,6 +105,7 @@ export function defaultValues(user: Partial<SessionUser> = {}): ClassWizardValue
     student_context: "",
     source_content: "",
     academic_period: "",
+    advanced: {},
   };
 }
 
@@ -90,7 +120,7 @@ export function readDraft(storageKey: string, user: Partial<SessionUser> = {}): 
     if (!raw) return fallback;
     const saved = JSON.parse(raw) as Partial<ClassDraft>;
     if (saved.version !== 1 || !saved.values) return fallback;
-    return { ...fallback, ...saved, values: { ...fallback.values, ...saved.values }, documentIds: saved.documentIds ?? {} };
+    return { ...fallback, ...saved, values: { ...fallback.values, ...saved.values, advanced: { ...(saved.values.advanced ?? {}) } }, documentIds: saved.documentIds ?? {} };
   } catch {
     return fallback;
   }
@@ -156,11 +186,24 @@ export function profileFields(user: Partial<SessionUser> = {}): Record<string, s
   };
 }
 
+/** Solo los campos avanzados con texto, ya recortados. */
+export function advancedFields(values: ClassWizardValues): Record<string, string> {
+  return Object.fromEntries(
+    ADVANCED_FIELDS
+      .map((field) => [field.id, String(values.advanced?.[field.id] ?? "").trim()] as const)
+      .filter(([, value]) => value),
+  );
+}
+
 /** Campos que recibe la IA para la sesión: el docente solo eligió; la IA redacta lo demás. */
 export function sessionFields(values: ClassWizardValues, user: Partial<SessionUser> = {}): Record<string, string> {
   const competencies = values.ai_competency && !values.competencies.length
     ? "Selecciona la competencia del CNEB más pertinente al tema y al área; añade una competencia de apoyo."
     : values.competencies.map((item, index) => `${index === 0 ? "Competencia principal" : "Competencia de apoyo"}: ${item}`).join("\n");
+  const advanced = advancedFields(values);
+  const advancedRule = Object.keys(advanced).length
+    ? " El docente escribió algunos apartados en opciones avanzadas: respétalos tal cual y completa el resto."
+    : "";
   return {
     ...profileFields(user),
     level: values.level,
@@ -181,7 +224,8 @@ export function sessionFields(values: ClassWizardValues, user: Partial<SessionUs
     include_theory: "Sí",
     include_worksheet: "Sí",
     include_nee: "Sí",
-    planning_mode: "Crear mi clase: el docente seleccionó los datos mínimos; desarrolla capacidades, desempeños, criterios, propósito, secuencia, recursos y retroalimentación completos y contextualizados.",
+    ...advanced,
+    planning_mode: `Crear mi clase: el docente seleccionó los datos mínimos; desarrolla capacidades, desempeños, criterios, propósito, secuencia, recursos y retroalimentación completos y contextualizados.${advancedRule}`,
   };
 }
 

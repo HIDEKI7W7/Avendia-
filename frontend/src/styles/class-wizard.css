@@ -2,6 +2,10 @@
 .class-wizard__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .class-wizard__header h1 { margin: 4px 0 6px; font: 800 clamp(22px, 2.2vw, 30px)/1.15 Manrope, sans-serif; letter-spacing: -.03em; }
 .class-wizard__header p { margin: 0; max-width: 640px; color: var(--muted); font-size: 14px; line-height: 1.55; }
+.class-wizard__header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.class-wizard__header-actions button { display: inline-flex; align-items: center; gap: 8px; }
+.class-wizard__header-actions button svg { width: 16px; height: 16px; }
+.class-link { padding: 0; border: 0; background: none; color: #1f4d78; font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }
 
 .class-chain { display: flex; gap: 10px; margin: 0; padding: 0; list-style: none; flex-wrap: wrap; }
 .class-chain li { display: flex; align-items: center; gap: 10px; flex: 1 1 200px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: white; color: #6b7785; }

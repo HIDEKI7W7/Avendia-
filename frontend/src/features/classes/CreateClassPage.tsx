@@ -2,10 +2,13 @@
  * "Crear mi clase": asistente corto de cuatro pasos (datos, competencias, enfoques,
  * evaluación) que genera la sesión con el formato de referencia y encadena, con un
  * solo botón "Siguiente", el instrumento de evaluación y los materiales del estudiante.
+ *
+ * En modo "sesion" es la herramienta suelta "Sesión de aprendizaje": mismos cuatro
+ * pasos, sin cadena, con los campos largos plegados bajo "Opciones avanzadas".
  */
 import { ArrowLeft, ArrowRight, Check, Download, FileText, LoaderCircle, Sparkles, WandSparkles } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { GenerationProgressOverlay } from "../../components/GenerationProgressOverlay";
 import { ApiError, apiRequest, downloadApiBlob } from "../../lib/api";
@@ -16,6 +19,7 @@ import { SessionDocumentPreview } from "../tools/SessionDocumentPreview";
 import { WordDocumentPreview } from "../tools/WordDocumentPreview";
 import type { WorkflowArtifact } from "../tools/exportWorkflowDocx";
 import {
+  ADVANCED_FIELDS,
   APPROACH_OPTIONS,
   CLASS_STAGES,
   DURATION_OPTIONS,
@@ -40,6 +44,7 @@ import {
   type ClassStage,
   type ClassWizardValues,
   type InstrumentOption,
+  type WizardMode,
 } from "./classWizard";
 import "../../styles/class-wizard.css";
 
@@ -60,11 +65,23 @@ async function withRetry<T>(request: () => Promise<T>): Promise<T> {
   }
 }
 
-export function CreateClassPage() {
+const SESSION_ROUTE = "/dashboard/planificamos/sesion-aprendizaje";
+
+export function CreateClassPage({ mode = "clase" }: { mode?: WizardMode } = {}) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const single = mode === "sesion";
   const user = useMemo(() => readSessionUser(), []);
-  const storageKey = useMemo(() => draftStorageKey(sessionDraftScope()), []);
-  const [draft, setDraft] = useState<ClassDraft>(() => readDraft(storageKey, user));
+  const storageKey = useMemo(() => draftStorageKey(sessionDraftScope(), mode), [mode]);
+  const [draft, setDraft] = useState<ClassDraft>(() => {
+    const saved = readDraft(storageKey, user);
+    // Pedido escrito en la portada ("Necesito una sesión sobre…"): se usa como tema si no hay uno.
+    const teacherNeed = (location.state as { teacherNeed?: string } | null)?.teacherNeed?.trim();
+    if (teacherNeed && !saved.values.session_topic.trim() && !saved.session) {
+      return { ...saved, values: { ...saved.values, session_topic: teacherNeed } };
+    }
+    return saved;
+  });
   const [errors, setErrors] = useState<string[]>([]);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState<"" | "generating" | "suggesting" | "saving">("");
@@ -156,7 +173,7 @@ export function CreateClassPage() {
         title: artifact.document_title,
         document_type: documentType,
         content: artifactText(artifact),
-        metadata: { version: 1, fields, artifact, source_route: sourceRoute, class_flow: true, class_stage: stage },
+        metadata: { version: 1, fields, artifact, source_route: sourceRoute, class_flow: !single, class_stage: stage },
       }),
     });
     if (stage !== "sesion" && draft.documentIds.sesion && !existing) {
@@ -192,7 +209,7 @@ export function CreateClassPage() {
         fields,
         requested_sections: workflow.outputSections,
       });
-      const documentId = await saveDocument("sesion", artifact, workflow.key, fields, "/dashboard/planificamos/sesion-aprendizaje").catch(() => undefined);
+      const documentId = await saveDocument("sesion", artifact, workflow.key, fields, SESSION_ROUTE).catch(() => undefined);
       setDraft((current) => ({ ...current, session: artifact, instrument: null, stage: "sesion", documentIds: { ...current.documentIds, sesion: documentId ?? current.documentIds.sesion } }));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "No se pudo generar la sesión.");
@@ -265,6 +282,13 @@ export function CreateClassPage() {
     setMessage("");
   };
 
+  /** Vuelve al formulario conservando lo elegido (sesión suelta). */
+  const editData = () => {
+    setDraft((current) => ({ ...current, session: null, instrument: null, stage: "sesion", step: WIZARD_STEPS.length - 1 }));
+    setErrors([]);
+    setMessage("");
+  };
+
   const pickRoster = async (rosterId: string) => {
     setValue("roster_id", rosterId);
     if (!rosterId) return;
@@ -289,6 +313,31 @@ export function CreateClassPage() {
       ))}
     </ol>
   );
+
+  // ----- Resultado de la sesión suelta: vista previa, Word y vuelta al formulario
+  if (draft.session && single) {
+    return (
+      <main className="workflow-page class-wizard">
+        <div className="workflow-shell">
+          <header className="class-wizard__header">
+            <div><span className="home-eyebrow">Sesión de aprendizaje</span><h1>{draft.session.document_title}</h1><p>{draft.session.executive_summary}</p></div>
+            <div className="class-wizard__header-actions">
+              <button type="button" className="secondary-button" onClick={editData}><ArrowLeft aria-hidden="true" /> Editar datos</button>
+              <button type="button" className="secondary-button" onClick={restart}>Nueva sesión</button>
+            </div>
+          </header>
+          {message ? <div className="workflow-message workflow-message--error" role="alert">{message}</div> : null}
+          <SessionDocumentPreview artifact={draft.session} values={sessionFields(values, user)} onDownloadWord={() => void download("sesion")} />
+          <footer className="class-wizard__footer">
+            <button type="button" className="secondary-button" disabled={busy !== ""} onClick={() => void generateSession()}>Volver a generar</button>
+            <button type="button" className="workflow-primary" onClick={() => navigate("/dashboard/historial")}>Ver en el historial <ArrowRight aria-hidden="true" /></button>
+          </footer>
+          <p className="class-wizard__hint">¿Necesitas también el instrumento y los materiales de esta sesión? Usa <button type="button" className="class-link" onClick={() => navigate("/dashboard/crear-clase")}>Crear mi clase</button>.</p>
+        </div>
+        <GenerationProgressOverlay open={busy === "generating"} toolTitle="Sesión de Aprendizaje" family="planificamos" />
+      </main>
+    );
+  }
 
   // ----- Resultado: sesión → instrumento → materiales
   if (draft.session) {
@@ -356,9 +405,11 @@ export function CreateClassPage() {
     <main className="workflow-page class-wizard">
       <div className="workflow-shell">
         <header className="class-wizard__header">
-          <div><span className="home-eyebrow">Crear mi clase</span><h1>Tu clase completa en cuatro pasos</h1><p>Elige los datos mínimos y Avendia redacta la sesión; luego preparará el instrumento y los materiales a partir de ella.</p></div>
+          {single
+            ? <div><span className="home-eyebrow">Planificamos</span><h1>Tu sesión de aprendizaje en cuatro pasos</h1><p>Elige los datos mínimos y Avendia redacta la sesión completa con el formato oficial. Si quieres precisar algún apartado, ábrelo en "Opciones avanzadas".</p></div>
+            : <div><span className="home-eyebrow">Crear mi clase</span><h1>Tu clase completa en cuatro pasos</h1><p>Elige los datos mínimos y Avendia redacta la sesión; luego preparará el instrumento y los materiales a partir de ella.</p></div>}
         </header>
-        {chain}
+        {single ? null : chain}
 
         <ol className="class-steps" aria-label="Pasos del formulario">
           {WIZARD_STEPS.map((item, index) => (
@@ -440,6 +491,18 @@ export function CreateClassPage() {
                 <label><span>Lista de estudiantes (opcional)</span><select value={values.roster_id} onChange={(event) => void pickRoster(event.target.value)}><option value="">Seleccionar lista guardada</option>{rosters.map((roster) => <option key={roster.id} value={roster.id}>{roster.name || `${roster.grade} "${roster.section}"`} · {roster.institution_name}</option>)}</select></label>
                 <label className="class-grid__wide"><span>O escribe los nombres, uno por línea</span><textarea rows={4} value={values.student_names} placeholder={"Juan Pérez García\nMaría López Rodríguez"} onChange={(event) => setValue("student_names", event.target.value)} /></label>
               </div>
+              {single ? (
+                <details className="class-advanced">
+                  <summary>Opciones avanzadas: escribe tú algún apartado (opcional)</summary>
+                  <p className="class-block__help">Todo lo que dejes vacío lo redacta la IA. Lo que escribas se respeta tal cual en el Word.</p>
+                  {ADVANCED_FIELDS.map((field) => (
+                    <label key={field.id}>
+                      <span>{field.label}</span>
+                      <textarea rows={3} value={values.advanced[field.id] ?? ""} placeholder={field.placeholder} onChange={(event) => setValue("advanced", { ...values.advanced, [field.id]: event.target.value })} />
+                    </label>
+                  ))}
+                </details>
+              ) : null}
             </div>
           ) : null}
 
@@ -449,7 +512,7 @@ export function CreateClassPage() {
           <footer className="class-wizard__footer">
             {draft.step > 0 ? <button type="button" className="secondary-button" onClick={() => goTo(draft.step - 1)}><ArrowLeft aria-hidden="true" /> Atrás</button> : <span />}
             <button type="submit" className="workflow-primary" disabled={busy === "generating"}>
-              {draft.step === WIZARD_STEPS.length - 1 ? <><FileText aria-hidden="true" /> Crear mi clase</> : <>Siguiente <ArrowRight aria-hidden="true" /></>}
+              {draft.step === WIZARD_STEPS.length - 1 ? <><FileText aria-hidden="true" /> {single ? "Generar la sesión" : "Crear mi clase"}</> : <>Siguiente <ArrowRight aria-hidden="true" /></>}
             </button>
           </footer>
         </form>

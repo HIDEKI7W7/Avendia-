@@ -128,4 +128,52 @@ describe("CreateClassPage", () => {
     expect(screen.getByRole("heading", { name: /^Ficha de trabajo$/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Ver mi clase en el historial/ })).toBeInTheDocument();
   });
+
+  it("como herramienta suelta genera solo la sesión y respeta lo escrito en opciones avanzadas", async () => {
+    mocks.apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/ai/tools/workflow/generate") return sessionArtifactSample();
+      if (path === "/documents") return { id: "doc-sesion" };
+      return {};
+    });
+    render(<MemoryRouter initialEntries={[{ pathname: "/dashboard/planificamos/sesion-aprendizaje", state: { teacherNeed: "El Fenómeno del Niño" } }]}><CreateClassPage mode="sesion" /></MemoryRouter>);
+
+    expect(screen.getByRole("heading", { name: /sesión de aprendizaje en cuatro pasos/i })).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: /Etapas de la clase/ })).not.toBeInTheDocument();
+    // El pedido de la portada llega como tema.
+    expect(screen.getByLabelText(/Tema específico/)).toHaveValue("El Fenómeno del Niño");
+    fireEvent.change(screen.getByLabelText(/Nivel educativo/), { target: { value: "Primaria" } });
+    fireEvent.change(screen.getByLabelText(/^Grado/), { target: { value: "2° de Primaria" } });
+    fireEvent.change(screen.getByLabelText(/Área curricular/), { target: { value: "Personal Social" } });
+    fireEvent.click(screen.getByRole("button", { name: /^Siguiente/ }));
+    fireEvent.click(screen.getByLabelText(/Dejar que la IA sugiera/));
+    fireEvent.click(screen.getByRole("button", { name: /^Siguiente/ }));
+    fireEvent.click(screen.getByLabelText("Ambiental"));
+    fireEvent.click(screen.getByLabelText("Bien común"));
+    fireEvent.click(screen.getByRole("button", { name: /^Siguiente/ }));
+
+    // Nada técnico a la vista; los campos largos están plegados.
+    expect(screen.queryByText(/Control de calidad/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Reutilizar datos/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText(/Opciones avanzadas: escribe tú/));
+    fireEvent.change(screen.getByLabelText(/Inicio: motivación/), { target: { value: "Observamos fotos de la última lluvia intensa en el barrio." } });
+    expect(screen.queryByRole("button", { name: /Crear mi clase/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Generar la sesión/ }));
+
+    await screen.findByRole("heading", { level: 1, name: /Fenómeno El Niño: ¿cómo nos afecta/i });
+    expect(screen.getByRole("heading", { name: /^I\. Datos informativos$/i })).toBeInTheDocument();
+    const generate = mocks.apiRequest.mock.calls.find(([path]) => path === "/ai/tools/workflow/generate");
+    const body = JSON.parse(String((generate?.[1] as { body: string }).body));
+    expect(body.fields.opening).toBe("Observamos fotos de la última lluvia intensa en el barrio.");
+    expect(body.fields.development).toBeUndefined();
+    expect(body.fields.planning_mode).toMatch(/opciones avanzadas/);
+    const saved = mocks.apiRequest.mock.calls.find(([path]) => path === "/documents");
+    expect(JSON.parse(String((saved?.[1] as { body: string }).body)).metadata.class_flow).toBe(false);
+    expect(screen.queryByRole("button", { name: /Siguiente: instrumento/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Descargar Word/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Ver en el historial/ })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Editar datos/ }));
+    expect(screen.getByRole("heading", { name: /^Evaluación$/ })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Inicio: motivación/)).toHaveValue("Observamos fotos de la última lluvia intensa en el barrio.");
+  });
 });
