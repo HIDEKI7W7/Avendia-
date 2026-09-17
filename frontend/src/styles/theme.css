@@ -418,3 +418,74 @@
 [data-theme="dark"] .home-history__count { color: #8cb9ff; background: #172b48; }
 [data-theme="dark"] .workflow-confirm { color: #edf3ff; border-color: #2c3a50; background: #111c2e; }
 [data-theme="dark"] .workflow-confirm > span { color: #f1c879; background: #382c1d; }
+
+/* Botones unificados en modo oscuro (ver styles/buttons.css). */
+[data-theme="dark"] .primary-button,
+[data-theme="dark"] .admin-button--primary,
+[data-theme="dark"] .btn--primary,
+[data-theme="dark"] .evaluation-button:not(.evaluation-button--secondary):not(.evaluation-button--danger) {
+  color: #fff;
+  border-color: #2f7bec;
+  background: #2f7bec;
+}
+
+[data-theme="dark"] .primary-button:hover:not(:disabled),
+[data-theme="dark"] .admin-button--primary:hover:not(:disabled),
+[data-theme="dark"] .btn--primary:hover:not(:disabled),
+[data-theme="dark"] .evaluation-button:not(.evaluation-button--secondary):not(.evaluation-button--danger):hover:not(:disabled) {
+  border-color: #4a8ef5;
+  background: #4a8ef5;
+}
+
+[data-theme="dark"] .btn--secondary,
+[data-theme="dark"] .secondary-button {
+  color: #8cb9ff;
+  border-color: #477bc9;
+  background: #111d31;
+}
+
+[data-theme="dark"] .btn--secondary:hover:not(:disabled),
+[data-theme="dark"] .secondary-button:hover:not(:disabled) {
+  background: #172b48;
+}
+
+[data-theme="dark"] .btn--neutral,
+[data-theme="dark"] .register-back-button,
+[data-theme="dark"] .today-button {
+  color: #dbe5f4;
+  border-color: #35455e;
+  background: #172133;
+}
+
+[data-theme="dark"] .btn--neutral:hover:not(:disabled),
+[data-theme="dark"] .register-back-button:hover:not(:disabled),
+[data-theme="dark"] .today-button:hover:not(:disabled) {
+  color: #8cb9ff;
+  border-color: #477bc9;
+  background: #1b2c48;
+}
+
+[data-theme="dark"] .btn--danger-soft,
+[data-theme="dark"] .danger-button {
+  color: #f0a1a8;
+  border-color: #7b3d44;
+  background: #2a171c;
+}
+
+[data-theme="dark"] .btn--danger-soft:hover:not(:disabled),
+[data-theme="dark"] .danger-button:hover:not(:disabled) {
+  border-color: #9c4d56;
+  background: #351c22;
+}
+
+[data-theme="dark"] .btn:focus-visible,
+[data-theme="dark"] .primary-button:focus-visible,
+[data-theme="dark"] .secondary-button:focus-visible,
+[data-theme="dark"] .admin-button:focus-visible,
+[data-theme="dark"] .evaluation-button:focus-visible,
+[data-theme="dark"] .danger-button:focus-visible,
+[data-theme="dark"] .roster-danger-button:focus-visible,
+[data-theme="dark"] .register-back-button:focus-visible,
+[data-theme="dark"] .today-button:focus-visible {
+  outline-color: rgba(140, 185, 255, .45);
+}

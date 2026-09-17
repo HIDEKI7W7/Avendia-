@@ -70,7 +70,13 @@ export function Sidebar({ open, collapsed, onClose, onToggleCollapse }: SidebarP
           <button className="icon-button" aria-label="Cerrar sesión" onClick={() => { endSession(); location.assign("/login"); }}><LogOut /></button>
         </div>
       </div>
-      {!collapsed ? <div className="sidebar-credits"><Coins /><span><small>Créditos IA</small><strong>{(user.ai_credits_balance ?? 0).toLocaleString("es-PE")}</strong></span>{user.role === "admin" ? <NavLink to="/admin" title="Abrir centro de administración"><ShieldCheck /></NavLink> : null}</div> : null}
+      {!collapsed ? <div className="sidebar-credits"><Coins /><span><small>Créditos IA</small><strong>{(user.ai_credits_balance ?? 0).toLocaleString("es-PE")}</strong></span></div> : null}
+      {user.role === "admin" ? (
+        <NavLink to="/admin" className="space-switch space-switch--to-admin" title="Ir al Panel de Administración" onClick={onClose}>
+          <ShieldCheck aria-hidden="true" />
+          <span><small>Cambiar de espacio</small><strong>Panel de Administración</strong></span>
+        </NavLink>
+      ) : null}
       <button className="sidebar__collapse" onClick={onToggleCollapse} aria-label={collapsed ? "Expandir menú" : "Contraer menú"}>
         {collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}<span>{collapsed ? "" : "Contraer menú"}</span>
       </button>

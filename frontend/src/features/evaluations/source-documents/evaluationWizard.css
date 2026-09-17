@@ -101,27 +101,15 @@
 .evaluation-form-grid small,
 .evaluation-field small { color: var(--muted, #687792); font-size: 12px; font-weight: 520; line-height: 1.45; }
 
+/* La base (alto, radio, tipografía, iconos, estados) viene de styles/buttons.css. */
 .evaluation-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 44px;
-  padding: 0 17px;
   color: #fff;
-  border: 1px solid #5e54e8;
-  border-radius: 11px;
-  background: linear-gradient(135deg, #1168ef, #7653eb);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 800;
-  cursor: pointer;
+  border-color: var(--blue);
+  background: var(--blue);
 }
-.evaluation-button svg { width: 17px; }
-.evaluation-button:hover { filter: brightness(1.04); }
-.evaluation-button:focus-visible { outline: 3px solid rgba(103, 92, 240, .25); outline-offset: 2px; }
-.evaluation-button:disabled { opacity: .55; cursor: not-allowed; }
+.evaluation-button:hover:not(:disabled) { border-color: #064fc8; background: #064fc8; }
 .evaluation-button--secondary { color: #5147dc; border-color: #cbc7fb; background: #f6f4ff; }
+.evaluation-button--secondary:hover:not(:disabled) { border-color: #a79ff3; background: #efecff; }
 .evaluation-button--danger { color: #b33845; border-color: #efc1c6; background: #fff5f6; }
 
 .evaluation-notice { margin-top: 18px; padding: 13px 15px; border: 1px solid; border-radius: 12px; font-size: 13px; line-height: 1.5; }

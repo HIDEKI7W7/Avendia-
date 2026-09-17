@@ -84,7 +84,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid rgba(7, 91, 232, 
 .sidebar--collapsed .sidebar__account-actions { display: none !important; }
 .sidebar--collapsed .sidebar-profile { display: flex !important; }
 
-.topbar { position: fixed; inset: 0 0 auto var(--sidebar); z-index: 10; display: flex; align-items: center; justify-content: space-between; height: var(--topbar); padding: 0 36px; border-bottom: 1px solid var(--line); background: rgba(255,255,255,.96); }
+.topbar { position: fixed; inset: 0 0 auto var(--sidebar); z-index: 10; display: flex; align-items: center; justify-content: space-between; gap: 18px; height: var(--topbar); padding: 0 36px; border-bottom: 1px solid var(--line); background: #fff; }
 .topbar__menu { display: none; margin-right: auto; }
 .topbar__actions { display: flex; align-items: center; gap: 8px; }
 .topbar__title { display: grid; gap: 4px; }
@@ -128,10 +128,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid rgba(7, 91, 232, 
 h1, h2 { font-family: Manrope, sans-serif; }
 .dashboard-hero h1 { margin: 0; font-size: clamp(32px, 3vw, 45px); line-height: 1.08; letter-spacing: -.045em; }
 .dashboard-hero p { margin: 12px 0 0; color: var(--muted); font-size: 20px; }
-.primary-button { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 52px; padding: 0 23px; border: 1px solid var(--blue); border-radius: 8px; color: white; background: var(--blue); font-size: 14px; font-weight: 700; cursor: pointer; }
-.primary-button:hover { background: #064fc8; }
-.primary-button:disabled { opacity: .62; cursor: wait; }
-.primary-button svg { width: 20px; height: 20px; }
+/* La geometría y los colores de .primary-button viven en styles/buttons.css. */
 .dashboard-section { padding-top: 32px; }
 .dashboard-section h2, .agenda h2 { margin: 0 0 19px; font-size: 19px; letter-spacing: -.02em; }
 .recent-list { border-top: 1px solid var(--line); }
@@ -254,7 +251,7 @@ h1, h2 { font-family: Manrope, sans-serif; }
 .home-referral h2 { margin: 4px 0; font-size: 22px; }
 .home-referral p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
 .home-referral__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 9px; }
-.home-referral__actions .primary-button, .home-referral__actions .secondary-button { min-height: 42px; padding-inline: 16px; font-size: 11px; white-space: nowrap; }
+.home-referral__actions .primary-button, .home-referral__actions .secondary-button { padding-inline: 16px; font-size: 12px; white-space: nowrap; }
 .home-context { min-width: 0; border-left: 1px solid var(--line); background: white; }
 .home-dashboard--context-closed { grid-template-columns: minmax(0, 1fr); }
 .home-context-toolbar { display: flex; align-items: center; justify-content: space-between; min-height: 0; padding: 42px 22px 14px; border-bottom: 1px solid var(--line); }
@@ -494,9 +491,7 @@ h1, h2 { font-family: Manrope, sans-serif; }
 .register-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .register-actions > p { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--muted); font-size: 11px; }
 .register-actions > p svg { width: 18px; color: #24ae74; }
-.register-back-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 50px; padding: 0 20px; border: 1px solid #c7d2e2; border-radius: 10px; color: #3b4962; background: white; font-size: 13px; font-weight: 800; cursor: pointer; }
-.register-back-button:hover { border-color: #93abe0; color: var(--blue); background: #f4f8ff; }
-.register-back-button svg { width: 18px; }
+/* .register-back-button usa la variante neutra de styles/buttons.css. */
 .register-next-button, .register-submit { min-width: 220px; border: 0; border-radius: 11px; background: linear-gradient(100deg, #0870ef, #6950e9); box-shadow: 0 11px 22px rgba(70,77,211,.19); }
 .register-next-button:hover, .register-submit:hover { background: linear-gradient(100deg, #0564d8, #5e45dd); transform: translateY(-1px); }
 @keyframes register-step-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -541,8 +536,7 @@ h1, h2 { font-family: Manrope, sans-serif; }
 .creation-option strong { font: 700 15px/1.2 Manrope, sans-serif; }
 .creation-option small { color: var(--muted); font-size: 13px; }
 .creation-dialog__footer { display: flex; justify-content: flex-end; padding: 18px 32px; border-top: 1px solid var(--line); background: #fbfcfe; }
-.secondary-button { min-height: 42px; padding: 0 18px; border: 1px solid var(--blue); border-radius: 8px; color: var(--blue); background: white; font-size: 13px; font-weight: 700; cursor: pointer; }
-.secondary-button:hover { background: var(--blue-soft); }
+/* La geometría y los colores de .secondary-button viven en styles/buttons.css. */
 
 @media (max-width: 1120px) {
   .dashboard-main { grid-template-columns: minmax(0, 1fr) 310px; }
@@ -703,14 +697,14 @@ textarea { padding: 12px; line-height: 1.55; resize: vertical; }
 .editor-canvas:focus { outline: 2px solid rgba(7,91,232,.22); }
 .editor-footer { border-top: 1px solid var(--line); border-bottom: 0; background: #fbfcfe; }
 .editor-footer span { color: var(--muted); font-size: 11px; }
-.editor-footer .primary-button { min-height: 42px; }
+/* Alto unificado desde styles/buttons.css. */
 
 .calendar-page { padding-top: 38px; }
 .calendar-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; max-width: 1260px; margin: 0 auto 30px; }
 .calendar-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; max-width: 1260px; margin: auto; padding: 14px 0; border-top: 1px solid var(--line); }
 .calendar-navigation, .calendar-actions { display: flex; align-items: center; gap: 8px; }
 .calendar-navigation h2 { min-width: 190px; margin: 0 0 0 10px; font-size: 19px; text-transform: capitalize; }
-.today-button { height: 36px; padding: 0 13px; border: 1px solid var(--line); border-radius: 8px; background: white; font-size: 12px; font-weight: 700; cursor: pointer; }
+/* .today-button usa la variante neutra pequeña de styles/buttons.css. */
 .segmented { display: flex; padding: 3px; border: 1px solid var(--line); border-radius: 9px; background: var(--soft); }
 .segmented button { height: 31px; padding: 0 13px; border: 0; border-radius: 6px; background: transparent; font-size: 11px; cursor: pointer; }
 .segmented .active { color: var(--blue); background: white; box-shadow: 0 1px 4px rgba(20,40,70,.1); font-weight: 700; }

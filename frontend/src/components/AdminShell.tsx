@@ -68,8 +68,8 @@ export function AdminShell() {
   const activeItem = currentTab === "utilities" ? { label: "Utilidades y comunidad", icon: FileText } : adminNavItems.find((item) => item.id === currentTab) ?? adminNavItems[0];
 
   return (
-    <div className={`app-shell ${collapsed ? "app-shell--collapsed" : ""}`}>
-      <aside className={`sidebar ${sidebarOpen ? "sidebar--open" : ""} ${collapsed ? "sidebar--collapsed" : ""}`} aria-label="Navegación administrativa">
+    <div className={`app-shell app-shell--admin ${collapsed ? "app-shell--collapsed" : ""}`}>
+      <aside className={`sidebar sidebar--admin ${sidebarOpen ? "sidebar--open" : ""} ${collapsed ? "sidebar--collapsed" : ""}`} aria-label="Navegación administrativa">
         <div className="sidebar__header">
           <Brand />
           <button className="icon-button sidebar__mobile-close" onClick={() => setSidebarOpen(false)} aria-label="Cerrar menú">
@@ -97,16 +97,8 @@ export function AdminShell() {
 
         <div className="sidebar__separator" />
 
-        <nav className="sidebar__nav sidebar__nav--utility" aria-label="Cambio de espacio">
+        <nav className="sidebar__nav sidebar__nav--utility" aria-label="Utilidades de administración">
           <Link to="/admin/utilidades" className="nav-item" title="Utilidades y comunidad"><FileText aria-hidden="true" /><span>Utilidades y comunidad</span></Link>
-          <Link
-            to="/dashboard"
-            className="nav-item"
-            title={collapsed ? "Volver al Espacio Docente" : undefined}
-          >
-            <GraduationCap aria-hidden="true" />
-            <span>Espacio Docente</span>
-          </Link>
         </nav>
 
         <div className="sidebar__account">
@@ -131,6 +123,11 @@ export function AdminShell() {
           </div>
         </div>
 
+        <Link to="/dashboard" className="space-switch space-switch--to-teacher" title="Volver al Espacio Docente" onClick={() => setSidebarOpen(false)}>
+          <GraduationCap aria-hidden="true" />
+          <span><small>Cambiar de espacio</small><strong>Espacio Docente</strong></span>
+        </Link>
+
         <button className="sidebar__collapse" onClick={toggleCollapsed} aria-label={collapsed ? "Expandir menú" : "Contraer menú"}>
           {collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
           <span>{collapsed ? "" : "Contraer menú"}</span>
@@ -150,6 +147,7 @@ export function AdminShell() {
           </div>
         </div>
         <div className="topbar__actions">
+          <span className="space-badge space-badge--admin"><ShieldCheck aria-hidden="true" />Administración</span>
           <button
             className="icon-button topbar-theme-toggle"
             onClick={() => void updateWorkspacePreferences({ theme: dark ? "light" : "dark" })}
@@ -157,13 +155,9 @@ export function AdminShell() {
           >
             {dark ? <Sun /> : <Moon />}
           </button>
-          <button
-            className="admin-button admin-button--secondary"
-            onClick={() => navigate("/dashboard")}
-            style={{ minHeight: "36px", height: "36px", gap: "6px" }}
-          >
-            <GraduationCap style={{ width: 16 }} />
-            <span>Volver a Espacio Docente</span>
+          <button className="admin-button admin-button--secondary btn--sm" onClick={() => navigate("/dashboard")}>
+            <GraduationCap aria-hidden="true" />
+            <span>Espacio Docente</span>
           </button>
         </div>
       </header>

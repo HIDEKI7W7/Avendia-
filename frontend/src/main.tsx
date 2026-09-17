@@ -21,6 +21,7 @@ import "./styles/profile.css";
 import "./styles/templates.css";
 import "./styles/rosters.css";
 import "./styles/responsive.css";
+import "./styles/buttons.css";
 
 const initialTheme = localStorage.getItem("avendia.theme") === "dark" ? "dark" : "light";
 document.documentElement.dataset.theme = initialTheme;

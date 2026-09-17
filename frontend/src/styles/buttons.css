@@ -1,0 +1,343 @@
+/* Sistema unificado de botones.
+   Se carga después de las hojas por módulo para que todos los botones de la
+   aplicación compartan una misma base (alto, radio, tipografía, alineación de
+   icono y estados). Las variantes solo cambian color, nunca la geometría. */
+
+:root {
+  --btn-height-sm: 36px;
+  --btn-height: 44px;
+  --btn-height-lg: 52px;
+  --btn-radius: 10px;
+  --btn-padding: 18px;
+  --btn-padding-sm: 13px;
+  --btn-font: 13px;
+  --btn-blue-hover: #064fc8;
+  --btn-blue-active: #0544ab;
+  --btn-border-soft: #c3d6f5;
+}
+
+/* ---------- Base compartida ---------- */
+
+.btn,
+.primary-button,
+.secondary-button,
+.admin-button,
+.evaluation-button,
+.danger-button,
+.roster-danger-button,
+.register-back-button,
+.today-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: var(--btn-height);
+  padding: 0 var(--btn-padding);
+  border: 1px solid transparent;
+  border-radius: var(--btn-radius);
+  font-family: inherit;
+  font-size: var(--btn-font);
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease;
+}
+
+.btn svg,
+.primary-button svg,
+.secondary-button svg,
+.admin-button svg,
+.evaluation-button svg,
+.danger-button svg,
+.roster-danger-button svg,
+.register-back-button svg,
+.today-button svg {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+}
+
+.btn:disabled,
+.primary-button:disabled,
+.secondary-button:disabled,
+.admin-button:disabled,
+.evaluation-button:disabled,
+.danger-button:disabled,
+.roster-danger-button:disabled,
+.register-back-button:disabled,
+.today-button:disabled,
+.btn[aria-disabled="true"] {
+  opacity: .5;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.btn:focus-visible,
+.primary-button:focus-visible,
+.secondary-button:focus-visible,
+.admin-button:focus-visible,
+.evaluation-button:focus-visible,
+.danger-button:focus-visible,
+.roster-danger-button:focus-visible,
+.register-back-button:focus-visible,
+.today-button:focus-visible {
+  outline: 3px solid rgba(7, 91, 232, .3);
+  outline-offset: 2px;
+}
+
+/* ---------- Variantes ---------- */
+
+.btn--primary,
+.primary-button,
+.admin-button--primary {
+  color: #fff;
+  border-color: var(--blue);
+  background: var(--blue);
+}
+
+.btn--primary:hover:not(:disabled),
+.primary-button:hover:not(:disabled),
+.admin-button--primary:hover:not(:disabled) {
+  border-color: var(--btn-blue-hover);
+  background: var(--btn-blue-hover);
+}
+
+.btn--primary:active:not(:disabled),
+.primary-button:active:not(:disabled),
+.admin-button--primary:active:not(:disabled) {
+  border-color: var(--btn-blue-active);
+  background: var(--btn-blue-active);
+}
+
+.btn--secondary,
+.secondary-button {
+  color: var(--blue);
+  border-color: var(--btn-border-soft);
+  background: #fff;
+}
+
+.btn--secondary:hover:not(:disabled),
+.secondary-button:hover:not(:disabled) {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+}
+
+.btn--neutral,
+.admin-button--secondary,
+.register-back-button,
+.today-button {
+  color: var(--navy);
+  border-color: var(--line);
+  background: #fff;
+}
+
+.btn--neutral:hover:not(:disabled),
+.admin-button--secondary:hover:not(:disabled),
+.register-back-button:hover:not(:disabled),
+.today-button:hover:not(:disabled) {
+  color: var(--blue);
+  border-color: var(--btn-border-soft);
+  background: var(--soft);
+}
+
+.btn--danger,
+.roster-danger-button {
+  color: #fff;
+  border-color: #bd3b47;
+  background: #bd3b47;
+}
+
+.btn--danger:hover:not(:disabled),
+.roster-danger-button:hover:not(:disabled) {
+  border-color: #a32d39;
+  background: #a32d39;
+}
+
+.btn--danger-soft,
+.danger-button {
+  color: #a62e36;
+  border-color: #e4a4a8;
+  background: #fff6f6;
+}
+
+.btn--danger-soft:hover:not(:disabled),
+.danger-button:hover:not(:disabled) {
+  border-color: #cf7d83;
+  background: #ffecec;
+}
+
+/* ---------- Tamaños ---------- */
+
+.btn--sm,
+.today-button,
+.is-btn-sm {
+  min-height: var(--btn-height-sm);
+  padding-inline: var(--btn-padding-sm);
+  font-size: 12px;
+}
+
+.btn--sm svg,
+.today-button svg,
+.is-btn-sm svg {
+  width: 16px;
+  height: 16px;
+}
+
+.btn--lg,
+.is-btn-lg {
+  min-height: var(--btn-height-lg);
+  padding-inline: 24px;
+  font-size: 14px;
+}
+
+.btn--block,
+.is-btn-block {
+  width: 100%;
+}
+
+/* ---------- Cambio de espacio (Docente ↔ Administración) ---------- */
+
+.space-switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  margin-top: 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--navy);
+  background: var(--soft);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .16s ease, background-color .16s ease;
+}
+
+.space-switch:hover {
+  border-color: var(--btn-border-soft);
+  background: var(--blue-soft);
+}
+
+.space-switch > svg {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  color: var(--space-switch-accent, var(--blue));
+}
+
+.space-switch > span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.space-switch small {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+.space-switch strong {
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar--collapsed .space-switch {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.sidebar--collapsed .space-switch > span {
+  display: none;
+}
+
+/* ---------- Distintivo del espacio activo ---------- */
+
+.space-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid var(--space-badge-border, var(--line));
+  border-radius: 999px;
+  color: var(--space-badge-text, var(--muted));
+  background: var(--space-badge-bg, var(--soft));
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.space-badge svg {
+  width: 14px;
+  height: 14px;
+}
+
+.space-badge--admin {
+  --space-badge-border: #cbbcf3;
+  --space-badge-text: #5b3fc4;
+  --space-badge-bg: #f1ecff;
+}
+
+.space-switch--to-admin {
+  --space-switch-accent: #6247c8;
+}
+
+.space-switch--to-admin:hover {
+  border-color: #cbbcf3;
+  background: #f1ecff;
+}
+
+.space-switch--to-teacher {
+  --space-switch-accent: var(--blue);
+}
+
+/* ---------- Acento del espacio de administración ---------- */
+
+.sidebar--admin .nav-item--active {
+  color: #5b3fc4;
+  background: #f1ecff;
+}
+
+.sidebar--admin .nav-item--active::before {
+  background: #6247c8;
+}
+
+.sidebar--admin .nav-item:hover:not(.nav-item--active) {
+  background: #f4f1fd;
+}
+
+[data-theme="dark"] .space-switch {
+  color: #dbe5f4;
+  border-color: #2f3e55;
+  background: #16223a;
+}
+
+[data-theme="dark"] .space-switch:hover,
+[data-theme="dark"] .space-switch--to-admin:hover {
+  border-color: #46548f;
+  background: #1d2947;
+}
+
+[data-theme="dark"] .space-badge--admin {
+  --space-badge-border: #4b3d84;
+  --space-badge-text: #c6b5ff;
+  --space-badge-bg: #231d3f;
+}
+
+[data-theme="dark"] .sidebar--admin .nav-item--active {
+  color: #c6b5ff;
+  background: #251f45;
+}
+
+[data-theme="dark"] .sidebar--admin .nav-item:hover:not(.nav-item--active) {
+  background: #1c1934;
+}

@@ -6,7 +6,7 @@
 .calendar-eyebrow { display: inline-flex; align-items: center; gap: 7px; color: #6650d8; font-size: 10px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
 .calendar-eyebrow svg { width: 16px; }
 .calendar-heading__actions { display: flex; flex-wrap: wrap; gap: 10px; }
-.calendar-heading__actions .secondary-button { min-height: 52px; }
+/* Alto unificado desde styles/buttons.css. */
 .calendar-heading__actions svg { width: 18px; }
 
 .calendar-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
@@ -97,7 +97,7 @@
 .event-type-pill--feriado { color: #a1383d; background: #fff0f1; }
 .event-type-pill--civica, .event-type-pill--minedu { color: #6548c8; background: #f0ecff; }
 .event-type-pill--concurso { color: #86570b; background: #fff2d4; }
-.danger-button { min-height: 42px; padding: 0 16px; border: 1px solid #e4a4a8; border-radius: 8px; color: #a62e36; background: #fff6f6; font-size: 12px; font-weight: 750; cursor: pointer; }
+/* .danger-button usa la variante --danger-soft de styles/buttons.css. */
 
 .calendar-manager-dialog { display: flex; flex-direction: column; width: min(700px, 100%); max-height: 90vh; overflow: hidden; border: 1px solid var(--line); border-radius: 18px; background: white; box-shadow: 0 28px 80px rgba(7, 25, 60, .25); }
 .calendar-manager-dialog > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 22px 24px; border-bottom: 1px solid var(--line); }
@@ -128,7 +128,7 @@
 .calendar-manager-dialog > footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 15px 20px; border-top: 1px solid var(--line); background: #fbfcfe; }
 .calendar-manager-dialog > footer > span { color: var(--muted); font-size: 9px; }
 .calendar-manager-dialog > footer > div { display: flex; gap: 8px; }
-.calendar-manager-dialog footer .primary-button, .calendar-manager-dialog footer .secondary-button { min-height: 42px; }
+/* Alto unificado desde styles/buttons.css. */
 
 .blocks-dialog { width: min(820px, 100%); }
 .blocks-table { min-height: 0; padding: 12px 20px; overflow-y: auto; }

@@ -8,11 +8,8 @@
 .admin-hero-actions { display: flex; align-items: flex-end; gap: 10px; }
 .admin-hero-actions label { display: grid; gap: 5px; color: var(--muted); font-size: 11px; font-weight: 700; }
 .admin-hero-actions select, .admin-filters select { min-width: 116px; height: 42px; padding: 0 34px 0 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--admin-panel); }
-.admin-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; padding: 0 15px; border-radius: 10px; font-size: 12px; font-weight: 800; cursor: pointer; }
-.admin-button svg { width: 17px; }
-.admin-button:disabled { opacity: .55; cursor: wait; }
-.admin-button--secondary { border: 1px solid var(--line); background: var(--admin-panel); }
-.admin-button--primary { border: 1px solid var(--blue); color: white; background: linear-gradient(115deg, #075be8, #7455e9); box-shadow: 0 10px 22px rgba(62,82,207,.17); }
+/* .admin-button comparte la base y las variantes de styles/buttons.css para que
+   un botón de administración y uno del espacio docente se vean idénticos. */
 .admin-tabs { position: sticky; top: calc(var(--topbar) - 1px); z-index: 6; display: flex; gap: 3px; margin: 0 -4px 26px; padding: 7px; overflow-x: auto; border: 1px solid var(--line); border-radius: 15px; background: color-mix(in srgb, var(--admin-panel) 94%, transparent); box-shadow: 0 8px 24px rgba(26,46,87,.05); backdrop-filter: blur(15px); }
 .admin-tabs button { position: relative; display: inline-flex; flex: 1 0 auto; align-items: center; justify-content: center; gap: 8px; min-width: 122px; height: 43px; padding: 0 13px; border: 0; border-radius: 10px; color: var(--muted); background: transparent; font-size: 12px; font-weight: 750; cursor: pointer; }
 .admin-tabs button:hover { color: var(--navy); background: var(--soft); }
@@ -89,6 +86,8 @@
 [data-theme="dark"] .admin-alert--warning { color: #f1cf83; border-color: #715b2d; background: #2b2414; }[data-theme="dark"] .admin-alert--critical, [data-theme="dark"] .admin-state--error { color: #f0a1a8; border-color: #7b3d44; background: #2a171c; }[data-theme="dark"] .admin-notice { color: #8de0bd; border-color: #2e745e; background: #102a24; }
 [data-theme="dark"] .admin-pill--success { color: #8de0bd; background: #12362d; }[data-theme="dark"] .admin-pill--muted, [data-theme="dark"] .admin-pill { color: #b5c0d1; background: #1b293d; }
 [data-theme="dark"] .admin-credit-balance { color: #9fc5ff; border-color: #355e98; background: #112744; }
+[data-theme="dark"] .admin-button--secondary { color: #dbe5f4; border-color: #35455e; background: #172338; }
+[data-theme="dark"] .admin-button--secondary:hover:not(:disabled) { color: #8cb9ff; border-color: #477bc9; background: #1b2c48; }
 
 @keyframes admin-spin { to { transform: rotate(360deg); } }@keyframes admin-drawer-in { from { transform: translateX(100%); } }
 @media (max-width: 1260px) { .admin-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }.admin-grid--wide { grid-template-columns: 1fr; }.admin-alerts > div { grid-template-columns: 1fr 1fr; } }
