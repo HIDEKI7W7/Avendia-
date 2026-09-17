@@ -9,6 +9,9 @@ from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 if TYPE_CHECKING:
     from app.modules.users.model import User
 
+# Lema oficial del año que encabeza los Word; administración puede cambiarlo.
+DEFAULT_YEAR_MOTTO = "“Año de la Esperanza y el Fortalecimiento de la Democracia”"
+
 
 class AIUsageEvent(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "ai_usage_events"
@@ -89,6 +92,9 @@ class PlatformSettings(TimestampMixin, Base):
     registration_open: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     default_ai_credits: Mapped[int] = mapped_column(Integer, default=10_000, nullable=False)
     low_credit_threshold: Mapped[int] = mapped_column(Integer, default=1_000, nullable=False)
+    year_motto: Mapped[str] = mapped_column(
+        String(200), default=DEFAULT_YEAR_MOTTO, server_default=DEFAULT_YEAR_MOTTO, nullable=False
+    )
 
 
 class AISuggestionFeedback(UUIDPrimaryKeyMixin, TimestampMixin, Base):

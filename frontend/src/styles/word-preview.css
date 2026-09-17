@@ -321,19 +321,22 @@
 }
 
 .word-section-h1 {
-  font-size: 1.15rem;
+  font-size: 1.05rem;
   font-weight: 800;
-  color: #1f4d78;
+  font-family: "Bahnschrift SemiBold", Bahnschrift, Calibri, "Segoe UI", sans-serif;
+  color: #ffffff;
+  background: #2d7dd2;
   text-transform: uppercase;
-  margin-top: 1.75rem;
-  margin-bottom: 0.75rem;
-  padding-bottom: 0.3rem;
-  border-bottom: 1.5px solid #bdd7ee;
+  letter-spacing: 0.02em;
+  margin-top: 1.5rem;
+  margin-bottom: 0;
+  padding: 0.3rem 0.6rem;
+  border-bottom: 0;
 }
 
 [data-theme="dark"] .word-section-h1 {
-  color: #93c5fd;
-  border-bottom-color: #334155;
+  color: #f8fafc;
+  background: #1d4ed8;
 }
 
 .word-section-h2 {
@@ -369,7 +372,7 @@
   border-collapse: collapse;
   font-size: 0.84375rem;
   line-height: 1.4;
-  border: 1px solid #bdd7ee;
+  border: 1px solid #b8c4d0;
 }
 
 [data-theme="dark"] .word-table {
@@ -377,12 +380,25 @@
 }
 
 .word-table th {
-  background-color: #bdd7ee;
-  color: #1f4d78;
+  background-color: #2e75b6;
+  color: #ffffff;
   font-weight: 700;
   padding: 0.55rem 0.65rem;
-  border: 1px solid #bdd7ee;
+  border: 1px solid #b8c4d0;
+  text-align: center;
+}
+
+.word-table tbody th[scope="row"],
+.word-table--info .word-table-cell-bold {
+  background-color: #dae9f7;
+  color: #1f4d78;
   text-align: left;
+}
+
+[data-theme="dark"] .word-table tbody th[scope="row"],
+[data-theme="dark"] .word-table--info .word-table-cell-bold {
+  background-color: #1e3a5f;
+  color: #dbeafe;
 }
 
 [data-theme="dark"] .word-table th {
@@ -393,7 +409,7 @@
 
 .word-table td {
   padding: 0.5rem 0.65rem;
-  border: 1px solid #bdd7ee;
+  border: 1px solid #b8c4d0;
   vertical-align: top;
 }
 
@@ -402,7 +418,7 @@
 }
 
 .word-table tr:nth-child(even) td {
-  background-color: #f8fafc;
+  background-color: #ebf5fb;
 }
 
 [data-theme="dark"] .word-table tr:nth-child(even) td {
@@ -1780,7 +1796,7 @@
 }
 
 [data-theme="dark"] .word-document-paper .word-table tr:nth-child(even) td {
-  background-color: #f8fafc;
+  background-color: #ebf5fb;
 }
 
 @media print {
@@ -2027,3 +2043,321 @@
     max-width: none;
   }
 }
+
+/* ==========================================================================
+   Formato de referencia: cabecera con logo, bandas, momentos, ficha y mapa mental
+   ========================================================================== */
+.word-chrome-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.5rem;
+  margin-bottom: 1.25rem;
+  border-bottom: 1.5px solid #85c1e9;
+}
+
+.word-chrome-logo {
+  width: min(260px, 45%);
+  height: auto;
+}
+
+.word-chrome-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+  font-size: 0.72rem;
+  color: #6b7785;
+  gap: 0.1rem;
+}
+
+.word-chrome-motto {
+  font-style: italic;
+  color: #1f4d78;
+}
+
+[data-theme="dark"] .word-chrome-motto {
+  color: #93c5fd;
+}
+
+.word-paper-header--session {
+  border-bottom: 0;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0;
+}
+
+.word-paper-header--session .word-paper-title {
+  font-family: "Bahnschrift SemiBold", Bahnschrift, Calibri, "Segoe UI", sans-serif;
+  font-size: 1.55rem;
+}
+
+.word-paper-subtitle--session {
+  font-family: "Bahnschrift SemiBold", Bahnschrift, Calibri, "Segoe UI", sans-serif;
+  color: #2d7dd2;
+  font-size: 1.1rem;
+}
+
+.word-band {
+  font-family: "Bahnschrift SemiBold", Bahnschrift, Calibri, "Segoe UI", sans-serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: #ffffff;
+  background: #2d7dd2;
+  margin: 1.4rem 0 0;
+  padding: 0.3rem 0.6rem;
+}
+
+.word-band.is-center { text-align: center; }
+.word-band--deep { background: #0f4761; }
+.word-band--navy { background: #1b4f72; }
+.word-band--teal { background: #0b769f; }
+
+.word-band + .word-table,
+.word-band + .word-table-responsive,
+.word-band + .word-moments {
+  margin-top: 0;
+}
+
+.word-kv th[scope="row"] {
+  width: 30%;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+}
+
+.word-labeled th[scope="row"] {
+  width: 26%;
+  background: #2e75b6;
+  color: #ffffff;
+  text-align: center;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.word-labeled th[scope="row"].is-teal { background: #0b769f; }
+
+.word-table--session tbody tr:nth-child(even) td { background-color: #ffffff; }
+.word-table--session .word-row-subhead th { background: #0b769f; }
+.word-table--navy th { background: #1b4f72; }
+.word-table--deep th { background: #0f4761; font-size: 0.74rem; }
+.word-table .word-kv__label { background: #dae9f7; color: #1f4d78; text-align: center; vertical-align: middle; }
+.word-cell-italic { font-style: italic; font-size: 0.8rem; }
+
+.word-cell-line {
+  margin: 0.15rem 0;
+  line-height: 1.45;
+}
+
+.word-cell-line--check {
+  display: flex;
+  gap: 0.35rem;
+  align-items: flex-start;
+}
+
+.word-check {
+  color: #2d7dd2;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+
+.word-check.is-deep { color: #0f4761; }
+.word-cell-empty { color: transparent; }
+
+.word-moments td { vertical-align: middle; }
+
+.word-moments__label {
+  width: 14%;
+  text-align: center;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.word-moments__label small {
+  display: block;
+  font-weight: 400;
+  font-size: 0.72rem;
+  opacity: 0.95;
+}
+
+.word-moments__label.is-inicio { background: #3fa34d; border-color: #3fa34d; }
+.word-moments__label.is-desarrollo { background: #ee964b; border-color: #ee964b; }
+.word-moments__label.is-cierre { background: #7b6cd9; border-color: #7b6cd9; }
+.word-moments tr:nth-child(even) td { background-color: #ffffff; }
+.word-moments tr:nth-child(even) td.is-inicio { background: #3fa34d; }
+.word-moments tr:nth-child(even) td.is-desarrollo { background: #ee964b; }
+.word-moments tr:nth-child(even) td.is-cierre { background: #7b6cd9; }
+.word-moments__body { width: 64%; }
+.word-moments__image { width: 22%; text-align: center; vertical-align: top; }
+.word-moments__image img { width: 118px; max-width: 100%; height: auto; border-radius: 4px; }
+
+.word-section-h2.is-muted { color: #6b7785; }
+.word-section-h2.is-deep { color: #0f4761; }
+.word-recommendations .word-list li { color: #6b7785; }
+
+.word-signatures-box--session {
+  margin-top: 2.5rem;
+  margin-bottom: 1rem;
+}
+
+.word-signatures-box--session .word-signature-line { color: #1f2937; }
+.word-signatures-box--session .word-signature-role { font-weight: 700; color: #1f2937; }
+
+.word-page-break {
+  margin-top: 2.5rem;
+  padding-top: 2rem;
+  border-top: 1px dashed #b8c4d0;
+}
+
+.word-guide-competency {
+  background: #ebf5fb;
+  border: 1px solid #b8c4d0;
+  border-top: 0;
+  padding: 0.45rem 0.6rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.word-guide td { height: 1.9rem; }
+.word-guide-scale { font-size: 0.78rem; color: #6b7785; margin-top: 0.4rem; }
+
+.word-worksheet-title {
+  text-align: center;
+  background: #ebf5fb;
+  color: #1f4d78;
+  font-family: "Bahnschrift SemiBold", Bahnschrift, Calibri, "Segoe UI", sans-serif;
+  font-weight: 700;
+  font-size: 1.05rem;
+  padding: 0.35rem;
+  margin: 0 0 0.75rem;
+}
+
+.word-worksheet-id {
+  border: 1px solid #f6c5ac;
+  background: #fff7ec;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.85rem;
+  margin-bottom: 0.75rem;
+}
+
+.word-worksheet-intro {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px solid #f6c5ac;
+  background: #fff7ec;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 1rem;
+  font-style: italic;
+}
+
+.word-worksheet-intro img { width: 70px; height: auto; flex: 0 0 auto; }
+.word-worksheet-intro p { margin: 0; }
+
+.word-card {
+  border: 1.5px solid #85c1e9;
+  border-left-width: 6px;
+  padding: 0.6rem 0.85rem;
+  margin-bottom: 0.7rem;
+  border-radius: 3px;
+}
+
+.word-card--0 { border-color: #3fa34d; }
+.word-card--1 { border-color: #ee964b; }
+.word-card--2 { border-color: #7b6cd9; }
+.word-card--3 { border-color: #17a398; }
+.word-card--4 { border-color: #2e75b6; }
+.word-card--0 .word-card__number, .word-card--0 .word-card__options li::marker { color: #3fa34d; }
+.word-card--1 .word-card__number, .word-card--1 .word-card__options li::marker { color: #ee964b; }
+.word-card--2 .word-card__number, .word-card--2 .word-card__options li::marker { color: #7b6cd9; }
+.word-card--3 .word-card__number, .word-card--3 .word-card__options li::marker { color: #17a398; }
+.word-card--4 .word-card__number, .word-card--4 .word-card__options li::marker { color: #2e75b6; }
+
+.word-card__prompt { font-weight: 700; margin: 0 0 0.35rem; }
+.word-card__number { font-size: 1.1rem; font-weight: 700; }
+.word-card__options { margin: 0 0 0 1.5rem; padding: 0; }
+.word-card__options li { margin: 0.15rem 0; }
+.word-card__options li::marker { font-weight: 700; }
+.word-card__choice { margin: 0 0 0 1.2rem; font-size: 0.95rem; }
+.word-card__line { margin: 0 0 0 1.2rem; color: #94a3b8; }
+.word-response-box--tall { min-height: 220px; }
+.word-worksheet-self { font-weight: 700; color: #1f4d78; margin: 1rem 0 0.4rem; }
+
+.word-self-assessment th { background: #1b4f72; }
+.word-self-assessment th.is-inicio { background: #3fa34d; }
+.word-self-assessment th.is-desarrollo { background: #ee964b; }
+.word-self-assessment th.is-cierre { background: #7b6cd9; }
+.word-self-assessment td { height: 1.8rem; }
+
+.word-mindmap__meta { text-align: center; color: #6b7785; font-size: 0.8rem; margin: 0.3rem 0 0.75rem; }
+
+.word-mindmap__center {
+  background: #0f4761;
+  color: #ffffff;
+  text-align: center;
+  font-family: "Bahnschrift SemiBold", Bahnschrift, Calibri, "Segoe UI", sans-serif;
+  font-weight: 700;
+  font-size: 1.15rem;
+  padding: 0.6rem 1rem;
+}
+
+.word-mindmap__arrow { text-align: center; color: #0f4761; font-size: 1.3rem; margin: 0.3rem 0; }
+
+.word-mindmap__branches {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.6rem;
+}
+
+.word-mindmap__branch {
+  border: 2px solid #2e75b6;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.word-mindmap__branch-title {
+  background: #2e75b6;
+  color: #ffffff;
+  font-weight: 700;
+  text-align: center;
+  padding: 0.35rem 0.5rem;
+}
+
+.word-mindmap__branch ul { margin: 0; padding: 0.5rem 0.6rem 0.5rem 1.4rem; font-size: 0.82rem; }
+.word-mindmap__branch.word-card--0 .word-mindmap__branch-title { background: #3fa34d; }
+.word-mindmap__branch.word-card--1 .word-mindmap__branch-title { background: #ee964b; }
+.word-mindmap__branch.word-card--2 .word-mindmap__branch-title { background: #7b6cd9; }
+.word-mindmap__branch.word-card--3 .word-mindmap__branch-title { background: #17a398; }
+.word-mindmap__branch.word-card--4 .word-mindmap__branch-title { background: #2e75b6; }
+
+/* PCA: cuadrícula de periodos y colores por familia de matriz */
+.word-period-grid th { background: #2d7dd2; }
+.word-period-grid td { vertical-align: top; }
+.word-period-grid ol { margin: 0; padding-left: 1.2rem; font-size: 0.8rem; }
+.word-period-grid li { margin: 0.2rem 0; }
+.word-period-grid li::marker { color: #2d7dd2; font-weight: 700; }
+.word-matrix-families .word-table th { background: var(--matrix-color, #2e75b6); }
+.word-matrix-families .word-section-h2,
+.word-matrix-families .generated-artifact-table__title { color: var(--matrix-color, #2e75b6); }
+
+@media (max-width: 640px) {
+  .word-chrome-header { flex-direction: column; align-items: flex-start; }
+  .word-chrome-right { align-items: flex-start; text-align: left; }
+  .word-chrome-logo { width: 200px; }
+  .word-moments__image img { width: 80px; }
+  .word-mindmap__branches { grid-template-columns: 1fr; }
+}
+
+@media print {
+  .word-page-break { break-before: page; border-top: 0; margin-top: 0; padding-top: 0; }
+}
+
+/* Filas resaltadas como en la referencia */
+.word-table tr.is-standard th, .word-table tr.is-standard td { background: #fff3b0 !important; }
+.word-table tr.is-product th, .word-table tr.is-product td { background: #e3f4e1 !important; }
+.word-labeled tr.is-dua td { background: #fbe3d5 !important; }
+.word-labeled--deep th[scope="row"] { background: #0f4761; }
+.word-transversal td { font-size: 0.78rem; }
+.word-transversal__label { margin: 0.3rem 0 0.1rem; font-weight: 700; font-size: 0.72rem; text-decoration: underline; color: #1f4d78; }

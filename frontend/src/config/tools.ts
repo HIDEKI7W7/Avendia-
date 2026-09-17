@@ -120,6 +120,7 @@ export const utilityNavigation = [
 
 export const primaryNavigation = [
   { title: "Inicio", path: "/dashboard", icon: Home },
+  { title: "Crear mi clase", path: "/dashboard/crear-clase", icon: Sparkles },
   modules[0],
   { title: "Calendario", path: "/dashboard/calendario", icon: CalendarDays },
   ...modules.slice(1),

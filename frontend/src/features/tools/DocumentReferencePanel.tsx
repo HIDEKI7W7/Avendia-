@@ -97,7 +97,7 @@ export function DocumentReferencePanel({ targetType, fields, selection, onImport
 
   return <section className={`document-reference ${open ? "is-open" : ""}`}>
     <button type="button" className="document-reference__toggle" aria-expanded={open} onClick={toggleOpen}>
-      <span><Link2 /><strong>{selection ? `Referencia: ${selection.title}` : "Crear desde cero o continuar una secuencia"}</strong><small>{selection ? `${selection.fields.length} campos vinculados · revisión ${selection.revision}` : "Opcional: reutiliza solo los datos que elijas de un documento anterior."}</small></span><ChevronDown />
+      <span><Link2 /><strong>{selection ? `Referencia: ${selection.title}` : "Reutilizar datos de un documento guardado (opcional)"}</strong><small>{selection ? `${selection.fields.length} campos vinculados · revisión ${selection.revision}` : "Opcional: reutiliza solo los datos que elijas de un documento anterior."}</small></span><ChevronDown />
     </button>
     {open ? <div className="document-reference__body">
       <div className="document-reference__mode"><ShieldCheck /><p><strong>El docente mantiene el control.</strong> No se copian estudiantes, calificaciones ni datos familiares; nada cambia hasta que pulses “Usar campos seleccionados”.</p></div>

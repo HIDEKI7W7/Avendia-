@@ -39,8 +39,10 @@ const generate = (id: string, title: string, description = "Confirma la informac
  */
 export const LEGACY_WORKFLOW_SHAPES: Record<string, LegacyWorkflowShape> = {
   "planificamos/unidad-aprendizaje": { stages: [
-    stage("legacy-data", "Datos", "Datos informativos, alcance y periodo de la unidad.", ["official", "scope"], "form", [], 3),
-    stage("legacy-content", "Contenido", "Situación, propósitos, evidencias, secuencia y atención a la diversidad.", ["challenge", "purpose", "evidence", "sequence", "review"]),
+    stage("legacy-data", "Datos", "Datos institucionales, título, periodo y duración de la unidad.", ["official", "scope"], "form", [], 3),
+    stage("legacy-competencies", "Competencias", "Marca hasta dos competencias del área; la IA redacta el resto.", ["purpose"]),
+    stage("legacy-approaches", "Enfoques", "Elige dos enfoques transversales.", ["approaches"]),
+    stage("legacy-evaluation", "Producto y evaluación", "Producto final, instrumento y, si quieres, apartados escritos por ti.", ["evidence"]),
     generate("legacy-generate", "Generar", "Confirma los datos y crea la unidad de aprendizaje con IA."),
     preview("legacy-document", "Documento", "Revisa y descarga la unidad completa."),
   ] },

@@ -219,6 +219,8 @@ export function WorkflowTool() {
   const selectedTemplate = templates.find((template) => template.id === draft.templateId);
 
   const currentStep = workflow?.steps[draft.currentStep];
+  // Formulario corto: sin bloques técnicos ni ayudas por campo (ver WorkflowDefinition.simple).
+  const simple = Boolean(workflow?.simple);
   const allFields = workflow?.steps.flatMap((item) => item.fields) ?? [];
   const currentErrors = useMemo(
     () => currentStep?.fields.filter((field) => fieldError(field, draft.values[field.id], resolvedFieldOptions(field, draft.values))) ?? [],
@@ -930,8 +932,8 @@ export function WorkflowTool() {
   const fieldLabel = (field: WorkflowField, value: FieldValue, canGuide: boolean) => (
     <span className="workflow-field__label">
       <span>{field.label}</span>
-      {field.required ? <b>Necesario para crear</b> : <em>Puedes completarlo después</em>}
-      {displayValue(value).trim() && draft.fieldSources?.[field.id] ? (
+      {field.required ? <b aria-label="Obligatorio">*</b> : simple ? null : <em>Opcional</em>}
+      {!simple && displayValue(value).trim() && draft.fieldSources?.[field.id] ? (
         <small className={`workflow-field__source is-${draft.fieldSources[field.id]}`}>
           {draft.fieldSources[field.id] === "profile" ? "De tu perfil" : draft.fieldSources[field.id] === "reference" ? "Del documento anterior" : draft.fieldSources[field.id] === "ai" ? "Propuesto por Avendia" : "Escrito por ti"}
         </small>
@@ -950,7 +952,7 @@ export function WorkflowTool() {
     const options = optionsFor(field);
     const error = showErrors || touchedFields.has(field.id) ? fieldError(field, value, options) : "";
     const dependencyReady = !field.dependsOn || Boolean(displayValue(draft.values[field.dependsOn]).trim());
-    const canGuide = field.guide !== false && (field.type === "textarea" || field.type === "text");
+    const canGuide = !simple && field.guide !== false && (field.type === "textarea" || field.type === "text");
     const label = fieldLabel(field, value, canGuide);
     const helpId = `workflow-help-${field.id}`;
     const errorId = `workflow-error-${field.id}`;
@@ -991,7 +993,7 @@ export function WorkflowTool() {
           <div>
             {options.map((option) => (
               <label key={option} className={selected.includes(option) ? "is-selected" : ""}>
-                <input type="checkbox" checked={selected.includes(option)} aria-invalid={Boolean(error)} aria-describedby={describedBy} onChange={() => { markTouched(field.id); setValue(field.id, selected.includes(option) ? selected.filter((item) => item !== option) : [...selected, option]); }} />
+                <input type="checkbox" checked={selected.includes(option)} aria-invalid={Boolean(error)} aria-describedby={describedBy} onChange={() => { markTouched(field.id); setValue(field.id, selected.includes(option) ? selected.filter((item) => item !== option) : field.maxItems && selected.length >= field.maxItems ? [...selected.slice(1), option] : [...selected, option]); }} />
                 <span>{option}</span><i aria-hidden="true">{selected.includes(option) ? <Check /> : null}</i>
               </label>
             ))}
@@ -1155,6 +1157,13 @@ export function WorkflowTool() {
     );
   };
 
+  /** Aviso breve para el docente cuando el resultado necesita revisión; el detalle técnico queda en administración. */
+  const renderSimpleQualityNotice = () => {
+    if (!draft.artifact || (draft.artifact.quality_status ?? "ready") === "ready") return null;
+    const warning = draft.artifact.warnings?.[0];
+    return <div className="workflow-message" role="status"><AlertTriangle aria-hidden="true" /> Revisa el documento antes de usarlo{warning ? `: ${warning}` : "."}</div>;
+  };
+
   const renderCurrentFields = () => {
     if (currentStep.kind && currentStep.kind !== "form") {
       if (!draft.artifact) {
@@ -1178,6 +1187,12 @@ export function WorkflowTool() {
         const groupFields = group.fieldIds
           .map((fieldId) => currentStep.fields.find((field) => field.id === fieldId))
           .filter((field): field is WorkflowField => Boolean(field));
+        if (group.collapsed) {
+          return <details className="workflow-group workflow-group--collapsed" key={group.id}>
+            <summary><h3>{group.title}</h3>{group.description ? <p>{group.description}</p> : null}</summary>
+            <div className={`workflow-grid workflow-grid--${group.columns ?? currentStep.columns ?? 2}`}>{groupFields.map(renderField)}</div>
+          </details>;
+        }
         return <section className="workflow-group" key={group.id}>
           <header><h3>{group.title}</h3>{group.description ? <p>{group.description}</p> : null}</header>
           <div className={`workflow-grid workflow-grid--${group.columns ?? currentStep.columns ?? 2}`}>{groupFields.map(renderField)}</div>
@@ -1199,7 +1214,7 @@ export function WorkflowTool() {
         {renderTemplateExport()}
       </section> : null}
       {showInteractive && tool.id !== "tarea-extension-hogar" && draft.artifact.activity?.items.length ? <InteractiveArtifact activity={draft.artifact.activity} toolId={tool.id} values={draft.values} /> : null}
-      {renderQualityPanel()}
+      {simple ? renderSimpleQualityNotice() : renderQualityPanel()}
       <StructuredArtifactPreview artifact={draft.artifact} artifactType={workflow.artifactType} toolId={tool.id} values={draft.values} workflowKey={workflow.key} onDownloadWord={downloadWord} editingResult={editingResult} onUpdateSection={updateArtifactSection} onUpdateTableCell={updateArtifactTableCell} onRegenerateSection={regenerateArtifactSection} regeneratingSection={regeneratingSection} onPrepareExactPreview={prepareExactPreview} />
     </div>;
   };
@@ -1223,7 +1238,10 @@ export function WorkflowTool() {
         <section className="workflow-result-actions"><button type="button" className="secondary-button" onClick={() => setDraft((current) => ({ ...current, artifact: null, currentStep: workflow.steps.length - 1 }))}><ChevronLeft /> Editar datos</button><button type="button" className="secondary-button" onClick={() => setEditingResult((current) => !current)}><Pencil /> {editingResult ? "Cerrar edición" : "Editar resultado"}</button><button type="button" className="secondary-button" onClick={() => generate()} disabled={status === "generating"}><RefreshCw /> Regenerar todo</button><button type="button" className="secondary-button" onClick={() => void copyArtifact()}><Clipboard /> {workflow.artifactType === "comunicacion" ? "Copiar correo" : "Copiar"}</button>{renderTemplateExport()}</section>
         {message ? <div className={`workflow-message ${status === "error" ? "workflow-message--error" : ""}`}>{message}</div> : null}
         {draft.artifact.activity?.items.length ? <InteractiveArtifact activity={draft.artifact.activity} toolId={tool.id} values={draft.values} /> : null}
-        {renderQualityPanel()}
+        {simple ? renderSimpleQualityNotice() : <details className="generation-quality-details">
+          <summary>Detalle técnico de la generación</summary>
+          {renderQualityPanel()}
+        </details>}
         <StructuredArtifactPreview artifact={draft.artifact} artifactType={workflow.artifactType} toolId={tool.id} values={draft.values} workflowKey={workflow.key} onDownloadWord={downloadWord} editingResult={editingResult} onUpdateSection={updateArtifactSection} onUpdateTableCell={updateArtifactTableCell} onRegenerateSection={regenerateArtifactSection} regeneratingSection={regeneratingSection} onPrepareExactPreview={prepareExactPreview} />
         {pendingConfirm ? <div className="dialog-backdrop"><section className="workflow-confirm" role="dialog" aria-modal="true" aria-labelledby="workflow-confirm-title"><span><AlertTriangle /></span>
           {pendingConfirm.kind === "context" ? <>
@@ -1242,15 +1260,15 @@ export function WorkflowTool() {
             </div>
           </>}
         </section></div> : null}
-        <GenerationProgressOverlay open={status === "generating"} toolTitle={tool.title} family={tool.module} />
+        <GenerationProgressOverlay open={status === "generating"} toolTitle={tool.title} family={tool.module} toolId={tool.id} />
       </div></main>
     );
   }
 
   return (
     <main className="workflow-page"><div className="workflow-shell">
-      <header className="workflow-header"><div><span>{tool.module} · complejidad {workflow.complexity}</span><h1>{tool.title}</h1><p>{tool.description}</p></div><div className="workflow-header__actions"><button type="button" className="secondary-button" onClick={() => saveDocument()} disabled={status === "saving"}>{status === "saving" ? <LoaderCircle className="is-spinning" /> : status === "saved" ? <Check /> : <Save />}{status === "saved" ? "Guardado" : "Guardar borrador"}</button></div></header>
-      <section className={`workflow-orientation ${orientationOpen ? "is-open" : ""}`} aria-labelledby="workflow-orientation-title">
+      <header className="workflow-header"><div><span>{simple ? tool.module : `${tool.module} · complejidad ${workflow.complexity}`}</span><h1>{tool.title}</h1><p>{tool.description}</p></div><div className="workflow-header__actions"><button type="button" className="secondary-button" onClick={() => saveDocument()} disabled={status === "saving"}>{status === "saving" ? <LoaderCircle className="is-spinning" /> : status === "saved" ? <Check /> : <Save />}{status === "saved" ? "Guardado" : "Guardar borrador"}</button></div></header>
+      {simple ? null : <section className={`workflow-orientation ${orientationOpen ? "is-open" : ""}`} aria-labelledby="workflow-orientation-title">
         <button className="workflow-orientation__toggle" type="button" aria-expanded={orientationOpen} onClick={() => setOrientationOpen((value) => !value)}>
           <span><CircleHelp aria-hidden="true" /><strong id="workflow-orientation-title">Antes de comenzar</strong></span>
           <small>{orientationOpen ? "Ocultar orientación" : "Ver qué necesitas y qué creará Avendia"}</small>
@@ -1260,8 +1278,8 @@ export function WorkflowTool() {
           <article><Sparkles aria-hidden="true" /><div><strong>Lo que vas a crear</strong><p>{tool.description}</p></div></article>
           <article><Clock3 aria-hidden="true" /><div><strong>Tiempo aproximado</strong><p>{estimatedMinutes} minutos en modo guiado.</p></div></article>
         </div> : null}
-      </section>
-      <DocumentReferencePanel targetType={workflow.key.split("/").at(-1) ?? tool.id} fields={allFields} selection={draft.reference} onImport={importReference} onClear={() => setDraft((current) => ({ ...current, reference: undefined }))} />
+      </section>}
+      {simple ? null : <DocumentReferencePanel targetType={workflow.key.split("/").at(-1) ?? tool.id} fields={allFields} selection={draft.reference} onImport={importReference} onClear={() => setDraft((current) => ({ ...current, reference: undefined }))} />}
       <ol className="workflow-stepper" aria-label="Pasos de la herramienta">{workflow.steps.map((item, index) => {
         const state = stepStatus(item, index);
         return <li className={index === draft.currentStep ? "is-active" : state === "Listo" ? "is-completed" : ""} key={item.id}><button type="button" aria-current={index === draft.currentStep ? "step" : undefined} aria-label={`${item.shortTitle}: ${state}`} onClick={() => setDraft((current) => ({ ...current, currentStep: index }))}><span>{state === "Listo" && index !== draft.currentStep ? <Check /> : index + 1}</span><strong>{item.shortTitle}</strong><small>{state}</small></button></li>;
@@ -1289,12 +1307,12 @@ export function WorkflowTool() {
           return;
         }
         goNext();
-      }}><div className="workflow-card__intro"><small>Paso {draft.currentStep + 1} de {workflow.steps.length} · {stepStatus(currentStep, draft.currentStep)}</small><h2>{currentStep.title}</h2><p>{currentStep.description}</p><div className="workflow-completion" aria-label={`${completionPercent}% de información necesaria completada`}><span><strong>{remainingRequired ? `${remainingRequired} ${remainingRequired === 1 ? "dato necesario pendiente" : "datos necesarios pendientes"}` : "Información necesaria completa"}</strong><small>{completionPercent}%</small></span><progress max="100" value={completionPercent}>{completionPercent}%</progress></div></div>
-      <section className={`workflow-context-status is-${liveContextStatus.status}`} aria-live="polite">
+      }}><div className="workflow-card__intro"><small>Paso {draft.currentStep + 1} de {workflow.steps.length} · {stepStatus(currentStep, draft.currentStep)}</small><h2>{currentStep.title}</h2><p>{currentStep.description}</p>{simple ? null : <div className="workflow-completion" aria-label={`${completionPercent}% de información necesaria completada`}><span><strong>{remainingRequired ? `${remainingRequired} ${remainingRequired === 1 ? "dato necesario pendiente" : "datos necesarios pendientes"}` : "Información necesaria completa"}</strong><small>{completionPercent}%</small></span><progress max="100" value={completionPercent}>{completionPercent}%</progress></div>}</div>
+      {simple ? null : <section className={`workflow-context-status is-${liveContextStatus.status}`} aria-live="polite">
         <span>{liveContextStatus.status === "coherent" ? <CheckCircle2 /> : <AlertTriangle />}</span>
         <div><strong>{liveContextStatus.label}</strong><small>{liveContextStatus.detail}</small>{pedagogicalContext.summary.length ? <p>{pedagogicalContext.summary.join(" · ")}</p> : null}</div>
         {fieldsToReview.length ? <button type="button" onClick={() => { const field = allFields.find((candidate) => candidate.id === fieldsToReview[0]); if (field) revealInvalidField(field); }}>Revisar ahora</button> : null}
-      </section>
+      </section>}
       {renderValidationSummary()}{renderCurrentFields()}{message ? <div className={`workflow-message ${status === "error" ? "workflow-message--error" : ""}`}>{message}{lastAppliedGuide ? <button type="button" onClick={undoGuide}>Deshacer sugerencia</button> : null}</div> : null}<footer className="workflow-actions"><button type="button" className="secondary-button" disabled={draft.currentStep === 0 || status === "generating"} onClick={() => setDraft((current) => ({ ...current, currentStep: Math.max(0, current.currentStep - 1) }))}><ChevronLeft /> Anterior</button>{draft.currentStep < workflow.steps.length - 1 ? <button type="submit" className="workflow-primary" disabled={status === "generating"}>{status === "generating" ? <LoaderCircle className="is-spinning" /> : currentStep.kind === "generate" ? <Sparkles /> : null}{status === "generating" ? "Creando con IA…" : currentStep.kind === "generate" ? "Generar con IA" : "Siguiente"}{currentStep.kind === "generate" ? null : <ChevronRight />}</button> : draft.artifact ? <button type="button" className="workflow-primary" onClick={downloadWord} disabled={exportingWord}>{exportingWord ? <LoaderCircle className="is-spinning" /> : <Download />}{exportingWord ? "Preparando…" : "Descargar Word"}</button> : <button type="submit" className="workflow-primary" disabled={status === "generating"}>{status === "generating" ? <LoaderCircle className="is-spinning" /> : <Sparkles />}{status === "generating" ? "Creando con IA…" : "Generar con IA"}</button>}</footer></form>
       {guideOpen && guideField && guideConfig ? <ContextualAIGuideDialog
         toolTitle={tool.title}
@@ -1346,7 +1364,7 @@ export function WorkflowTool() {
             </div>
           </>}
         </section></div> : null}
-        <GenerationProgressOverlay open={status === "generating"} toolTitle={tool.title} family={tool.module} />
+      <GenerationProgressOverlay open={status === "generating"} toolTitle={tool.title} family={tool.module} toolId={tool.id} />
     </div></main>
   );
 }
