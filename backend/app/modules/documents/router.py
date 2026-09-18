@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_current_user
@@ -135,6 +135,19 @@ async def create_document_relation(
             DocumentRelation.relation_type == payload.relation_type,
         )
     )
+    if payload.relation_type == "continuation":
+        # Un documento continúa de un único origen curricular. Al cambiarlo, la
+        # procedencia anterior deja de ser cierta: si se conservara, el documento
+        # seguiría apareciendo colgado de un plan o una unidad de los que ya no
+        # deriva, y ningún endpoint permitía retirarla.
+        await db.execute(
+            delete(DocumentRelation).where(
+                DocumentRelation.owner_id == user.id,
+                DocumentRelation.child_document_id == payload.child_document_id,
+                DocumentRelation.relation_type == "continuation",
+                DocumentRelation.parent_document_id != parent.id,
+            )
+        )
     relation = existing or DocumentRelation(
         owner_id=user.id,
         parent_document_id=parent.id,

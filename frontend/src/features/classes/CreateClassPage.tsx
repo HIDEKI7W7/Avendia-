@@ -284,7 +284,7 @@ export function CreateClassPage({ mode = "clase" }: { mode?: WizardMode } = {}) 
         ...(referenceDocumentId ? { source_document_id: referenceDocumentId } : {}),
       });
       const documentId = await saveDocument("sesion", artifact, workflow.key, fields, SESSION_ROUTE).catch(() => undefined);
-      if (documentId && referenceDocumentId && !draft.documentIds.sesion) {
+      if (documentId && referenceDocumentId) {
         await apiRequest("/documents/relations", {
           method: "POST",
           headers: authHeaders(),
@@ -403,7 +403,9 @@ export function CreateClassPage({ mode = "clase" }: { mode?: WizardMode } = {}) 
         plan_document_id: selection.planId,
         unit_document_id: selection.unitId,
         unit_title: source?.kind === "unidad-aprendizaje" ? source.unitTitle : current.values.unit_title,
-        advanced: { ...current.values.advanced, unit_purpose: source?.purpose ?? "" },
+        advanced: source?.purpose
+          ? { ...current.values.advanced, unit_purpose: source.purpose }
+          : current.values.advanced,
       },
     }));
     setErrors([]);

@@ -78,6 +78,8 @@ type Draft = {
   reference?: DocumentReferenceSelection;
   /** Origen de la secuencia curricular (plan anual o unidad) elegido en cascada. */
   curricular?: ReferenceSelection;
+  /** Campos copiados del origen, para poder retirarlos si se cambia o se quita. */
+  curricularFields?: string[];
   updatedAt: string;
 };
 
@@ -212,7 +214,7 @@ export function WorkflowTool() {
   const [assistanceMode, setAssistanceMode] = useState<AssistanceMode>("complete");
   const [rememberAssistance, setRememberAssistance] = useState(false);
   const [fieldsToReview, setFieldsToReview] = useState<string[]>([]);
-  const [curricularReferences, setCurricularReferences] = useState<CurricularReference[]>([]);
+  const [curricularReferences, setCurricularReferences] = useState<CurricularReference[] | null>(null);
   const [lastAppliedGuide, setLastAppliedGuide] = useState<{ fieldId: string; previous: FieldValue } | null>(null);
   const [editingResult, setEditingResult] = useState(false);
   const [regeneratingSection, setRegeneratingSection] = useState<number | null>(null);
@@ -229,8 +231,21 @@ export function WorkflowTool() {
   // Formulario corto: sin bloques técnicos ni ayudas por campo (ver WorkflowDefinition.simple).
   const simple = Boolean(workflow?.simple);
   const allFields = workflow?.steps.flatMap((item) => item.fields) ?? [];
+  /**
+   * Origen efectivo. Si el borrador guarda un plan o una unidad que el docente ya
+   * borró, se ignora: de lo contrario el servidor respondería 404 a cada intento
+   * de generar y el selector se oculta cuando no queda ningún documento, así que
+   * no habría forma de corregirlo desde la pantalla.
+   */
+  const curricularSelection = useMemo(() => {
+    const chosen = draft.curricular ?? EMPTY_REFERENCE_SELECTION;
+    if (!curricularReferences) return chosen;
+    const known = (id: string) => !id || curricularReferences.some((item) => item.id === id);
+    return known(chosen.planId) && known(chosen.unitId) ? chosen : EMPTY_REFERENCE_SELECTION;
+  }, [curricularReferences, draft.curricular]);
+
   /** Documento del que cuelga esta herramienta: la unidad si se eligió, si no el plan anual. */
-  const curricularSourceId = draft.curricular?.unitId || draft.curricular?.planId || "";
+  const curricularSourceId = curricularSelection.unitId || curricularSelection.planId || "";
   const currentErrors = useMemo(
     () => currentStep?.fields.filter((field) => fieldError(field, draft.values[field.id], resolvedFieldOptions(field, draft.values))) ?? [],
     [currentStep, draft.values],
@@ -410,6 +425,7 @@ export function WorkflowTool() {
         templateId: typeof metadata.template_id === "string" ? metadata.template_id : undefined,
         templateName: typeof metadata.template_name === "string" ? metadata.template_name : undefined,
         reference: metadata.reference && typeof metadata.reference === "object" ? metadata.reference as DocumentReferenceSelection : undefined,
+        curricular: metadata.curricular_reference && typeof metadata.curricular_reference === "object" ? metadata.curricular_reference as ReferenceSelection : undefined,
         updatedAt: new Date().toISOString(),
       }));
       setMessage("Documento recuperado desde tu historial.");
@@ -587,13 +603,12 @@ export function WorkflowTool() {
             },
           }),
         });
-        const curricularParent = saved.curricular?.unitId || saved.curricular?.planId;
-        if (curricularParent) {
+        if (curricularSourceId) {
           await apiRequest("/documents/relations", {
             method: "POST",
             headers: { Authorization: `Bearer ${token}` },
             body: JSON.stringify({
-              parent_document_id: curricularParent,
+              parent_document_id: curricularSourceId,
               child_document_id: document.id,
               relation_type: "continuation",
               inherited_fields: ["unit_title", "unit_purpose", "curricular_area", "grade", "level"],
@@ -905,22 +920,51 @@ export function WorkflowTool() {
    * campos que esta herramienta declara, para no inventar datos que no pide.
    */
   const pickCurricular = (selection: ReferenceSelection) => {
-    const source = resolveReference(selection, curricularReferences);
+    const source = resolveReference(selection, curricularReferences ?? []);
     const inherited: Record<string, FieldValue> = {};
     if (source) {
       const has = (id: string) => allFields.some((field) => field.id === id);
-      if (has("unit_title") && source.unitTitle) inherited.unit_title = source.unitTitle;
-      if (has("unit_purpose") && source.purpose) inherited.unit_purpose = source.purpose;
+      // La modalidad manda sobre el nivel, y el nivel sobre grado y área. Copiar
+      // el nivel sin su modalidad dejaba el formulario con un nivel que no está
+      // entre las opciones válidas, y bloqueaba la generación.
+      if (has("modality") && source.modality) inherited.modality = source.modality;
       if (has("level") && source.level) inherited.level = source.level;
       if (has("grade") && source.grade) inherited.grade = source.grade;
       if (has("curricular_area") && source.area) inherited.curricular_area = source.area;
+      if (has("unit_title") && source.unitTitle) inherited.unit_title = source.unitTitle;
+      if (has("unit_purpose") && source.purpose) inherited.unit_purpose = source.purpose;
     }
-    setDraft((current) => ({
-      ...current,
-      curricular: selection,
-      values: { ...current.values, ...inherited },
-      fieldSources: { ...current.fieldSources, ...Object.fromEntries(Object.keys(inherited).map((id) => [id, "reference" as const])) },
-    }));
+
+    // Heredar nivel, grado o área equivale a cambiarlos a mano: hay que marcar
+    // para revisión los campos que dependen de ellos e invalidar el resultado
+    // ya generado, que se redactó con el contexto anterior. Sin esto, guardar
+    // dejaría el documento colgando de un origen del que no salió.
+    const affected = [...new Set(
+      Object.keys(inherited).flatMap((fieldId) => impactedFields(allFields, fieldId, draft.values)),
+    )].filter((fieldId) => !(fieldId in inherited));
+    if (affected.length) {
+      setFieldsToReview((existing) => [...new Set([...existing, ...affected])]);
+      setMessage(`${affected.length === 1 ? "Un campo depende" : `${affected.length} campos dependen`} del documento de origen. Conservamos su contenido para que puedas revisarlo.`);
+    }
+
+    setDraft((current) => {
+      // Lo que copió el origen anterior deja de ser cierto al cambiarlo. Se
+      // retira solo si el docente no lo editó después (fieldSources lo delata).
+      const released = Object.fromEntries(
+        (current.curricularFields ?? [])
+          .filter((id) => !(id in inherited) && current.fieldSources?.[id] === "reference")
+          .map((id) => [id, ""] as const),
+      );
+      return {
+        ...current,
+        artifact: null,
+        curricular: selection,
+        curricularFields: Object.keys(inherited),
+        values: { ...current.values, ...released, ...inherited },
+        fieldSources: { ...current.fieldSources, ...Object.fromEntries(Object.keys(inherited).map((id) => [id, "reference" as const])) },
+      };
+    });
+    setStatus("idle");
   };
 
   const importReference = (reference: DocumentReferenceSelection, values: Record<string, FieldValue>) => {
@@ -1328,8 +1372,8 @@ export function WorkflowTool() {
         </div> : null}
       </section>}
       <CurricularReferencePicker
-        references={curricularReferences}
-        selection={draft.curricular ?? EMPTY_REFERENCE_SELECTION}
+        references={curricularReferences ?? []}
+        selection={curricularSelection}
         onChange={pickCurricular}
         help="La herramienta se genera alineada a ese documento y queda vinculada a él en el historial."
       />

@@ -12,6 +12,8 @@ complejidad de los procedimientos y grado de autonomía esperado.
 import re
 from dataclasses import dataclass
 
+from app.modules.users.education_catalog import VALID_LEVELS_BY_MODALITY
+
 
 @dataclass(frozen=True)
 class CycleDemand:
@@ -106,41 +108,58 @@ _DEMANDS: dict[str, CycleDemand] = {
 }
 
 
+# Solo los niveles de EBR tienen ciclos del CNEB con estas exigencias. El nombre
+# se compara exacto: "EBA · Ciclo Inicial" es educación de personas adultas y
+# "CEBE · Primaria (ciclos III–V)" es educación especial; tratarlos como Inicial
+# o Primaria de EBR por contener esa palabra produce un documento inservible.
+_EBR_LEVELS: tuple[str, ...] = VALID_LEVELS_BY_MODALITY["EBR"]
+
+# Ciclos que abarca cada nivel, para cuando la herramienta no pide el grado.
+_CYCLES_BY_LEVEL: dict[str, tuple[str, ...]] = {
+    "Inicial": ("II",),
+    "Primaria": ("III", "IV", "V"),
+    "Secundaria": ("VI", "VII"),
+}
+
+_CYCLE_BY_GRADE: dict[str, dict[int, str]] = {
+    "Inicial": {3: "II", 4: "II", 5: "II"},
+    "Primaria": {1: "III", 2: "III", 3: "IV", 4: "IV", 5: "V", 6: "V"},
+    "Secundaria": {1: "VI", 2: "VI", 3: "VII", 4: "VII", 5: "VII"},
+}
+
+
+def _ebr_level(level: str) -> str | None:
+    """Nombre canónico del nivel de EBR, o None si no es EBR."""
+    candidate = level.strip()
+    return candidate if candidate in _EBR_LEVELS else None
+
+
 def _cycle_for(level: str, grade: str) -> str | None:
-    level_key = level.strip().lower()
+    """Ciclo del CNEB, o None si el nivel no es de EBR o el grado no se reconoce."""
+    canonical = _ebr_level(level)
+    if canonical is None:
+        return None
     number = re.search(r"\d+", grade or "")
-    position = int(number.group()) if number else 0
-    if "inicial" in level_key:
-        return "II"
-    if "primaria" in level_key:
-        if position in (1, 2):
-            return "III"
-        if position in (3, 4):
-            return "IV"
-        if position in (5, 6):
-            return "V"
-        return "IV"
-    if "secundaria" in level_key:
-        if position in (1, 2):
-            return "VI"
-        if position in (3, 4, 5):
-            return "VII"
-        return "VII"
-    return None
+    if number is None:
+        return None
+    return _CYCLE_BY_GRADE[canonical].get(int(number.group()))
 
 
 def cognitive_demand_block(fields: dict[str, str]) -> str:
     """Bloque de prompt con la exigencia del ciclo, o cadena vacía si no aplica."""
     level = (fields.get("level") or "").strip()
     grade = (fields.get("grade") or "").strip()
+    canonical = _ebr_level(level)
+    if canonical is None:
+        return ""
     cycle = _cycle_for(level, grade)
     if cycle is None:
-        return ""
+        return _level_block(canonical)
     demand = _DEMANDS[cycle]
-    if grade and level.lower() not in grade.lower():
-        target = f"{grade} de {level}"
+    if grade and canonical.lower() not in grade.lower():
+        target = f"{grade} de {canonical}"
     else:
-        target = grade or level
+        target = grade or canonical
     return f"""
 EXIGENCIA COGNITIVA OBLIGATORIA — CICLO {demand.cycle}, {target} ({demand.ages}):
 - Verbos y procesos esperados: {demand.verbs}.
@@ -153,4 +172,25 @@ EXIGENCIA COGNITIVA OBLIGATORIA — CICLO {demand.cycle}, {target} ({demand.ages
 - Está prohibido reutilizar el nivel de dificultad de otro ciclo. Antes de responder,
   revisa cada consigna y pregúntate si un estudiante de {target} puede resolverla sin
   conocimientos de un ciclo superior y sin que resulte trivial para su edad.
+""".strip()
+
+
+def _level_block(level: str) -> str:
+    """
+    Exigencia cuando se conoce el nivel pero no el grado.
+
+    No se afirma un ciclo ni una edad concretos —sería un dato inventado dentro
+    del prompt—, pero sí se mantiene la diferencia entre niveles: la dificultad
+    de Primaria y la de Secundaria no son la misma.
+    """
+    cycles = _CYCLES_BY_LEVEL[level]
+    span = cycles[0] if len(cycles) == 1 else f"{cycles[0]} a {cycles[-1]}"
+    floor, ceiling = _DEMANDS[cycles[0]], _DEMANDS[cycles[-1]]
+    return f"""
+EXIGENCIA COGNITIVA OBLIGATORIA — {level} (ciclo {span} del CNEB):
+- No se indicó el grado: ajusta la exigencia al rango de este nivel, entre «{floor.verbs}»
+  en el ciclo inicial del nivel y «{ceiling.verbs}» en el final, sin salirte de él.
+- Textos que lee el estudiante: entre «{floor.reading}» y «{ceiling.reading}».
+- Está prohibido usar el nivel de dificultad de otro nivel educativo: la exigencia de
+  {level} no es la de los demás niveles de la Educación Básica Regular.
 """.strip()

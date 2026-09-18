@@ -18,6 +18,8 @@ export type CurricularReference = {
   /** Título pedagógico (campo `unit_title` del formulario) cuando existe. */
   unitTitle: string;
   purpose: string;
+  /** Modalidad del origen: manda sobre el nivel en la cascada del formulario. */
+  modality: string;
   level: string;
   grade: string;
   area: string;
@@ -97,6 +99,7 @@ export function referencesFromDocuments(documents: ReferenceDocument[]): Curricu
       title: document.title,
       unitTitle: textField(fields, "unit_title") || document.title,
       purpose,
+      modality: textField(fields, "modality"),
       level: textField(fields, "level"),
       grade: textField(fields, "grade"),
       area: textField(fields, "curricular_area"),

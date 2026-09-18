@@ -283,6 +283,33 @@ describe("CreateClassPage", () => {
     expect(screen.getByRole("option", { name: /Cuidamos el agua/ })).toBeInTheDocument();
   });
 
+  it("quitar el documento de origen no borra el propósito heredado ni lo que escribió el docente", async () => {
+    mocks.apiRequest.mockImplementation(async (path: string, init?: { method?: string }) => {
+      if (path === "/documents" && !init?.method) {
+        return [
+          { id: "unit-1", title: "Unidad 3", document_type: "planificamos/unidad-aprendizaje", metadata_json: { fields: { unit_title: "Cuidamos el agua", learning_purposes: "Explicar el ciclo del agua y proponer acciones de cuidado." } } },
+        ];
+      }
+      return {};
+    });
+    render(<MemoryRouter initialEntries={["/dashboard/planificamos/sesion-aprendizaje"]}><CreateClassPage mode="sesion" /></MemoryRouter>);
+
+    fireEvent.change(await screen.findByLabelText(/Basar este documento en/), { target: { value: "unidad" } });
+    fireEvent.change(screen.getByLabelText(/^Unidad de aprendizaje$/), { target: { value: "unit-1" } });
+    // Cambiar de idea sobre el origen no debe vaciar el propósito ya heredado.
+    fireEvent.change(screen.getByLabelText(/Basar este documento en/), { target: { value: "" } });
+
+    fillStepOne();
+    fireEvent.click(screen.getByRole("button", { name: /^Siguiente/ }));
+    fireEvent.click(screen.getByLabelText(/Dejar que la IA sugiera/));
+    fireEvent.click(screen.getByRole("button", { name: /^Siguiente/ }));
+    fireEvent.click(screen.getByLabelText("Inclusivo"));
+    fireEvent.click(screen.getByLabelText("Bien común"));
+    fireEvent.click(screen.getByRole("button", { name: /^Siguiente/ }));
+
+    expect(screen.getByLabelText(/Propósito de la unidad/)).toHaveValue("Explicar el ciclo del agua y proponer acciones de cuidado.");
+  });
+
   it("reabre una clase guardada desde el historial en la etapa donde quedó y arma el ZIP", async () => {
     mocks.apiRequest.mockImplementation(async (path: string) => {
       if (path === "/documents/doc-sesion") {
