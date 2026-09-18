@@ -24,7 +24,6 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 import { Link, Navigate, useLocation, useSearchParams } from "react-router-dom";
 
 import { getWorkflowFieldGuide } from "../../config/aiGuides";
-import { getDynamicEducationOptions } from "../../config/education";
 import { getToolByPath, tools as toolCatalog } from "../../config/tools";
 import { detectCurricularArea } from "../../config/toolDiscovery";
 import { StudentSelector, type StudentSelection } from "../../components/students/StudentSelector";
@@ -36,9 +35,8 @@ import {
   type WorkflowField,
   type WorkflowFieldGuide,
   type WorkflowStep,
-  workflowModalities,
 } from "../../config/workflows";
-import { ApiError, apiBlob, apiRequest } from "../../lib/api";
+import { ApiError, apiBlob } from "../../lib/api";
 import { sessionDraftScope, readAccessToken } from "../../lib/session";
 import { useTeacherExperience } from "../../context/TeacherExperienceContext";
 import type { WorkflowArtifact } from "./exportWorkflowDocx";
@@ -46,11 +44,8 @@ import { ContextualAIGuideDialog } from "./ContextualAIGuideDialog";
 import { DocumentReferencePanel, type DocumentReferenceSelection } from "./DocumentReferencePanel";
 import { CurricularReferencePicker } from "../../components/CurricularReferencePicker";
 import {
-  EMPTY_REFERENCE_SELECTION,
   type CurricularReference,
   type ReferenceSelection,
-  referencesFromDocuments,
-  resolveReference,
 } from "../../lib/curricularReference";
 import { InteractiveArtifact } from "./InteractiveArtifact";
 import {
@@ -62,63 +57,22 @@ import {
   type AssistanceMode,
 } from "./pedagogicalContext";
 import { StructuredArtifactPreview } from "./StructuredArtifactPreview";
+import { localDraftStorage } from "./workflow/adapters/localDraftStorage";
+import { httpWorkflowGateway } from "./workflow/adapters/httpWorkflowGateway";
+import { httpAssistanceGateway } from "./workflow/adapters/httpAssistanceGateway";
+import { DRAFT_VERSION, type Draft } from "./workflow/domain/draft";
+import { displayValue, type FieldValue } from "./workflow/domain/fieldValue";
+import { fieldError, resolvedFieldOptions } from "./workflow/domain/validation";
+import {
+  effectiveOrigin,
+  inheritedValues,
+  originDocumentId,
+  originSource,
+  releasedFields,
+} from "./workflow/domain/curricularOrigin";
 import { applyInstitutionalTemplate, listInstitutionalTemplates, renderInstitutionalTemplate, type InstitutionalTemplate } from "./templateApi";
 
-type FieldValue = string | string[];
-type Draft = {
-  version: 2;
-  documentId?: string;
-  serverVersion?: number;
-  values: Record<string, FieldValue>;
-  currentStep: number;
-  artifact: WorkflowArtifact | null;
-  templateId?: string;
-  templateName?: string;
-  fieldSources?: Record<string, "teacher" | "ai" | "reference" | "profile">;
-  reference?: DocumentReferenceSelection;
-  /** Origen de la secuencia curricular (plan anual o unidad) elegido en cascada. */
-  curricular?: ReferenceSelection;
-  /** Campos copiados del origen, para poder retirarlos si se cambia o se quita. */
-  curricularFields?: string[];
-  updatedAt: string;
-};
-
 type SaveStatus = "idle" | "saving" | "saved" | "generating" | "error";
-
-function displayValue(value: FieldValue | undefined) {
-  return Array.isArray(value) ? value.join(", ") : String(value ?? "");
-}
-
-function requiredIsMissing(field: WorkflowField, value: FieldValue | undefined) {
-  if (!field.required) return false;
-  if (Array.isArray(value)) return !value.some((item) => item.trim());
-  return !String(value ?? "").trim();
-}
-
-function resolvedFieldOptions(field: WorkflowField, values: Record<string, FieldValue>) {
-  if (!field.dynamicOptions) return field.options ?? [];
-  return getDynamicEducationOptions(field.dynamicOptions, displayValue(values[field.dependsOn ?? ""]));
-}
-
-function fieldError(field: WorkflowField, value: FieldValue | undefined, options: string[] = []) {
-  if (requiredIsMissing(field, value)) return "Completa este campo para continuar.";
-  if (field.type === "repeater" && field.minItems) {
-    const completedItems = Array.isArray(value) ? value.filter((item) => item.trim()).length : 0;
-    if (completedItems < field.minItems) return `Añade al menos ${field.minItems} ${field.minItems === 1 ? "elemento" : "elementos"}.`;
-  }
-  if (field.type === "select" && String(value ?? "").trim() && options.length && !options.includes(String(value))) {
-    return "Selecciona una opción válida para el contexto elegido.";
-  }
-  if (field.type === "multiselect" && Array.isArray(value) && options.length && value.some((item) => !options.includes(item))) {
-    return "Revisa las opciones: alguna ya no corresponde al contexto elegido.";
-  }
-  if (field.type === "number" && String(value ?? "").trim()) {
-    const numericValue = Number(value);
-    if (field.min !== undefined && numericValue < field.min) return `El valor mínimo es ${field.min}.`;
-    if (field.max !== undefined && numericValue > field.max) return `El valor máximo es ${field.max}.`;
-  }
-  return "";
-}
 
 function artifactAsText(artifact: WorkflowArtifact) {
   const activity = artifact.activity?.items.flatMap((item, index) => [
@@ -145,43 +99,6 @@ function artifactAsText(artifact: WorkflowArtifact) {
   ].filter(Boolean).join("\n\n");
 }
 
-function readDraft(storageKey: string, legacyStorageKey: string, initialValues: Record<string, FieldValue>): Draft {
-  const fallback: Draft = {
-    version: 2,
-    values: initialValues,
-    currentStep: 0,
-    artifact: null,
-    fieldSources: Object.fromEntries(
-      Object.entries(initialValues)
-        .filter(([, value]) => displayValue(value).trim())
-        .map(([id]) => [id, "profile" as const]),
-    ),
-    updatedAt: "",
-  };
-  for (const key of [storageKey, legacyStorageKey]) {
-    try {
-      const saved = JSON.parse(localStorage.getItem(key) ?? "null") as Partial<Draft> | null;
-      if (!saved) continue;
-      const values = { ...initialValues, ...saved.values };
-      const savedModality = values.modality;
-      if (typeof savedModality === "string") {
-        values.modality = workflowModalities.find((option) => option.startsWith(savedModality.slice(0, 3))) ?? savedModality;
-      }
-      return {
-        ...fallback,
-        ...saved,
-        version: 2,
-        values,
-        currentStep: Number(saved.currentStep ?? 0),
-        artifact: saved.artifact ?? null,
-      };
-    } catch {
-      // Usa el siguiente borrador disponible o comienza con uno limpio.
-    }
-  }
-  return fallback;
-}
-
 export function WorkflowTool() {
   const location = useLocation();
   const { pathname } = location;
@@ -191,9 +108,13 @@ export function WorkflowTool() {
   const draftScope = sessionDraftScope();
   const storageKey = `avendia.draft.workflow.${workflow?.key ?? "unknown"}.v2.${draftScope}`;
   const legacyStorageKey = `avendia.workflow.${workflow?.key ?? "unknown"}.${draftScope}`;
+  // El componente depende de los puertos, no de `localStorage` ni de `apiRequest`.
+  const drafts = useMemo(() => localDraftStorage(storageKey, legacyStorageKey), [storageKey, legacyStorageKey]);
+  const gateway = useMemo(() => httpWorkflowGateway(), []);
+  const assistance = useMemo(() => httpAssistanceGateway(), []);
   const [draft, setDraft] = useState<Draft>(() => workflow
-    ? readDraft(storageKey, legacyStorageKey, getInitialWorkflowValues(workflow))
-    : { version: 2, values: {}, currentStep: 0, artifact: null, updatedAt: "" });
+    ? drafts.read(getInitialWorkflowValues(workflow))
+    : { version: DRAFT_VERSION, values: {}, currentStep: 0, artifact: null, updatedAt: "" });
   const [status, setStatus] = useState<SaveStatus>("idle");
   const [message, setMessage] = useState("");
   const [showErrors, setShowErrors] = useState(false);
@@ -237,15 +158,13 @@ export function WorkflowTool() {
    * de generar y el selector se oculta cuando no queda ningún documento, así que
    * no habría forma de corregirlo desde la pantalla.
    */
-  const curricularSelection = useMemo(() => {
-    const chosen = draft.curricular ?? EMPTY_REFERENCE_SELECTION;
-    if (!curricularReferences) return chosen;
-    const known = (id: string) => !id || curricularReferences.some((item) => item.id === id);
-    return known(chosen.planId) && known(chosen.unitId) ? chosen : EMPTY_REFERENCE_SELECTION;
-  }, [curricularReferences, draft.curricular]);
+  const curricularSelection = useMemo(
+    () => effectiveOrigin(draft.curricular, curricularReferences),
+    [curricularReferences, draft.curricular],
+  );
 
   /** Documento del que cuelga esta herramienta: la unidad si se eligió, si no el plan anual. */
-  const curricularSourceId = curricularSelection.unitId || curricularSelection.planId || "";
+  const curricularSourceId = originDocumentId(curricularSelection);
   const currentErrors = useMemo(
     () => currentStep?.fields.filter((field) => fieldError(field, draft.values[field.id], resolvedFieldOptions(field, draft.values))) ?? [],
     [currentStep, draft.values],
@@ -339,17 +258,12 @@ export function WorkflowTool() {
 
   // Planes anuales y unidades guardados: alimentan el selector en cascada.
   useEffect(() => {
-    const token = readAccessToken();
-    if (!token) return;
     const controller = new AbortController();
-    void apiRequest<Parameters<typeof referencesFromDocuments>[0]>("/documents", {
-      headers: { Authorization: `Bearer ${token}` },
-      signal: controller.signal,
-    })
-      .then((documents) => setCurricularReferences(referencesFromDocuments(documents)))
+    void gateway.listCurricularReferences(controller.signal)
+      .then(setCurricularReferences)
       .catch(() => undefined);
     return () => controller.abort();
-  }, []);
+  }, [gateway]);
 
   const stepStatus = (stepItem: WorkflowStep, index: number) => {
     if (stepItem.kind && stepItem.kind !== "form") return draft.artifact ? "Listo" : index === draft.currentStep ? "Ahora" : "Pendiente";
@@ -399,20 +313,15 @@ export function WorkflowTool() {
   useEffect(() => {
     if (!workflow) return;
     const timeout = window.setTimeout(() => {
-      const saved = { ...draft, version: 2 as const, updatedAt: new Date().toISOString() };
-      localStorage.setItem(storageKey, JSON.stringify(saved));
+      drafts.write(draft);
     }, 450);
     return () => window.clearTimeout(timeout);
-  }, [draft, storageKey, workflow]);
+  }, [draft, drafts, storageKey, workflow]);
 
   useEffect(() => {
     if (!workflow || !documentIdFromUrl || draft.documentId === documentIdFromUrl) return;
-    const token = readAccessToken();
-    if (!token) return;
-    type StoredDocument = { id: string; metadata_json: Record<string, unknown> };
-    void apiRequest<StoredDocument>(`/documents/${documentIdFromUrl}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    }).then((document) => {
+    void gateway.readDocument(documentIdFromUrl).then((document) => {
+      if (!document) return;
       const metadata = document.metadata_json ?? {};
       const fields = metadata.fields && typeof metadata.fields === "object" ? metadata.fields as Record<string, FieldValue> : {};
       setDraft(() => ({
@@ -430,7 +339,7 @@ export function WorkflowTool() {
       }));
       setMessage("Documento recuperado desde tu historial.");
     }).catch(() => setMessage("No se pudo recuperar este documento del historial."));
-  }, [documentIdFromUrl, draft.documentId, workflow]);
+  }, [documentIdFromUrl, draft.documentId, gateway, workflow]);
 
   useEffect(() => {
     const token = readAccessToken();
@@ -454,15 +363,12 @@ export function WorkflowTool() {
   }, [preferences.always_show_help, workflow?.key]);
 
   useEffect(() => {
-    const token = readAccessToken();
-    if (!token) return;
-    type Preferences = { consent: boolean; assistance_mode: AssistanceMode };
-    void apiRequest<Preferences>("/ai/tools/field-assist/preferences", { headers: { Authorization: `Bearer ${token}` } })
-      .then((preferences) => {
-        setRememberAssistance(preferences.consent);
-        if (preferences.consent) setAssistanceMode(preferences.assistance_mode);
-      }).catch(() => undefined);
-  }, []);
+    void assistance.readPreferences().then((preferences) => {
+      if (!preferences) return;
+      setRememberAssistance(preferences.consent);
+      if (preferences.consent && preferences.assistance_mode) setAssistanceMode(preferences.assistance_mode);
+    });
+  }, [assistance]);
 
   const exactPreviewWorkflowKey = workflow?.key ?? "";
   const exactPreviewTemplate = templates.find((template) => template.id === draft.templateId);
@@ -567,8 +473,7 @@ export function WorkflowTool() {
   };
 
   const saveLocal = (nextDraft = draft) => {
-    const saved: Draft = { ...nextDraft, version: 2, updatedAt: new Date().toISOString() };
-    localStorage.setItem(storageKey, JSON.stringify(saved));
+    const saved = drafts.write(nextDraft);
     setDraft(saved);
     return saved;
   };
@@ -577,65 +482,51 @@ export function WorkflowTool() {
     setStatus("saving");
     const saved = saveLocal(nextDraft);
     try {
-      const token = readAccessToken();
-      if (token) {
-        type StoredDocument = { id: string; metadata_json: Record<string, unknown> };
-        const nextServerVersion = (saved.serverVersion ?? 0) + 1;
-        const document = await apiRequest<StoredDocument>(saved.documentId ? `/documents/${saved.documentId}` : "/documents", {
-          method: saved.documentId ? "PATCH" : "POST",
-          headers: { Authorization: `Bearer ${token}` },
-          body: JSON.stringify({
-            title: saved.artifact?.document_title ?? tool.title,
-            document_type: workflow.key,
-            content: saved.artifact ? artifactAsText(saved.artifact) : "Borrador en preparación",
-            metadata: {
-              version: nextServerVersion,
-              fields: saved.values,
-              artifact: saved.artifact,
-              source_route: tool.path,
-              current_step: saved.currentStep,
-              template_id: saved.templateId,
-              template_name: saved.templateName,
-              reference: saved.reference,
-              curricular_reference: saved.curricular,
-              field_sources: saved.fieldSources,
-              pedagogical_context: derivePedagogicalContext(saved.values),
-            },
-          }),
-        });
+      const nextServerVersion = (saved.serverVersion ?? 0) + 1;
+      const context = derivePedagogicalContext(saved.values);
+      const document = await gateway.saveDocument({
+        documentId: saved.documentId,
+        serverVersion: nextServerVersion,
+        title: saved.artifact?.document_title ?? tool.title,
+        documentType: workflow.key,
+        content: saved.artifact ? artifactAsText(saved.artifact) : "Borrador en preparación",
+        metadata: {
+          fields: saved.values,
+          artifact: saved.artifact,
+          source_route: tool.path,
+          current_step: saved.currentStep,
+          template_id: saved.templateId,
+          template_name: saved.templateName,
+          reference: saved.reference,
+          curricular_reference: saved.curricular,
+          field_sources: saved.fieldSources,
+          pedagogical_context: context,
+        },
+      });
+      if (document) {
         if (curricularSourceId) {
-          await apiRequest("/documents/relations", {
-            method: "POST",
-            headers: { Authorization: `Bearer ${token}` },
-            body: JSON.stringify({
-              parent_document_id: curricularSourceId,
-              child_document_id: document.id,
-              relation_type: "continuation",
-              inherited_fields: ["unit_title", "unit_purpose", "curricular_area", "grade", "level"],
-              context: derivePedagogicalContext(saved.values),
-              compatibility_status: "compatible",
-              consent: true,
-            }),
+          // La procedencia es orientativa: si el vínculo falla, el documento ya
+          // está guardado y no tiene sentido dar el guardado por fallido.
+          await gateway.linkDocument({
+            parentDocumentId: curricularSourceId,
+            childDocumentId: document.id,
+            relationType: "continuation",
+            inheritedFields: ["unit_title", "unit_purpose", "curricular_area", "grade", "level"],
+            context,
+            compatibilityStatus: "compatible",
           }).catch(() => undefined);
         }
         if (saved.reference) {
-          await apiRequest("/documents/relations", {
-            method: "POST",
-            headers: { Authorization: `Bearer ${token}` },
-            body: JSON.stringify({
-              parent_document_id: saved.reference.documentId,
-              child_document_id: document.id,
-              relation_type: "reference",
-              inherited_fields: saved.reference.fields,
-              context: derivePedagogicalContext(saved.values),
-              compatibility_status: saved.reference.compatibilityStatus === "compatible" ? "compatible" : "review",
-              consent: true,
-            }),
+          await gateway.linkDocument({
+            parentDocumentId: saved.reference.documentId,
+            childDocumentId: document.id,
+            relationType: "reference",
+            inheritedFields: saved.reference.fields,
+            context,
+            compatibilityStatus: saved.reference.compatibilityStatus === "compatible" ? "compatible" : "review",
           });
         }
-        const synced = { ...saved, documentId: document.id, serverVersion: nextServerVersion, updatedAt: new Date().toISOString() };
-        localStorage.setItem(storageKey, JSON.stringify(synced));
-        setDraft(synced);
+        setDraft(drafts.write({ ...saved, documentId: document.id, serverVersion: document.serverVersion }));
       }
       setStatus("saved");
       setMessage("Borrador guardado correctamente.");
@@ -726,22 +617,15 @@ export function WorkflowTool() {
     setStatus("generating");
     setMessage("");
     try {
-      const token = readAccessToken();
-      const requestId = crypto.randomUUID();
-      const requestBody = JSON.stringify({
-        request_id: requestId,
-        tool_id: tool.id,
+      const requestGeneration = () => gateway.generate({
+        requestId: crypto.randomUUID(),
+        toolId: tool.id,
         module: tool.module,
-        tool_title: tool.title,
-        artifact_type: workflow.artifactType,
+        toolTitle: tool.title,
+        artifactType: workflow.artifactType,
         fields: Object.fromEntries(Object.entries(draft.values).map(([key, value]) => [key, displayValue(value)])),
-        requested_sections: workflow.outputSections,
-        ...(curricularSourceId ? { source_document_id: curricularSourceId } : {}),
-      });
-      const requestGeneration = () => apiRequest<WorkflowArtifact>("/ai/tools/workflow/generate", {
-        method: "POST",
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        body: requestBody,
+        requestedSections: workflow.outputSections,
+        ...(curricularSourceId ? { sourceDocumentId: curricularSourceId } : {}),
       });
       let artifact: WorkflowArtifact;
       try {
@@ -759,7 +643,7 @@ export function WorkflowTool() {
         updatedAt: new Date().toISOString(),
       };
       setDraft(generated);
-      localStorage.setItem(storageKey, JSON.stringify(generated));
+      drafts.write(generated);
       await saveDocument(generated);
     } catch (error) {
       setStatus("error");
@@ -799,7 +683,6 @@ export function WorkflowTool() {
     const controller = new AbortController();
     guideRequest.current = controller;
     try {
-      const token = readAccessToken();
       const requestPayload = JSON.stringify({
           tool_id: tool.id,
           tool_title: tool.title,
@@ -818,12 +701,7 @@ export function WorkflowTool() {
           context_fingerprint: pedagogicalContext.fingerprint,
           assistance_mode: assistanceMode,
       });
-      const requestSuggestion = () => apiRequest<{ reply: string }>("/ai/tools/field-assist", {
-          method: "POST",
-          signal: controller.signal,
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-          body: requestPayload,
-      });
+      const requestSuggestion = () => assistance.suggestField({ payload: requestPayload, signal: controller.signal });
       let response: { reply: string };
       try {
         response = await requestSuggestion();
@@ -858,28 +736,25 @@ export function WorkflowTool() {
 
   const saveGuideFeedback = (outcome: "useful" | "edited" | "incorrect" | "repetitive" | "too_long" | "discarded") => {
     if (!guideField) return;
-    const token = readAccessToken();
-    if (!token) return;
-    void apiRequest("/ai/tools/field-assist/feedback", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ tool_id: tool.id, field_id: guideField.id, outcome, assistance_mode: assistanceMode, context_fingerprint: pedagogicalContext.fingerprint, edited: outcome === "edited" }),
-    }).catch(() => undefined);
+    void assistance.recordFeedback({
+      tool_id: tool.id,
+      field_id: guideField.id,
+      outcome,
+      assistance_mode: assistanceMode,
+      context_fingerprint: pedagogicalContext.fingerprint,
+      edited: outcome === "edited",
+    });
   };
 
   const changeAssistanceMode = (value: AssistanceMode) => {
     setAssistanceMode(value);
     if (!rememberAssistance) return;
-    const token = readAccessToken();
-    if (!token) return;
-    void apiRequest("/ai/tools/field-assist/preferences", { method: "PATCH", headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ consent: true, assistance_mode: value, preferred_length: "balanced" }) }).catch(() => undefined);
+    void assistance.savePreferences({ consent: true, assistanceMode: value });
   };
 
   const changeRememberAssistance = (value: boolean) => {
     setRememberAssistance(value);
-    const token = readAccessToken();
-    if (!token) return;
-    void apiRequest("/ai/tools/field-assist/preferences", { method: "PATCH", headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ consent: value, assistance_mode: assistanceMode, preferred_length: "balanced" }) }).catch(() => undefined);
+    void assistance.savePreferences({ consent: value, assistanceMode });
   };
 
   const applyGuide = () => {
@@ -920,25 +795,12 @@ export function WorkflowTool() {
    * campos que esta herramienta declara, para no inventar datos que no pide.
    */
   const pickCurricular = (selection: ReferenceSelection) => {
-    const source = resolveReference(selection, curricularReferences ?? []);
-    const inherited: Record<string, FieldValue> = {};
-    if (source) {
-      const has = (id: string) => allFields.some((field) => field.id === id);
-      // La modalidad manda sobre el nivel, y el nivel sobre grado y área. Copiar
-      // el nivel sin su modalidad dejaba el formulario con un nivel que no está
-      // entre las opciones válidas, y bloqueaba la generación.
-      if (has("modality") && source.modality) inherited.modality = source.modality;
-      if (has("level") && source.level) inherited.level = source.level;
-      if (has("grade") && source.grade) inherited.grade = source.grade;
-      if (has("curricular_area") && source.area) inherited.curricular_area = source.area;
-      if (has("unit_title") && source.unitTitle) inherited.unit_title = source.unitTitle;
-      if (has("unit_purpose") && source.purpose) inherited.unit_purpose = source.purpose;
-    }
+    const source = originSource(selection, curricularReferences);
+    const inherited = inheritedValues(source, new Set(allFields.map((field) => field.id)));
 
     // Heredar nivel, grado o área equivale a cambiarlos a mano: hay que marcar
     // para revisión los campos que dependen de ellos e invalidar el resultado
-    // ya generado, que se redactó con el contexto anterior. Sin esto, guardar
-    // dejaría el documento colgando de un origen del que no salió.
+    // ya generado, que se redactó con el contexto anterior.
     const affected = [...new Set(
       Object.keys(inherited).flatMap((fieldId) => impactedFields(allFields, fieldId, draft.values)),
     )].filter((fieldId) => !(fieldId in inherited));
@@ -948,12 +810,8 @@ export function WorkflowTool() {
     }
 
     setDraft((current) => {
-      // Lo que copió el origen anterior deja de ser cierto al cambiarlo. Se
-      // retira solo si el docente no lo editó después (fieldSources lo delata).
       const released = Object.fromEntries(
-        (current.curricularFields ?? [])
-          .filter((id) => !(id in inherited) && current.fieldSources?.[id] === "reference")
-          .map((id) => [id, ""] as const),
+        releasedFields(current.curricularFields ?? [], inherited, current.fieldSources).map((id) => [id, ""] as const),
       );
       return {
         ...current,
@@ -1018,16 +876,11 @@ export function WorkflowTool() {
     if (!section) return;
     setRegeneratingSection(index);
     try {
-      const token = readAccessToken();
-      const response = await apiRequest<{ reply: string }>("/ai/tools/copilot", {
-        method: "POST",
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        body: JSON.stringify({
-          message: `Regenera únicamente la sección «${section.title}». Entrega texto listo para reemplazar la narrativa actual, sin encabezado ni explicaciones. Mantén coherencia con todos los datos del formulario.`,
-          tool_title: tool.title,
-          module: tool.module,
-          form_values: Object.fromEntries(Object.entries(draft.values).map(([key, value]) => [key, displayValue(value)])),
-        }),
+      const response = await assistance.rewriteSection({
+        message: `Regenera únicamente la sección «${section.title}». Entrega texto listo para reemplazar la narrativa actual, sin encabezado ni explicaciones. Mantén coherencia con todos los datos del formulario.`,
+        tool_title: tool.title,
+        module: tool.module,
+        form_values: Object.fromEntries(Object.entries(draft.values).map(([key, value]) => [key, displayValue(value)])),
       });
       updateArtifactSection(index, "narrative", response.reply);
     } catch (error) {
