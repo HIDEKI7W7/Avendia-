@@ -24,6 +24,7 @@ const TutorialsPage = lazy(() => import("../features/utilities/TutorialsPage").t
 const ReferralsPage = lazy(() => import("../features/utilities/ReferralsPage").then((module) => ({ default: module.ReferralsPage })));
 const CommunityPage = lazy(() => import("../features/utilities/CommunityPage").then((module) => ({ default: module.CommunityPage })));
 const UtilitiesAdminPage = lazy(() => import("../features/utilities/UtilitiesAdminPage").then((module) => ({ default: module.UtilitiesAdminPage })));
+const AdminModerationPage = lazy(() => import("../features/admin/AdminModerationPage").then((module) => ({ default: module.AdminModerationPage })));
 const AdminControlCenterPage = lazy(() => import("../features/admin/AdminControlCenterPage").then((module) => ({ default: module.AdminControlCenterPage })));
 const PresentationTool = lazy(() => import("../features/tools/PresentationTool").then((module) => ({ default: module.PresentationTool })));
 const CreateClassPage = lazy(() => import("../features/classes/CreateClassPage").then((module) => ({ default: module.CreateClassPage })));
@@ -96,6 +97,7 @@ export function App() {
       </Route>
       <Route path="/admin" element={<RequireSession admin><AdminShell /></RequireSession>}>
         <Route path="utilidades" element={<UtilitiesAdminPage />} />
+        <Route path="moderacion" element={<AdminModerationPage />} />
         <Route index element={<Suspense fallback={<div className="admin-state">Cargando centro de control…</div>}><AdminControlCenterPage /></Suspense>} />
         <Route path="tokens" element={<Navigate to="/admin" replace />} />
       </Route>

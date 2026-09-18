@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.dependencies import get_current_user
+from app.api.dependencies import ensure_admin, get_current_user
 from app.core.config import get_settings
 from app.db.session import get_db
 from app.modules.admin.model import AdminAuditLog, AIGenerationQualityEvent, AIUsageEvent
@@ -47,12 +47,7 @@ STATUS_LABELS = {"active": "Activas", "inactive": "Inactivas"}
 
 
 async def require_admin(user: User = Depends(get_current_user)) -> User:
-    if user.role != UserRole.ADMIN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Acceso de administrador requerido",
-        )
-    return user
+    return ensure_admin(user)
 
 
 def _since(days: int) -> tuple[date, datetime]:

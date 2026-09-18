@@ -79,6 +79,7 @@ function kindOf(documentType: string): ReferenceKind | null {
 /** Planes anuales y unidades guardados, listos para el selector en cascada. */
 export function referencesFromDocuments(documents: ReferenceDocument[]): CurricularReference[] {
   const references: CurricularReference[] = [];
+  if (!Array.isArray(documents)) return references;
   for (const document of documents) {
     const kind = kindOf(document.document_type);
     if (!kind || document.status === "archived" || document.status === "trashed") continue;

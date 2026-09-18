@@ -44,6 +44,14 @@ import { useTeacherExperience } from "../../context/TeacherExperienceContext";
 import type { WorkflowArtifact } from "./exportWorkflowDocx";
 import { ContextualAIGuideDialog } from "./ContextualAIGuideDialog";
 import { DocumentReferencePanel, type DocumentReferenceSelection } from "./DocumentReferencePanel";
+import { CurricularReferencePicker } from "../../components/CurricularReferencePicker";
+import {
+  EMPTY_REFERENCE_SELECTION,
+  type CurricularReference,
+  type ReferenceSelection,
+  referencesFromDocuments,
+  resolveReference,
+} from "../../lib/curricularReference";
 import { InteractiveArtifact } from "./InteractiveArtifact";
 import {
   contextStatus,
@@ -68,6 +76,8 @@ type Draft = {
   templateName?: string;
   fieldSources?: Record<string, "teacher" | "ai" | "reference" | "profile">;
   reference?: DocumentReferenceSelection;
+  /** Origen de la secuencia curricular (plan anual o unidad) elegido en cascada. */
+  curricular?: ReferenceSelection;
   updatedAt: string;
 };
 
@@ -202,6 +212,7 @@ export function WorkflowTool() {
   const [assistanceMode, setAssistanceMode] = useState<AssistanceMode>("complete");
   const [rememberAssistance, setRememberAssistance] = useState(false);
   const [fieldsToReview, setFieldsToReview] = useState<string[]>([]);
+  const [curricularReferences, setCurricularReferences] = useState<CurricularReference[]>([]);
   const [lastAppliedGuide, setLastAppliedGuide] = useState<{ fieldId: string; previous: FieldValue } | null>(null);
   const [editingResult, setEditingResult] = useState(false);
   const [regeneratingSection, setRegeneratingSection] = useState<number | null>(null);
@@ -218,6 +229,8 @@ export function WorkflowTool() {
   // Formulario corto: sin bloques técnicos ni ayudas por campo (ver WorkflowDefinition.simple).
   const simple = Boolean(workflow?.simple);
   const allFields = workflow?.steps.flatMap((item) => item.fields) ?? [];
+  /** Documento del que cuelga esta herramienta: la unidad si se eligió, si no el plan anual. */
+  const curricularSourceId = draft.curricular?.unitId || draft.curricular?.planId || "";
   const currentErrors = useMemo(
     () => currentStep?.fields.filter((field) => fieldError(field, draft.values[field.id], resolvedFieldOptions(field, draft.values))) ?? [],
     [currentStep, draft.values],
@@ -308,6 +321,20 @@ export function WorkflowTool() {
     }, 1000);
     return () => window.clearTimeout(timeout);
   }, [draft.values, preferences.last_context, preferences.remember_recent_context, updatePreferences, workflow]);
+
+  // Planes anuales y unidades guardados: alimentan el selector en cascada.
+  useEffect(() => {
+    const token = readAccessToken();
+    if (!token) return;
+    const controller = new AbortController();
+    void apiRequest<Parameters<typeof referencesFromDocuments>[0]>("/documents", {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: controller.signal,
+    })
+      .then((documents) => setCurricularReferences(referencesFromDocuments(documents)))
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, []);
 
   const stepStatus = (stepItem: WorkflowStep, index: number) => {
     if (stepItem.kind && stepItem.kind !== "form") return draft.artifact ? "Listo" : index === draft.currentStep ? "Ahora" : "Pendiente";
@@ -554,11 +581,28 @@ export function WorkflowTool() {
               template_id: saved.templateId,
               template_name: saved.templateName,
               reference: saved.reference,
+              curricular_reference: saved.curricular,
               field_sources: saved.fieldSources,
               pedagogical_context: derivePedagogicalContext(saved.values),
             },
           }),
         });
+        const curricularParent = saved.curricular?.unitId || saved.curricular?.planId;
+        if (curricularParent) {
+          await apiRequest("/documents/relations", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}` },
+            body: JSON.stringify({
+              parent_document_id: curricularParent,
+              child_document_id: document.id,
+              relation_type: "continuation",
+              inherited_fields: ["unit_title", "unit_purpose", "curricular_area", "grade", "level"],
+              context: derivePedagogicalContext(saved.values),
+              compatibility_status: "compatible",
+              consent: true,
+            }),
+          }).catch(() => undefined);
+        }
         if (saved.reference) {
           await apiRequest("/documents/relations", {
             method: "POST",
@@ -677,6 +721,7 @@ export function WorkflowTool() {
         artifact_type: workflow.artifactType,
         fields: Object.fromEntries(Object.entries(draft.values).map(([key, value]) => [key, displayValue(value)])),
         requested_sections: workflow.outputSections,
+        ...(curricularSourceId ? { source_document_id: curricularSourceId } : {}),
       });
       const requestGeneration = () => apiRequest<WorkflowArtifact>("/ai/tools/workflow/generate", {
         method: "POST",
@@ -853,6 +898,29 @@ export function WorkflowTool() {
     }));
     setLastAppliedGuide(null);
     setMessage("Se restauró el contenido anterior del campo.");
+  };
+
+  /**
+   * Origen curricular elegido en cascada (plan anual → unidad). Hereda solo los
+   * campos que esta herramienta declara, para no inventar datos que no pide.
+   */
+  const pickCurricular = (selection: ReferenceSelection) => {
+    const source = resolveReference(selection, curricularReferences);
+    const inherited: Record<string, FieldValue> = {};
+    if (source) {
+      const has = (id: string) => allFields.some((field) => field.id === id);
+      if (has("unit_title") && source.unitTitle) inherited.unit_title = source.unitTitle;
+      if (has("unit_purpose") && source.purpose) inherited.unit_purpose = source.purpose;
+      if (has("level") && source.level) inherited.level = source.level;
+      if (has("grade") && source.grade) inherited.grade = source.grade;
+      if (has("curricular_area") && source.area) inherited.curricular_area = source.area;
+    }
+    setDraft((current) => ({
+      ...current,
+      curricular: selection,
+      values: { ...current.values, ...inherited },
+      fieldSources: { ...current.fieldSources, ...Object.fromEntries(Object.keys(inherited).map((id) => [id, "reference" as const])) },
+    }));
   };
 
   const importReference = (reference: DocumentReferenceSelection, values: Record<string, FieldValue>) => {
@@ -1259,6 +1327,12 @@ export function WorkflowTool() {
           <article><Clock3 aria-hidden="true" /><div><strong>Tiempo aproximado</strong><p>{estimatedMinutes} minutos en modo guiado.</p></div></article>
         </div> : null}
       </section>}
+      <CurricularReferencePicker
+        references={curricularReferences}
+        selection={draft.curricular ?? EMPTY_REFERENCE_SELECTION}
+        onChange={pickCurricular}
+        help="La herramienta se genera alineada a ese documento y queda vinculada a él en el historial."
+      />
       {simple ? null : <DocumentReferencePanel targetType={workflow.key.split("/").at(-1) ?? tool.id} fields={allFields} selection={draft.reference} onImport={importReference} onClear={() => setDraft((current) => ({ ...current, reference: undefined }))} />}
       <ol className="workflow-stepper" aria-label="Pasos de la herramienta">{workflow.steps.map((item, index) => {
         const state = stepStatus(item, index);
