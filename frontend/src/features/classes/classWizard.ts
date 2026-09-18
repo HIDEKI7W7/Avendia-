@@ -6,6 +6,7 @@
 import { areasByLevel, competenciesByArea, gradesByLevel } from "../../config/education";
 import { tools } from "../../config/tools";
 import { getWorkflow, workflowModalities, type WorkflowDefinition } from "../../config/workflows";
+import type { ReferenceMode } from "../../lib/curricularReference";
 import type { SessionUser } from "../../lib/session";
 import { readSessionContent } from "../tools/docx/sessionContent";
 import type { WorkflowArtifact } from "../tools/exportWorkflowDocx";
@@ -67,14 +68,15 @@ export type ClassWizardValues = {
   student_context: string;
   source_content: string;
   academic_period: string;
+  /** Origen de la secuencia curricular: nada, el plan anual o una unidad. */
+  reference_mode: ReferenceMode;
+  /** Plan anual elegido, o el que acota la lista de unidades en cascada. */
+  plan_document_id: string;
   /** Unidad guardada con la que se alinea la sesión (id del documento) y su título. */
   unit_document_id: string;
   /** Campos de "Opciones avanzadas" (solo sesión suelta), por id de campo. */
   advanced: Record<string, string>;
 };
-
-/** Unidad de aprendizaje guardada en el historial, tal como la ofrece el selector. */
-export type SavedUnit = { id: string; title: string; unit_title: string; purpose: string; area: string; grade: string };
 
 export type ClassDraft = {
   version: 1;
@@ -110,6 +112,8 @@ export function defaultValues(user: Partial<SessionUser> = {}): ClassWizardValue
     student_context: "",
     source_content: "",
     academic_period: "",
+    reference_mode: "",
+    plan_document_id: "",
     unit_document_id: "",
     advanced: {},
   };
@@ -132,38 +136,9 @@ export function readDraft(storageKey: string, user: Partial<SessionUser> = {}): 
   }
 }
 
-type StoredDocument = {
-  id: string;
-  title: string;
-  document_type: string;
-  status?: string;
-  metadata_json?: Record<string, unknown>;
-};
-
 function stringField(record: Record<string, unknown> | undefined, key: string): string {
   const value = record?.[key];
   return typeof value === "string" ? value : Array.isArray(value) ? value.join(", ") : "";
-}
-
-/** Unidades de aprendizaje guardadas, listas para alinear la sesión. */
-export function savedUnitsFromDocuments(documents: StoredDocument[]): SavedUnit[] {
-  return documents
-    .filter((document) => document.document_type.endsWith("unidad-aprendizaje") && document.status !== "archived")
-    .map((document) => {
-      const metadata = document.metadata_json ?? {};
-      const fields = metadata.fields && typeof metadata.fields === "object" ? metadata.fields as Record<string, unknown> : undefined;
-      const artifact = metadata.artifact && typeof metadata.artifact === "object" ? metadata.artifact as { sections?: Array<{ title: string; narrative: string }> } : undefined;
-      const purposeSection = artifact?.sections?.find((section) => /prop[oó]sitos? de aprendizaje/i.test(section.title));
-      const situation = artifact?.sections?.find((section) => /situaci[oó]n significativa/i.test(section.title));
-      return {
-        id: document.id,
-        title: document.title,
-        unit_title: stringField(fields, "unit_title") || document.title,
-        purpose: stringField(fields, "learning_purposes") || purposeSection?.narrative || stringField(fields, "significant_situation") || situation?.narrative || "",
-        area: stringField(fields, "curricular_area"),
-        grade: stringField(fields, "grade"),
-      };
-    });
 }
 
 /** Valores del asistente a partir de los campos guardados de una sesión (para reabrir una clase). */
@@ -190,6 +165,8 @@ export function valuesFromSessionFields(fields: Record<string, unknown>, user: P
     student_context: text("student_context"),
     source_content: text("source_content"),
     academic_period: text("academic_period"),
+    reference_mode: text("unit_document_id") ? "unidad" : text("plan_document_id") ? "plan" : "",
+    plan_document_id: text("plan_document_id"),
     unit_document_id: text("unit_document_id"),
     advanced,
   };
@@ -293,6 +270,7 @@ export function sessionFields(values: ClassWizardValues, user: Partial<SessionUs
     include_theory: "Sí",
     include_worksheet: "Sí",
     include_nee: "Sí",
+    ...(values.plan_document_id ? { plan_document_id: values.plan_document_id } : {}),
     ...(values.unit_document_id ? { unit_document_id: values.unit_document_id } : {}),
     ...advanced,
     planning_mode: `Crear mi clase: el docente seleccionó los datos mínimos; desarrolla capacidades, desempeños, criterios, propósito, secuencia, recursos y retroalimentación completos y contextualizados.${advancedRule}`,

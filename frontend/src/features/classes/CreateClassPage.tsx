@@ -10,8 +10,15 @@ import { ArrowLeft, ArrowRight, Check, CirclePlay, Download, FileText, FolderArc
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
+import { CurricularReferencePicker } from "../../components/CurricularReferencePicker";
 import { GenerationProgressOverlay } from "../../components/GenerationProgressOverlay";
 import { ApiError, apiRequest, downloadApiBlob } from "../../lib/api";
+import {
+  type CurricularReference,
+  type ReferenceSelection,
+  referencesFromDocuments,
+  resolveReference,
+} from "../../lib/curricularReference";
 import { readAccessToken, readSessionUser, sessionDraftScope } from "../../lib/session";
 import { listRosters, listStudents } from "../rosters/rosterApi";
 import type { Roster } from "../rosters/rosterTypes";
@@ -37,7 +44,6 @@ import {
   levelOptions,
   profileFields,
   readDraft,
-  savedUnitsFromDocuments,
   sessionFields,
   sessionWorkflow,
   stepErrors,
@@ -47,7 +53,6 @@ import {
   type ClassStage,
   type ClassWizardValues,
   type InstrumentOption,
-  type SavedUnit,
   type WizardMode,
 } from "./classWizard";
 import "../../styles/class-wizard.css";
@@ -99,7 +104,7 @@ export function CreateClassPage({ mode = "clase" }: { mode?: WizardMode } = {}) 
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState<"" | "generating" | "suggesting" | "saving">("");
   const [rosters, setRosters] = useState<Roster[]>([]);
-  const [units, setUnits] = useState<SavedUnit[]>([]);
+  const [references, setReferences] = useState<CurricularReference[]>([]);
   const values = draft.values;
   const classToOpen = single ? "" : (searchParams.get("class") ?? "").trim();
 
@@ -112,7 +117,7 @@ export function CreateClassPage({ mode = "clase" }: { mode?: WizardMode } = {}) 
     const controller = new AbortController();
     void listRosters({ signal: controller.signal }).then(setRosters).catch(() => undefined);
     void apiRequest<StoredDocument[]>("/documents", { headers: authHeaders(), signal: controller.signal })
-      .then((documents) => setUnits(savedUnitsFromDocuments(documents)))
+      .then((documents) => setReferences(referencesFromDocuments(documents)))
       .catch(() => undefined);
     return () => controller.abort();
   }, []);
@@ -259,6 +264,9 @@ export function CreateClassPage({ mode = "clase" }: { mode?: WizardMode } = {}) 
     return document.id;
   };
 
+  /** Documento del que cuelga la sesión: la unidad si se eligió, si no el plan anual. */
+  const referenceDocumentId = values.unit_document_id || values.plan_document_id;
+
   const generateSession = async () => {
     const workflow = sessionWorkflow();
     if (!workflow) return;
@@ -273,19 +281,19 @@ export function CreateClassPage({ mode = "clase" }: { mode?: WizardMode } = {}) 
         artifact_type: workflow.artifactType,
         fields,
         requested_sections: workflow.outputSections,
-        ...(values.unit_document_id ? { source_document_id: values.unit_document_id } : {}),
+        ...(referenceDocumentId ? { source_document_id: referenceDocumentId } : {}),
       });
       const documentId = await saveDocument("sesion", artifact, workflow.key, fields, SESSION_ROUTE).catch(() => undefined);
-      if (documentId && values.unit_document_id && !draft.documentIds.sesion) {
+      if (documentId && referenceDocumentId && !draft.documentIds.sesion) {
         await apiRequest("/documents/relations", {
           method: "POST",
           headers: authHeaders(),
           body: JSON.stringify({
-            parent_document_id: values.unit_document_id,
+            parent_document_id: referenceDocumentId,
             child_document_id: documentId,
             relation_type: "continuation",
             inherited_fields: ["unit_title", "unit_purpose", "curricular_area", "grade", "level"],
-            context: { class_flow: !single, aligned_unit: true },
+            context: { class_flow: !single, aligned_unit: Boolean(values.unit_document_id) },
             compatibility_status: "compatible",
             consent: true,
           }),
@@ -381,15 +389,21 @@ export function CreateClassPage({ mode = "clase" }: { mode?: WizardMode } = {}) 
     }
   };
 
-  const pickUnit = (unitId: string) => {
-    const unit = units.find((item) => item.id === unitId);
+  /**
+   * Guarda el origen elegido (plan anual o unidad) y hereda del documento
+   * resuelto el título y el propósito, sin pisar lo que el docente ya escribió.
+   */
+  const pickReference = (selection: ReferenceSelection) => {
+    const source = resolveReference(selection, references);
     setDraft((current) => ({
       ...current,
       values: {
         ...current.values,
-        unit_document_id: unitId,
-        unit_title: unit ? unit.unit_title : current.values.unit_title,
-        advanced: { ...current.values.advanced, unit_purpose: unit ? unit.purpose : "" },
+        reference_mode: selection.mode,
+        plan_document_id: selection.planId,
+        unit_document_id: selection.unitId,
+        unit_title: source?.kind === "unidad-aprendizaje" ? source.unitTitle : current.values.unit_title,
+        advanced: { ...current.values.advanced, unit_purpose: source?.purpose ?? "" },
       },
     }));
     setErrors([]);
@@ -566,16 +580,14 @@ export function CreateClassPage({ mode = "clase" }: { mode?: WizardMode } = {}) 
                   <span>Título de la unidad</span>
                   <input value={values.unit_title} placeholder="Ej. Cuidamos nuestra naturaleza" onChange={(event) => setValue("unit_title", event.target.value)} />
                 </label>
-                {units.length ? (
-                  <label className="class-grid__wide">
-                    <span>Alinear con una unidad guardada</span>
-                    <select value={values.unit_document_id} onChange={(event) => pickUnit(event.target.value)}>
-                      <option value="">Sin unidad de referencia</option>
-                      {units.map((unit) => <option key={unit.id} value={unit.id}>{unit.title}{unit.area ? ` · ${unit.area}` : ""}{unit.grade ? ` · ${unit.grade}` : ""}</option>)}
-                    </select>
-                    <small className="class-block__help">Toma el título y el propósito de la unidad y deja la sesión vinculada a ella en el historial.</small>
-                  </label>
-                ) : null}
+                <div className="class-grid__wide">
+                  <CurricularReferencePicker
+                    references={references}
+                    selection={{ mode: values.reference_mode, planId: values.plan_document_id, unitId: values.unit_document_id }}
+                    onChange={pickReference}
+                    help="Se toma el título y el propósito del documento elegido, y la sesión queda vinculada a él en el historial."
+                  />
+                </div>
                 <label className="class-grid__wide">
                   <span>Título de la sesión <button type="button" className="class-ai-button" disabled={busy === "suggesting"} onClick={() => void suggestTitle()}>{busy === "suggesting" ? <LoaderCircle className="is-spinning" aria-hidden="true" /> : <WandSparkles aria-hidden="true" />} Sugerir con IA</button></span>
                   <input value={values.session_title} placeholder="(Opcional) Si lo dejas vacío se usa el tema como título" onChange={(event) => setValue("session_title", event.target.value)} />

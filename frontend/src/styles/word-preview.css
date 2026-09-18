@@ -2122,8 +2122,6 @@
 .word-moments tr:nth-child(even) td.is-desarrollo { background: #ee964b; }
 .word-moments tr:nth-child(even) td.is-cierre { background: #7b6cd9; }
 .word-moments__body { width: 64%; }
-.word-moments__image { width: 22%; text-align: center; vertical-align: top; }
-.word-moments__image img { width: 118px; max-width: 100%; height: auto; border-radius: 4px; }
 
 .word-section-h2.is-muted { color: #6b7785; }
 .word-section-h2.is-deep { color: #0f4761; }
@@ -2185,7 +2183,6 @@
   font-style: italic;
 }
 
-.word-worksheet-intro img { width: 70px; height: auto; flex: 0 0 auto; }
 .word-worksheet-intro p { margin: 0; }
 
 .word-card {
@@ -2278,7 +2275,6 @@
   .word-chrome-header { flex-direction: column; align-items: flex-start; }
   .word-chrome-right { align-items: flex-start; text-align: left; }
   .word-chrome-logo { width: 200px; }
-  .word-moments__image img { width: 80px; }
   .word-mindmap__branches { grid-template-columns: 1fr; }
 }
 
