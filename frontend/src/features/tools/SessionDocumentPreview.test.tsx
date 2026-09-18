@@ -11,7 +11,7 @@ describe("SessionDocumentPreview", () => {
     resetYearMotto();
   });
 
-  it("reproduce los bloques del formato de referencia con ilustraciones y anexos", () => {
+  it("reproduce los bloques del formato de referencia y los anexos", () => {
     render(<SessionDocumentPreview artifact={sessionArtifactSample()} values={sessionValuesSample} />);
 
     expect(screen.getByRole("heading", { name: /sesión de aprendizaje n° 04/i })).toBeInTheDocument();
@@ -19,9 +19,8 @@ describe("SessionDocumentPreview", () => {
     expect(screen.getByRole("heading", { name: /VI\. Procesos pedagógicos y actividades/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /VIII\. Soporte pedagógico/i })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /ministerio de educación/i })).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: /^inicio$/i })).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: /^desarrollo$/i })).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: /^cierre$/i })).toBeInTheDocument();
+    // El cuerpo no lleva ilustraciones: solo el logo institucional de la cabecera.
+    expect(screen.getAllByRole("img")).toHaveLength(1);
     expect(screen.getByRole("heading", { name: /teoría del tema/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /instrumento de evaluación — guía de observación/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /^ficha de trabajo$/i })).toBeInTheDocument();

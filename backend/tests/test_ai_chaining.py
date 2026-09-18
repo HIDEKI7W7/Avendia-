@@ -342,3 +342,56 @@ async def test_generate_loads_the_source_document_of_the_same_owner(
     source = generation_mock.await_args.kwargs["source"]
     assert source.document_id == document_id
     assert source.criteria[0] == "Reconoce el impacto del fenómeno en su vida cotidiana."
+
+
+@pytest.mark.asyncio
+async def test_origen_sin_matrices_solo_bloquea_a_los_instrumentos_encadenados(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Un plan anual sin matrices es contexto opcional, no un error.
+
+    Los instrumentos sí necesitan los criterios del origen, así que para ellos
+    el documento sin matrices sigue siendo un 422.
+    """
+    generated = WorkflowGenerationResponse(
+        **_instrument_artifact(["Criterio redactado sin origen."]).model_dump(),
+        model="gemini-test",
+    )
+    monkeypatch.setattr(
+        "app.modules.ai.router.generate_workflow_artifact",
+        AsyncMock(return_value=generated),
+    )
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        owner = await _register_and_login(client, "cadena-sin-matrices@example.edu")
+        created = await client.post(
+            "/api/v1/documents",
+            headers=owner,
+            json={
+                "title": "Plan curricular anual 2026",
+                "document_type": "planificamos/plan-curricular-anual",
+                "content": "…",
+                "metadata": {"fields": {"curricular_area": "Matemática"}},
+            },
+        )
+        assert created.status_code == 201, created.text
+        document_id = created.json()["id"]
+
+        instrument = _instrument_payload(document_id).model_dump(mode="json", exclude_none=True)
+        blocked = await client.post(
+            "/api/v1/ai/tools/workflow/generate", headers=owner, json=instrument
+        )
+        crossword = await client.post(
+            "/api/v1/ai/tools/workflow/generate",
+            headers=owner,
+            json={
+                **instrument,
+                "tool_id": "crucigramas",
+                "module": "recursos",
+                "tool_title": "Crucigrama",
+                "artifact_type": "recurso",
+            },
+        )
+
+    assert blocked.status_code == 422, blocked.text
+    assert crossword.status_code == 200, crossword.text

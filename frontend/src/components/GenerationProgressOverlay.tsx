@@ -1,5 +1,6 @@
 import { Check, LoaderCircle, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 
 const STAGES_BY_FAMILY: Record<string, string[]> = {
   planificamos: [
@@ -113,7 +114,16 @@ function GenerationProgressContent({ toolTitle, items }: { toolTitle: string; it
     return () => window.clearInterval(timer);
   }, [items.length]);
 
-  return (
+  // Bloquea el desplazamiento de fondo mientras la tarjeta está abierta.
+  useEffect(() => {
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previous; };
+  }, []);
+
+  // Se monta en <body> para que quede centrado en la ventana y no dentro del
+  // marco de la herramienta, que tiene barra lateral y cabecera fijas.
+  return createPortal(
     <div className="generation-progress-layer" role="status" aria-live="polite" aria-label={`Generando ${toolTitle}`}>
       <div className="generation-progress-card">
         <span className="generation-progress-card__mark"><Sparkles aria-hidden="true" /></span>
@@ -131,6 +141,7 @@ function GenerationProgressContent({ toolTitle, items }: { toolTitle: string; it
         <div className="generation-progress-card__bar"><i style={{ width: `${((active + 1) / items.length) * 100}%` }} /></div>
         <em>No cierres esta ventana mientras termina la revisión.</em>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

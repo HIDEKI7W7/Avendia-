@@ -4,7 +4,7 @@
  * (teoría del tema, instrumento, ficha de trabajo y mapa mental). El contenido
  * crece libremente: el documento ocupa las hojas que necesite.
  */
-import { AlignmentType, Document, Paragraph, Table, TextRun, VerticalAlign } from "docx";
+import { AlignmentType, Document, Paragraph, Table, TextRun } from "docx";
 
 import type { WorkflowArtifact } from "../exportWorkflowDocx";
 import {
@@ -31,7 +31,6 @@ import {
   table,
 } from "./blocks";
 import { documentFooter, documentHeader, pageProperties, signaturesBlock } from "./chrome";
-import { inlineImage, WORKSHEET_ASSETS } from "./images";
 import { readSessionContent, type SessionContent, type SessionMoment } from "./sessionContent";
 import { COLORS, FONT_DISPLAY, documentStyles } from "./theme";
 
@@ -193,9 +192,8 @@ function worksheetBlocks(content: SessionContent): Block[] {
     table([row([cell(`Nombre y apellidos: ______________________________________   Grado: ${content.info.find(([label]) => label === "Grado")?.[1] ?? "________"}   Fecha: ____ / ____ / ______`, { size: 18, fill: COLORS.warmBg, borderColor: COLORS.warmBorder })])]),
     spacer(80),
     table([row([
-      cell([new Paragraph({ alignment: AlignmentType.CENTER, children: [inlineImage(WORKSHEET_ASSETS[0], 70, "Estudiantes")] })], { width: 16, noBorders: true, vAlign: VerticalAlign.CENTER }),
-      cell(`📌 Lee con atención y responde las preguntas basándote en lo aprendido sobre ${clean(content.mindMap.center).toLocaleLowerCase("es")}.`, { width: 84, size: 19, fill: COLORS.warmBg, borderColor: COLORS.warmBorder, italics: true }),
-    ])], { widths: [16, 84] }),
+      cell(`📌 Lee con atención y responde las preguntas basándote en lo aprendido sobre ${clean(content.mindMap.center).toLocaleLowerCase("es")}.`, { size: 19, fill: COLORS.warmBg, borderColor: COLORS.warmBorder, italics: true }),
+    ])]),
     spacer(80),
   ];
   const circled = ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨", "⑩"];
@@ -227,10 +225,6 @@ function worksheetBlocks(content: SessionContent): Block[] {
     }
     blocks.push(card(paragraphs, { color }));
     blocks.push(spacer(60));
-    if (index === 2 || index === 5) {
-      const asset = WORKSHEET_ASSETS[(index === 2 ? 1 : 2) % WORKSHEET_ASSETS.length];
-      blocks.push(new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 40 }, children: [inlineImage(asset, 64, "Ilustración")] }));
-    }
   });
   blocks.push(subTitle(`Elabora tu ${content.alignment.product ? clean(content.alignment.product).toLocaleLowerCase("es") : "organizador visual"}`, COLORS.bandNavy));
   blocks.push(drawingBox(9));

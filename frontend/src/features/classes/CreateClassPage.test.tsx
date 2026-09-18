@@ -230,7 +230,9 @@ describe("CreateClassPage", () => {
       return {};
     });
     render(<MemoryRouter initialEntries={["/dashboard/crear-clase"]}><CreateClassPage /></MemoryRouter>);
-    const unitSelect = await screen.findByLabelText(/Alinear con una unidad guardada/);
+    const originSelect = await screen.findByLabelText(/Basar este documento en/);
+    fireEvent.change(originSelect, { target: { value: "unidad" } });
+    const unitSelect = await screen.findByLabelText(/^Unidad de aprendizaje$/);
     expect(screen.queryByRole("option", { name: /Sesión vieja/ })).not.toBeInTheDocument();
     fireEvent.change(unitSelect, { target: { value: "unit-1" } });
     expect(screen.getByLabelText(/Título de la unidad/)).toHaveValue("Cuidamos el agua");
@@ -253,6 +255,59 @@ describe("CreateClassPage", () => {
     const relation = mocks.apiRequest.mock.calls.find(([path]) => path === "/documents/relations");
     const relationBody = JSON.parse(String((relation?.[1] as { body: string }).body));
     expect(relationBody).toMatchObject({ parent_document_id: "unit-1", child_document_id: "doc-sesion", relation_type: "continuation" });
+  });
+
+  it("encadena plan anual y unidad: solo ofrece las unidades del plan elegido", async () => {
+    mocks.apiRequest.mockImplementation(async (path: string, init?: { method?: string }) => {
+      if (path === "/documents" && !init?.method) {
+        return [
+          { id: "plan-1", title: "Plan anual 2026", document_type: "planificamos/plan-curricular-anual", metadata_json: { fields: { curricular_area: "Personal Social" } } },
+          { id: "plan-2", title: "Plan anual de Arte", document_type: "planificamos/plan-curricular-anual", metadata_json: {} },
+          { id: "unit-1", title: "Unidad 3: Cuidamos el agua", document_type: "planificamos/unidad-aprendizaje", metadata_json: { fields: { unit_title: "Cuidamos el agua" } } },
+          { id: "unit-2", title: "Unidad de otro plan", document_type: "planificamos/unidad-aprendizaje", metadata_json: {} },
+        ];
+      }
+      if (path === "/documents/plan-1/relations") {
+        return [{ parent_document_id: "plan-1", child_document_id: "unit-1", relation_type: "continuation" }];
+      }
+      return {};
+    });
+    render(<MemoryRouter initialEntries={["/dashboard/crear-clase"]}><CreateClassPage /></MemoryRouter>);
+
+    fireEvent.change(await screen.findByLabelText(/Basar este documento en/), { target: { value: "unidad" } });
+    // Sin plan elegido se ofrecen todas las unidades guardadas.
+    expect(screen.getByRole("option", { name: /Unidad de otro plan/ })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/Plan curricular anual \(opcional\)/), { target: { value: "plan-1" } });
+    await waitFor(() => expect(screen.queryByRole("option", { name: /Unidad de otro plan/ })).not.toBeInTheDocument());
+    expect(screen.getByRole("option", { name: /Cuidamos el agua/ })).toBeInTheDocument();
+  });
+
+  it("quitar el documento de origen no borra el propósito heredado ni lo que escribió el docente", async () => {
+    mocks.apiRequest.mockImplementation(async (path: string, init?: { method?: string }) => {
+      if (path === "/documents" && !init?.method) {
+        return [
+          { id: "unit-1", title: "Unidad 3", document_type: "planificamos/unidad-aprendizaje", metadata_json: { fields: { unit_title: "Cuidamos el agua", learning_purposes: "Explicar el ciclo del agua y proponer acciones de cuidado." } } },
+        ];
+      }
+      return {};
+    });
+    render(<MemoryRouter initialEntries={["/dashboard/planificamos/sesion-aprendizaje"]}><CreateClassPage mode="sesion" /></MemoryRouter>);
+
+    fireEvent.change(await screen.findByLabelText(/Basar este documento en/), { target: { value: "unidad" } });
+    fireEvent.change(screen.getByLabelText(/^Unidad de aprendizaje$/), { target: { value: "unit-1" } });
+    // Cambiar de idea sobre el origen no debe vaciar el propósito ya heredado.
+    fireEvent.change(screen.getByLabelText(/Basar este documento en/), { target: { value: "" } });
+
+    fillStepOne();
+    fireEvent.click(screen.getByRole("button", { name: /^Siguiente/ }));
+    fireEvent.click(screen.getByLabelText(/Dejar que la IA sugiera/));
+    fireEvent.click(screen.getByRole("button", { name: /^Siguiente/ }));
+    fireEvent.click(screen.getByLabelText("Inclusivo"));
+    fireEvent.click(screen.getByLabelText("Bien común"));
+    fireEvent.click(screen.getByRole("button", { name: /^Siguiente/ }));
+
+    expect(screen.getByLabelText(/Propósito de la unidad/)).toHaveValue("Explicar el ciclo del agua y proponer acciones de cuidado.");
   });
 
   it("reabre una clase guardada desde el historial en la etapa donde quedó y arma el ZIP", async () => {

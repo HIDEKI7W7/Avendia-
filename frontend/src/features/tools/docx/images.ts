@@ -38,14 +38,3 @@ export function inlineImage(key: DocxAssetKey, width: number, altText = ""): Ima
     altText: { title: altText || key, description: altText || key, name: key },
   });
 }
-
-/** Ilustraciones asignadas a cada momento didáctico. */
-export function momentAsset(name: string): DocxAssetKey {
-  const key = name.toLocaleLowerCase("es");
-  if (key.includes("inicio")) return "momento_inicio";
-  if (key.includes("cierre")) return "momento_cierre";
-  return "momento_desarrollo";
-}
-
-/** Ilustraciones de la ficha del estudiante, en rotación. */
-export const WORKSHEET_ASSETS: DocxAssetKey[] = ["ficha_1", "ficha_4", "momento_inicio"];

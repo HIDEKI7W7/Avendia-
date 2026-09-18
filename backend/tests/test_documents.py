@@ -145,3 +145,54 @@ async def test_document_relations_are_persistent_consent_bound_and_owner_scoped(
             f"/api/v1/documents/{target.json()['id']}/relations", headers=other_headers
         )
         assert private.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_la_procedencia_curricular_es_unica_por_documento() -> None:
+    """Cambiar el origen sustituye la procedencia; no deja el documento colgando de dos."""
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        headers = await register_and_login(client, "procedencia@example.edu")
+
+        async def crear(title: str, document_type: str) -> str:
+            created = await client.post(
+                "/api/v1/documents",
+                headers=headers,
+                json={"title": title, "document_type": document_type, "content": "…"},
+            )
+            assert created.status_code == 201, created.text
+            return created.json()["id"]
+
+        unidad_a = await crear("Unidad A", "planificamos/unidad-aprendizaje")
+        unidad_b = await crear("Unidad B", "planificamos/unidad-aprendizaje")
+        sesion = await crear("Sesión", "planificamos/sesion-aprendizaje")
+
+        async def vincular(parent: str) -> None:
+            response = await client.post(
+                "/api/v1/documents/relations",
+                headers=headers,
+                json={
+                    "parent_document_id": parent,
+                    "child_document_id": sesion,
+                    "relation_type": "continuation",
+                    "inherited_fields": ["unit_title"],
+                    "context": {},
+                    "compatibility_status": "compatible",
+                    "consent": True,
+                },
+            )
+            assert response.status_code == 201, response.text
+
+        await vincular(unidad_a)
+        await vincular(unidad_b)
+
+        relations = await client.get(f"/api/v1/documents/{sesion}/relations", headers=headers)
+        assert relations.status_code == 200, relations.text
+        continuations = [
+            row for row in relations.json() if row["relation_type"] == "continuation"
+        ]
+        assert len(continuations) == 1
+        assert continuations[0]["parent_document_id"] == unidad_b
+
+        # La unidad abandonada ya no lista la sesión como descendiente.
+        huerfana = await client.get(f"/api/v1/documents/{unidad_a}/relations", headers=headers)
+        assert huerfana.json() == []

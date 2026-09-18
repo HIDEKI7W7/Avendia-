@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Download, FileText, LayoutGrid, Printer } from "lucide-react";
 
-import { assetDataUrl, momentAsset, WORKSHEET_ASSETS } from "./docx/images";
+import { assetDataUrl } from "./docx/images";
 import { readSessionContent, type SessionContent } from "./docx/sessionContent";
 import { useYearMotto } from "./docx/motto";
 import type { WorkflowArtifact } from "./exportWorkflowDocx";
@@ -72,7 +72,6 @@ function Moments({ content }: { content: SessionContent }) {
     <table className="word-table word-moments">
       <tbody>
         {content.moments.map((moment, index) => {
-          const image = <td className="word-moments__image"><img src={assetDataUrl(momentAsset(moment.name))} alt={moment.name} /></td>;
           const body = (
             <td className="word-moments__body">
               <CellText text={[moment.teacher, moment.student && moment.student !== moment.teacher ? `Acciones del estudiante: ${moment.student}` : "", moment.evidence ? `Evidencia y retroalimentación: ${moment.evidence}` : ""].filter(Boolean).join("\n") || "________________"} />
@@ -84,7 +83,7 @@ function Moments({ content }: { content: SessionContent }) {
                 <strong>{moment.name.toLocaleUpperCase("es")}</strong>
                 {moment.minutes ? <small>{moment.minutes}</small> : null}
               </td>
-              {index % 2 === 1 ? <>{image}{body}</> : <>{body}{image}</>}
+              {body}
             </tr>
           );
         })}
@@ -101,7 +100,6 @@ function Worksheet({ content }: { content: SessionContent }) {
       <p className="word-worksheet-title">¡{content.title}!</p>
       <div className="word-worksheet-id">Nombre y apellidos: ______________________________ &nbsp; Grado: {grade} &nbsp; Fecha: ____ / ____ / ______</div>
       <div className="word-worksheet-intro">
-        <img src={assetDataUrl(WORKSHEET_ASSETS[0])} alt="" />
         <p>📌 Lee con atención y responde las preguntas basándote en lo aprendido sobre {content.mindMap.center.toLocaleLowerCase("es")}.</p>
       </div>
       {content.worksheet.map((item, index) => {

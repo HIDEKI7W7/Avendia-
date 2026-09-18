@@ -258,8 +258,8 @@
 [data-theme="dark"] .admin-usage-table td { color:#c3cddd; border-color:#26344c; }
 [data-theme="dark"] .admin-usage-table td:first-child strong { color:#edf1f7; }
 
-.generation-progress-layer { position:fixed; inset:0; z-index:110; display:grid; place-items:center; padding:20px; background:rgba(8,18,39,.58); backdrop-filter:blur(8px); }
-.generation-progress-card { width:min(100%,560px); padding:32px; border:1px solid #d9e2ef; border-radius:26px; color:#10203f; background:#fff; box-shadow:0 28px 90px rgba(6,20,48,.3); }
+.generation-progress-layer { position:fixed; inset:0; z-index:900; display:grid; place-items:center; padding:20px; background:rgba(8,18,39,.58); backdrop-filter:blur(8px); }
+.generation-progress-card { width:min(100%,560px); max-height:calc(100dvh - 40px); overflow-y:auto; padding:32px; border:1px solid #d9e2ef; border-radius:26px; color:#10203f; background:#fff; box-shadow:0 28px 90px rgba(6,20,48,.3); }
 .generation-progress-card__mark { display:grid; place-items:center; width:52px; height:52px; margin-bottom:14px; border-radius:16px; color:#fff; background:linear-gradient(135deg,#1473f3,#7450ee); box-shadow:0 12px 28px rgba(74,73,221,.27); }
 .generation-progress-card__mark svg { width:25px; }
 .generation-progress-card>small { color:#6b50dc; font-size:10px; font-weight:850; letter-spacing:.08em; text-transform:uppercase; }

@@ -1,0 +1,18 @@
+/* Selector de plan anual / unidad en cascada, compartido por las herramientas. */
+.curricular-reference { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; padding: 14px; border: 1px dashed #c7d4e8; border-radius: 12px; background: #f7f9ff; }
+.curricular-reference > label { display: grid; gap: 6px; font-size: 12px; font-weight: 700; color: #28354e; }
+.curricular-reference select { min-height: 44px; padding: 10px 12px; border: 1px solid #d7dfeb; border-radius: 10px; background: #fff; font: 500 14px/1.4 inherit; color: #1f2937; }
+.curricular-reference select:focus { outline: 2px solid #85c1e9; border-color: #2d7dd2; }
+.curricular-reference select:disabled { color: #8c99ad; background: #eef2f8; }
+.curricular-reference small { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; font-weight: 500; }
+.curricular-reference small svg { width: 13px; height: 13px; }
+.curricular-reference__help { grid-column: 1 / -1; }
+
+[data-theme="dark"] .curricular-reference { border-color: #34445d; background: #101b2d; }
+[data-theme="dark"] .curricular-reference > label { color: #d6e0f0; }
+[data-theme="dark"] .curricular-reference select { color: #edf3ff; border-color: #34445d; background: #142136; }
+[data-theme="dark"] .curricular-reference select:disabled { color: #8494ab; background: #0d1626; }
+
+@media (max-width: 720px) {
+  .curricular-reference { grid-template-columns: 1fr; }
+}

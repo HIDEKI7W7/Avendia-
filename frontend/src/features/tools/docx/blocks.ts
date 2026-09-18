@@ -20,8 +20,6 @@ import {
 } from "docx";
 
 import { splitLabel, splitNarrative } from "../documentFormat";
-import { inlineImage, momentAsset } from "./images";
-import type { DocxAssetKey } from "./assets";
 import { CELL_MARGINS, COLORS, CONTENT_WIDTH_PORTRAIT, FONT_BODY, FONT_DISPLAY, momentColor, noBorder, thinBorder } from "./theme";
 
 export type Align = (typeof AlignmentType)[keyof typeof AlignmentType];
@@ -248,28 +246,27 @@ export function labeledRowsTable(rows: LabeledRow[], options: { labelWidth?: num
   return table([...head, ...body], { widths: [labelWidth, 100 - labelWidth] });
 }
 
-export type Moment = { name: string; minutes?: string; text: string; asset?: DocxAssetKey };
+export type Moment = { name: string; minutes?: string; text: string };
 
-/** VI. Procesos pedagógicos: fila por momento con banda de color e ilustración alternada. */
-export function momentsTable(moments: Moment[], options: { title?: string; withImages?: boolean } = {}): Table {
+/**
+ * VI. Procesos pedagógicos: una fila por momento con su banda de color.
+ *
+ * Sin ilustraciones: el documento solo contiene lo que se genera a partir de los
+ * datos del docente, no imágenes decorativas ajenas al tema de la sesión.
+ */
+export function momentsTable(moments: Moment[], options: { title?: string } = {}): Table {
   const head = options.title
-    ? [row([cell(options.title, { fill: COLORS.band, bold: true, color: COLORS.white, size: 21, colSpan: 3 })], { header: true })]
+    ? [row([cell(options.title, { fill: COLORS.band, bold: true, color: COLORS.white, size: 21, colSpan: 2 })], { header: true })]
     : [];
-  const withImages = options.withImages ?? true;
-  const body = moments.map((moment, index) => {
+  const body = moments.map((moment) => {
     const accent = momentColor(moment.name);
-    const imageOnLeft = index % 2 === 1;
     const label = cell([
       new Paragraph({ alignment: AlignmentType.CENTER, children: [run(moment.name.toLocaleUpperCase("es"), { bold: true, color: COLORS.white, size: 19 })], spacing: { after: 20 } }),
       ...(moment.minutes ? [new Paragraph({ alignment: AlignmentType.CENTER, children: [run(moment.minutes, { color: COLORS.white, size: 16 })] })] : []),
     ], { fill: accent, width: 14, borderColor: accent });
-    const content = cell(cellParagraphs(moment.text, { size: 18 }), { width: withImages ? 64 : 86 });
-    const picture = withImages
-      ? cell([new Paragraph({ alignment: AlignmentType.CENTER, children: [inlineImage(moment.asset ?? momentAsset(moment.name), 118, moment.name)] })], { width: 22, vAlign: "top", margins: { top: 80, bottom: 80, left: 40, right: 40 } })
-      : null;
+    const content = cell(cellParagraphs(moment.text, { size: 18 }), { width: 86 });
     // Las filas pueden partirse entre páginas: un momento largo no debe dejar media hoja en blanco.
-    if (!picture) return new TableRow({ cantSplit: false, children: [label, content] });
-    return new TableRow({ cantSplit: false, children: imageOnLeft ? [label, picture, content] : [label, content, picture] });
+    return new TableRow({ cantSplit: false, children: [label, content] });
   });
   return new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },

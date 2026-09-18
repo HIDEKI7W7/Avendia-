@@ -19,7 +19,7 @@ from app.modules.admin.service import (
     refund_ai_credits,
     reserve_ai_credits,
 )
-from app.modules.ai.chaining import chained_source_from_document
+from app.modules.ai.chaining import CHAINED_INSTRUMENT_TOOLS, chained_source_from_document
 from app.modules.ai.presentation_export import build_presentation_pptx
 from app.modules.ai.presentation_images import find_presentation_image
 from app.modules.ai.schemas import (
@@ -347,7 +347,10 @@ async def create_workflow_artifact(
                 detail="El documento de origen no existe o no pertenece a tu cuenta.",
             )
         source = chained_source_from_document(source_document)
-        if source is None:
+        # Los instrumentos encadenados no pueden redactarse sin los criterios del
+        # origen. Para el resto, el documento es contexto opcional: si no tiene
+        # matrices aprovechables se genera igual en lugar de bloquear al docente.
+        if source is None and payload.tool_id in CHAINED_INSTRUMENT_TOOLS:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="El documento de origen no tiene matrices para encadenar.",

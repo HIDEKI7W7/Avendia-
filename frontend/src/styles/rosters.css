@@ -52,7 +52,7 @@
 .roster-table-scroll { width:100%; max-width:100%; min-width:0; overflow-x:auto; border:1px solid var(--line); border-radius:12px; }
 .roster-table { width:100%; border-collapse:collapse; }
 .roster-table th { height:42px; padding:0 12px; color:#748198; background:#f7f9fc; font-size:.75rem; font-weight:850; letter-spacing:.06em; text-align:left; text-transform:uppercase; }
-.roster-table td { min-height:58px; padding:10px 12px; border-top:1px solid #e8edf4; color:#40506a; font-size:.875rem; vertical-align:middle; }
+.roster-table td { height:58px; padding:10px 12px; border-top:1px solid #e8edf4; color:#40506a; font-size:.875rem; vertical-align:middle; }
 .roster-table tbody tr:hover { background:#fbfcff; }
 .roster-student-name { display:flex; align-items:center; gap:10px; min-width:190px; }
 .roster-student-name>span { display:grid; flex:0 0 auto; place-items:center; width:36px; height:36px; border-radius:11px; color:#5943bd; background:#eeeaff; font-size:.8125rem; font-weight:850; }
@@ -224,7 +224,7 @@
   .roster-table,.roster-table tbody { display:grid; gap:10px; }
   .roster-table thead { display:none; }
   .roster-table tr { display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:14px; border:1px solid var(--line); border-radius:12px; background:white; }
-  .roster-table td { display:grid; align-content:start; gap:5px; min-height:0; padding:0; border:0; }
+  .roster-table td { display:grid; align-content:start; gap:5px; height:auto; min-height:0; padding:0; border:0; }
   .roster-table td::before { content:attr(data-label); color:#8490a3; font-size:.75rem; font-weight:850; letter-spacing:.06em; text-transform:uppercase; }
   .roster-table td:nth-child(2) { grid-column:1/-1; grid-row:1; }
   .roster-table td:nth-child(1) { grid-column:1; grid-row:4; }

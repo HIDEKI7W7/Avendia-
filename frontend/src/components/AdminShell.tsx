@@ -98,6 +98,7 @@ export function AdminShell() {
         <div className="sidebar__separator" />
 
         <nav className="sidebar__nav sidebar__nav--utility" aria-label="Utilidades de administración">
+          <Link to="/admin/moderacion" className="nav-item" title="Moderación y contenido"><ShieldCheck aria-hidden="true" /><span>Moderación y contenido</span></Link>
           <Link to="/admin/utilidades" className="nav-item" title="Utilidades y comunidad"><FileText aria-hidden="true" /><span>Utilidades y comunidad</span></Link>
         </nav>
 
