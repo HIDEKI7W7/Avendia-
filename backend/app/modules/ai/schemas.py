@@ -317,6 +317,9 @@ class WorkflowGenerationRequest(BaseModel):
     fields: dict[str, str]
     requested_sections: list[str] = Field(min_length=1, max_length=16)
     request_id: UUID | None = None
+    # Documento guardado del mismo docente cuyas matrices alimentan esta generación
+    # (sesión → instrumento, unidad → sesión). El servidor lo carga y lo verifica.
+    source_document_id: UUID | None = None
 
     @field_validator("tool_title")
     @classmethod

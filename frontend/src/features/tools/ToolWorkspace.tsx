@@ -9,6 +9,7 @@ const SourceDocumentTool = lazy(() => import("../evaluations/source-documents/So
 const ObservationTool = lazy(() => import("../evaluations/observation/ObservationTool").then((module) => ({ default: module.ObservationTool })));
 const RecoveryFolderTool = lazy(() => import("../evaluations/recovery/RecoveryFolderTool").then((module) => ({ default: module.RecoveryFolderTool })));
 const AuxiliaryRegisterTool = lazy(() => import("../evaluations/registers/AuxiliaryRegisterTool").then((module) => ({ default: module.AuxiliaryRegisterTool })));
+const CreateClassPage = lazy(() => import("../classes/CreateClassPage").then((module) => ({ default: module.CreateClassPage })));
 
 function EvaluationLoadingState() {
   return <div className="admin-state" role="status">Preparando la herramienta de evaluación…</div>;
@@ -17,6 +18,10 @@ function EvaluationLoadingState() {
 export function ToolWorkspace() {
   const { moduleId, toolId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
+  // La sesión suelta usa el asistente corto; un documento guardado se reabre en el editor completo.
+  if (moduleId === "planificamos" && toolId === "sesion-aprendizaje" && !searchParams.get("document")) {
+    return <Suspense fallback={<div className="admin-state" role="status">Preparando la sesión…</div>}><CreateClassPage mode="sesion" /></Suspense>;
+  }
   if (moduleId !== "evaluamos") return <WorkflowTool />;
 
   const instrumentId = searchParams.get("document")?.trim() || undefined;

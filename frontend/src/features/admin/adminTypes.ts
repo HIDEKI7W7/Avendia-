@@ -50,6 +50,6 @@ export type ContentSummary = {
   documents_by_type: Segment[]; events_by_type: Segment[];
   recent_documents: Array<Record<string, string>>; recent_events: Array<Record<string, string | boolean>>;
 };
-export type PlatformSettings = { registration_open: boolean; default_ai_credits: number; low_credit_threshold: number; updated_at: string };
+export type PlatformSettings = { registration_open: boolean; default_ai_credits: number; low_credit_threshold: number; year_motto: string; updated_at: string };
 export type SystemStatus = { api: string; database: string; gemini_configured: boolean; gemini_model: string; environment: string; checked_at: string };
 export type AdminTab = "summary" | "users" | "ai" | "content" | "audit" | "settings";

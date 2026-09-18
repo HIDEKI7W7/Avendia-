@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class AdminUsageSummary(BaseModel):
@@ -264,6 +264,7 @@ class PlatformSettingsRead(BaseModel):
     registration_open: bool
     default_ai_credits: int
     low_credit_threshold: int
+    year_motto: str
     updated_at: datetime
 
 
@@ -271,7 +272,13 @@ class PlatformSettingsUpdate(BaseModel):
     registration_open: bool
     default_ai_credits: int = Field(ge=0, le=1_000_000)
     low_credit_threshold: int = Field(ge=0, le=1_000_000)
+    year_motto: str = Field(max_length=200)
     reason: str = Field(min_length=3, max_length=240)
+
+    @field_validator("year_motto")
+    @classmethod
+    def _strip_motto(cls, value: str) -> str:
+        return " ".join(value.split())
 
 
 class AdminSystemStatus(BaseModel):

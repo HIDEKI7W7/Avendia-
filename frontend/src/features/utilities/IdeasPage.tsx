@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
-import { readSessionUser } from "../../lib/session";
 import { errorText, utilityApi, utilityKey, type Page } from "./api";
 import { UtilityHero } from "./UtilityHero";
 import { useUtilitySummary } from "./useUtilitySummary";
@@ -50,7 +49,6 @@ export function IdeasPage() {
           <small>{states[idea.status]} · {categories[idea.category] ?? idea.category}</small><h2>{idea.title}</h2><p className="utilities-prose">{idea.description}</p>{idea.tool ? <p>Herramienta: {idea.tool}</p> : null}
           {idea.response ? <blockquote><strong>Respuesta del equipo</strong><p>{idea.response}</p></blockquote> : null}
           <div className="utilities-actions"><button className="secondary-button" aria-pressed={idea.voted} disabled={mutation.isPending} onClick={() => mutation.mutate({ path: `/ideas/${idea.id}/vote?enabled=${!idea.voted}`, method: "PUT" })}>{idea.voted ? "Retirar voto" : "Apoyar"} · {idea.votes}</button><button className="secondary-button" aria-expanded={selected === idea.id} onClick={() => setSelected(selected === idea.id ? null : idea.id)}>Conversación</button>{idea.mine && idea.status === "received" ? <button className="secondary-button" onClick={() => { setEditing(idea); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Editar</button> : null}</div>
-          {readSessionUser().role === "admin" ? <form className="utilities-form" onSubmit={e => { e.preventDefault(); const data = Object.fromEntries(new FormData(e.currentTarget)); mutation.mutate({ path: `/admin/ideas/${idea.id}`, method: "PATCH", body: data }); }}><label>Estado administrativo<select name="status" defaultValue={idea.status}>{Object.entries(states).map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label><label>Respuesta y motivo<textarea name="response" required minLength={4} maxLength={4000} defaultValue={idea.response} /></label><button className="secondary-button" disabled={mutation.isPending}>Actualizar y notificar al autor</button></form> : null}
           {selected === idea.id ? <IdeaComments id={idea.id} /> : null}
         </article>)}<div className="utilities-actions"><button className="secondary-button" disabled={page === 1} onClick={() => setPage(p => p-1)}>Anterior</button><span>Página {page}</span><button className="secondary-button" disabled={page*12 >= query.data.total} onClick={() => setPage(p => p+1)}>Siguiente</button></div>
       </>}

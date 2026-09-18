@@ -66,11 +66,12 @@ export function Sidebar({ open, collapsed, onClose, onToggleCollapse }: SidebarP
           <span className="profile-button__avatar">{sessionUserInitials(user)}</span><span><strong>{user.full_name}</strong><small>{user.role === "admin" ? "Administrador · Control total" : "Docente · Profesional"}</small></span>
         </NavLink>
         <div className="sidebar__account-actions">
+          {user.role === "admin" ? <NavLink to="/admin" className="icon-button" aria-label="Ir al panel de administración" title="Panel de administración"><ShieldCheck /></NavLink> : null}
           <NavLink to="/dashboard/configuracion" className="icon-button" aria-label="Configuración"><Settings /></NavLink>
           <button className="icon-button" aria-label="Cerrar sesión" onClick={() => { endSession(); location.assign("/login"); }}><LogOut /></button>
         </div>
       </div>
-      {!collapsed ? <div className="sidebar-credits"><Coins /><span><small>Créditos IA</small><strong>{(user.ai_credits_balance ?? 0).toLocaleString("es-PE")}</strong></span>{user.role === "admin" ? <NavLink to="/admin" title="Abrir centro de administración"><ShieldCheck /></NavLink> : null}</div> : null}
+      {!collapsed ? <div className="sidebar-credits"><Coins /><span><small>Créditos IA</small><strong>{(user.ai_credits_balance ?? 0).toLocaleString("es-PE")}</strong></span></div> : null}
       <button className="sidebar__collapse" onClick={onToggleCollapse} aria-label={collapsed ? "Expandir menú" : "Contraer menú"}>
         {collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}<span>{collapsed ? "" : "Contraer menú"}</span>
       </button>

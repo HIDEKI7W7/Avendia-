@@ -1,0 +1,98 @@
+/* Asistente "Crear mi clase": pasos numerados, bloques con banda y cadena de etapas */
+.class-wizard__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.class-wizard__header h1 { margin: 4px 0 6px; font: 800 clamp(22px, 2.2vw, 30px)/1.15 Manrope, sans-serif; letter-spacing: -.03em; }
+.class-wizard__header p { margin: 0; max-width: 640px; color: var(--muted); font-size: 14px; line-height: 1.55; }
+.class-wizard__header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.class-wizard__header-actions > * { display: inline-flex; align-items: center; gap: 8px; }
+.class-wizard__header-actions svg { width: 16px; height: 16px; }
+.class-link { padding: 0; border: 0; background: none; color: #1f4d78; font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }
+
+.class-chain { display: flex; gap: 10px; margin: 0; padding: 0; list-style: none; flex-wrap: wrap; }
+.class-chain li { display: flex; align-items: center; gap: 10px; flex: 1 1 200px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: white; color: #6b7785; }
+.class-chain li span { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; border: 2px solid #d7dfeb; font: 800 12px/1 Manrope, sans-serif; }
+.class-chain li span svg { width: 14px; }
+.class-chain li strong { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+.class-chain li.is-active { border-color: #2d7dd2; color: #1f4d78; background: #eef5ff; }
+.class-chain li.is-active span { border-color: #2d7dd2; background: #2d7dd2; color: white; }
+.class-chain li.is-done { color: #1f8a4c; border-color: #bfe3cc; background: #f2fbf5; }
+.class-chain li.is-done span { border-color: #3fa34d; background: #3fa34d; color: white; }
+
+.class-steps { display: flex; margin: 0; padding: 16px 10px; list-style: none; border: 1px solid var(--line); border-radius: 16px; background: white; overflow-x: auto; }
+.class-steps li { position: relative; flex: 1 1 0; min-width: 90px; }
+.class-steps li:not(:last-child)::after { content: ""; position: absolute; top: 20px; left: calc(50% + 22px); width: calc(100% - 44px); height: 3px; background: #e0e6f0; border-radius: 2px; }
+.class-steps li.is-done:not(:last-child)::after { background: #17a398; }
+.class-steps button { position: relative; z-index: 1; display: grid; justify-items: center; gap: 6px; width: 100%; border: 0; background: transparent; color: #8a96aa; cursor: pointer; }
+.class-steps button span { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; border: 2px solid #d7dfeb; background: white; font: 800 13px/1 Manrope, sans-serif; }
+.class-steps button span svg { width: 16px; }
+.class-steps button strong { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+.class-steps li.is-active button { color: #0b769f; }
+.class-steps li.is-active button span { border-color: #17a398; background: #17a398; color: white; box-shadow: 0 0 0 5px rgba(23, 163, 152, .18); }
+.class-steps li.is-done button { color: #17a398; }
+.class-steps li.is-done button span { border-color: #17a398; color: #17a398; }
+
+.class-card { display: grid; gap: 18px; }
+.class-card__intro { display: flex; align-items: center; gap: 14px; }
+.class-card__intro > div { flex: 1 1 auto; }
+.class-tutorial-link { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 8px; background: #fdecec; color: #b3261e; font-size: 12px; font-weight: 700; text-decoration: none; white-space: nowrap; }
+.class-tutorial-link svg { width: 16px; height: 16px; }
+.class-wizard__header-actions a.secondary-button { text-decoration: none; }
+.class-card__intro > span { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 12px; background: #17a398; color: white; font: 800 20px/1 Manrope, sans-serif; }
+.class-card__intro h2 { margin: 0; font: 800 20px/1.2 Manrope, sans-serif; }
+.class-card__intro p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+
+.class-block { display: grid; gap: 14px; }
+.class-block__band { display: inline-block; width: fit-content; margin: 0; padding: 7px 14px; border-radius: 8px; background: linear-gradient(135deg, #2d7dd2, #17a398); color: white; font: 700 13px/1.2 Manrope, sans-serif; }
+.class-block__help { margin: 0; color: var(--muted); font-size: 13px; }
+
+.class-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.class-grid label, .class-advanced label { display: grid; gap: 6px; font-size: 12px; font-weight: 700; color: #28354e; }
+.class-grid label > span, .class-advanced label > span { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.class-grid input, .class-grid select, .class-grid textarea, .class-advanced textarea { min-height: 44px; padding: 10px 12px; border: 1px solid #d7dfeb; border-radius: 10px; background: #fbfcff; font: 500 14px/1.4 inherit; color: #1f2937; }
+.class-grid textarea, .class-advanced textarea { min-height: 0; }
+.class-grid input:focus, .class-grid select:focus, .class-grid textarea:focus, .class-advanced textarea:focus { outline: 2px solid #85c1e9; border-color: #2d7dd2; }
+.class-grid__wide { grid-column: 1 / -1; }
+
+.class-ai-button { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border: 0; border-radius: 8px; background: #1b4f72; color: white; font-size: 11px; font-weight: 700; cursor: pointer; }
+.class-ai-button:disabled { opacity: .65; cursor: wait; }
+.class-ai-button svg { width: 14px; height: 14px; }
+
+.class-advanced { border: 1px dashed #d7dfeb; border-radius: 12px; padding: 8px 14px; display: grid; gap: 12px; }
+.class-advanced > summary { cursor: pointer; font-size: 13px; font-weight: 700; color: #1f4d78; padding: 6px 0; }
+
+.class-checks, .class-chips { display: grid; gap: 10px; }
+.class-checks { grid-template-columns: 1fr; }
+.class-chips { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+.class-checks label, .class-chips label { position: relative; display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 10px 14px; border: 1.5px solid #d7dfeb; border-radius: 12px; background: #fbfcff; font-size: 13px; font-weight: 600; color: #33405a; cursor: pointer; }
+.class-checks label input, .class-chips label input { width: 18px; height: 18px; accent-color: #17a398; flex: 0 0 auto; }
+.class-checks label.is-selected, .class-chips label.is-selected { border-color: #17a398; background: #e9f8f5; color: #0b5c56; }
+.class-checks label.is-ai { border-style: dashed; }
+.class-checks label span, .class-chips label span { display: inline-flex; align-items: center; gap: 8px; }
+.class-checks label span svg { width: 16px; color: #7b6cd9; }
+
+.class-wizard__footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.class-wizard__footer > div { display: flex; gap: 10px; flex-wrap: wrap; }
+.class-wizard__footer button { display: inline-flex; align-items: center; gap: 8px; }
+.class-wizard__footer button svg { width: 16px; height: 16px; }
+.class-wizard__hint { margin: 0; color: var(--muted); font-size: 13px; }
+
+@media (max-width: 720px) {
+  .class-grid { grid-template-columns: 1fr; }
+  .class-chain li { flex-basis: 100%; }
+}
+
+/* Bloque de portada "Crea tu clase completa" */
+.home-class-flow { display: grid; gap: 16px; padding: 26px 28px; border: 1px solid var(--line); border-radius: 18px; background: linear-gradient(135deg, #f4f9ff 0%, #ffffff 60%); box-shadow: 0 8px 30px rgba(11, 24, 54, .035); }
+.home-class-flow__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.home-class-flow__head h2 { margin: 4px 0 6px; font: 800 clamp(20px, 2vw, 26px)/1.15 Manrope, sans-serif; letter-spacing: -.03em; }
+.home-class-flow__head p { margin: 0; max-width: 560px; color: var(--muted); font-size: 14px; line-height: 1.55; }
+.home-class-flow__steps { display: flex; align-items: stretch; gap: 8px; margin: 0; padding: 0; list-style: none; flex-wrap: wrap; }
+.home-class-flow__steps li { display: flex; align-items: center; gap: 10px; flex: 1 1 200px; padding: 12px 14px; border-radius: 12px; background: white; border: 1px solid #dfe7f2; color: #28354e; font-size: 13px; font-weight: 700; }
+.home-class-flow__steps li span::before { content: attr(data-step); }
+.home-class-flow__steps li span { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: #2d7dd2; color: white; font: 800 12px/1 Manrope, sans-serif; flex: 0 0 auto; }
+.home-class-flow__steps li small { display: block; font-weight: 500; color: var(--muted); font-size: 12px; }
+.home-class-flow__steps li:nth-child(2) span { background: #17a398; }
+.home-class-flow__steps li:nth-child(3) span { background: #7b6cd9; }
+.home-class-flow__steps .home-class-flow__arrow { flex: 0 0 auto; align-self: center; border: 0; background: transparent; color: #8a96aa; padding: 0; font-weight: 400; }
+.home-class-flow__cta { display: inline-flex; align-items: center; gap: 10px; }
+.home-class-flow__cta svg { width: 18px; height: 18px; }
+@media (max-width: 720px) { .home-class-flow__steps .home-class-flow__arrow { display: none; } }

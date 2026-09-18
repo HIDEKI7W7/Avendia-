@@ -24,7 +24,6 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 import { Link, Navigate, useLocation, useSearchParams } from "react-router-dom";
 
 import { getWorkflowFieldGuide } from "../../config/aiGuides";
-import { getDynamicEducationOptions } from "../../config/education";
 import { getToolByPath, tools as toolCatalog } from "../../config/tools";
 import { detectCurricularArea } from "../../config/toolDiscovery";
 import { StudentSelector, type StudentSelection } from "../../components/students/StudentSelector";
@@ -36,14 +35,18 @@ import {
   type WorkflowField,
   type WorkflowFieldGuide,
   type WorkflowStep,
-  workflowModalities,
 } from "../../config/workflows";
-import { ApiError, apiBlob, apiRequest } from "../../lib/api";
+import { ApiError, apiBlob } from "../../lib/api";
 import { sessionDraftScope, readAccessToken } from "../../lib/session";
 import { useTeacherExperience } from "../../context/TeacherExperienceContext";
 import type { WorkflowArtifact } from "./exportWorkflowDocx";
 import { ContextualAIGuideDialog } from "./ContextualAIGuideDialog";
 import { DocumentReferencePanel, type DocumentReferenceSelection } from "./DocumentReferencePanel";
+import { CurricularReferencePicker } from "../../components/CurricularReferencePicker";
+import {
+  type CurricularReference,
+  type ReferenceSelection,
+} from "../../lib/curricularReference";
 import { InteractiveArtifact } from "./InteractiveArtifact";
 import {
   contextStatus,
@@ -54,59 +57,22 @@ import {
   type AssistanceMode,
 } from "./pedagogicalContext";
 import { StructuredArtifactPreview } from "./StructuredArtifactPreview";
+import { localDraftStorage } from "./workflow/adapters/localDraftStorage";
+import { httpWorkflowGateway } from "./workflow/adapters/httpWorkflowGateway";
+import { httpAssistanceGateway } from "./workflow/adapters/httpAssistanceGateway";
+import { DRAFT_VERSION, type Draft } from "./workflow/domain/draft";
+import { displayValue, type FieldValue } from "./workflow/domain/fieldValue";
+import { fieldError, resolvedFieldOptions } from "./workflow/domain/validation";
+import {
+  effectiveOrigin,
+  inheritedValues,
+  originDocumentId,
+  originSource,
+  releasedFields,
+} from "./workflow/domain/curricularOrigin";
 import { applyInstitutionalTemplate, listInstitutionalTemplates, renderInstitutionalTemplate, type InstitutionalTemplate } from "./templateApi";
 
-type FieldValue = string | string[];
-type Draft = {
-  version: 2;
-  documentId?: string;
-  serverVersion?: number;
-  values: Record<string, FieldValue>;
-  currentStep: number;
-  artifact: WorkflowArtifact | null;
-  templateId?: string;
-  templateName?: string;
-  fieldSources?: Record<string, "teacher" | "ai" | "reference" | "profile">;
-  reference?: DocumentReferenceSelection;
-  updatedAt: string;
-};
-
 type SaveStatus = "idle" | "saving" | "saved" | "generating" | "error";
-
-function displayValue(value: FieldValue | undefined) {
-  return Array.isArray(value) ? value.join(", ") : String(value ?? "");
-}
-
-function requiredIsMissing(field: WorkflowField, value: FieldValue | undefined) {
-  if (!field.required) return false;
-  if (Array.isArray(value)) return !value.some((item) => item.trim());
-  return !String(value ?? "").trim();
-}
-
-function resolvedFieldOptions(field: WorkflowField, values: Record<string, FieldValue>) {
-  if (!field.dynamicOptions) return field.options ?? [];
-  return getDynamicEducationOptions(field.dynamicOptions, displayValue(values[field.dependsOn ?? ""]));
-}
-
-function fieldError(field: WorkflowField, value: FieldValue | undefined, options: string[] = []) {
-  if (requiredIsMissing(field, value)) return "Completa este campo para continuar.";
-  if (field.type === "repeater" && field.minItems) {
-    const completedItems = Array.isArray(value) ? value.filter((item) => item.trim()).length : 0;
-    if (completedItems < field.minItems) return `Añade al menos ${field.minItems} ${field.minItems === 1 ? "elemento" : "elementos"}.`;
-  }
-  if (field.type === "select" && String(value ?? "").trim() && options.length && !options.includes(String(value))) {
-    return "Selecciona una opción válida para el contexto elegido.";
-  }
-  if (field.type === "multiselect" && Array.isArray(value) && options.length && value.some((item) => !options.includes(item))) {
-    return "Revisa las opciones: alguna ya no corresponde al contexto elegido.";
-  }
-  if (field.type === "number" && String(value ?? "").trim()) {
-    const numericValue = Number(value);
-    if (field.min !== undefined && numericValue < field.min) return `El valor mínimo es ${field.min}.`;
-    if (field.max !== undefined && numericValue > field.max) return `El valor máximo es ${field.max}.`;
-  }
-  return "";
-}
 
 function artifactAsText(artifact: WorkflowArtifact) {
   const activity = artifact.activity?.items.flatMap((item, index) => [
@@ -133,43 +99,6 @@ function artifactAsText(artifact: WorkflowArtifact) {
   ].filter(Boolean).join("\n\n");
 }
 
-function readDraft(storageKey: string, legacyStorageKey: string, initialValues: Record<string, FieldValue>): Draft {
-  const fallback: Draft = {
-    version: 2,
-    values: initialValues,
-    currentStep: 0,
-    artifact: null,
-    fieldSources: Object.fromEntries(
-      Object.entries(initialValues)
-        .filter(([, value]) => displayValue(value).trim())
-        .map(([id]) => [id, "profile" as const]),
-    ),
-    updatedAt: "",
-  };
-  for (const key of [storageKey, legacyStorageKey]) {
-    try {
-      const saved = JSON.parse(localStorage.getItem(key) ?? "null") as Partial<Draft> | null;
-      if (!saved) continue;
-      const values = { ...initialValues, ...saved.values };
-      const savedModality = values.modality;
-      if (typeof savedModality === "string") {
-        values.modality = workflowModalities.find((option) => option.startsWith(savedModality.slice(0, 3))) ?? savedModality;
-      }
-      return {
-        ...fallback,
-        ...saved,
-        version: 2,
-        values,
-        currentStep: Number(saved.currentStep ?? 0),
-        artifact: saved.artifact ?? null,
-      };
-    } catch {
-      // Usa el siguiente borrador disponible o comienza con uno limpio.
-    }
-  }
-  return fallback;
-}
-
 export function WorkflowTool() {
   const location = useLocation();
   const { pathname } = location;
@@ -179,9 +108,13 @@ export function WorkflowTool() {
   const draftScope = sessionDraftScope();
   const storageKey = `avendia.draft.workflow.${workflow?.key ?? "unknown"}.v2.${draftScope}`;
   const legacyStorageKey = `avendia.workflow.${workflow?.key ?? "unknown"}.${draftScope}`;
+  // El componente depende de los puertos, no de `localStorage` ni de `apiRequest`.
+  const drafts = useMemo(() => localDraftStorage(storageKey, legacyStorageKey), [storageKey, legacyStorageKey]);
+  const gateway = useMemo(() => httpWorkflowGateway(), []);
+  const assistance = useMemo(() => httpAssistanceGateway(), []);
   const [draft, setDraft] = useState<Draft>(() => workflow
-    ? readDraft(storageKey, legacyStorageKey, getInitialWorkflowValues(workflow))
-    : { version: 2, values: {}, currentStep: 0, artifact: null, updatedAt: "" });
+    ? drafts.read(getInitialWorkflowValues(workflow))
+    : { version: DRAFT_VERSION, values: {}, currentStep: 0, artifact: null, updatedAt: "" });
   const [status, setStatus] = useState<SaveStatus>("idle");
   const [message, setMessage] = useState("");
   const [showErrors, setShowErrors] = useState(false);
@@ -202,6 +135,7 @@ export function WorkflowTool() {
   const [assistanceMode, setAssistanceMode] = useState<AssistanceMode>("complete");
   const [rememberAssistance, setRememberAssistance] = useState(false);
   const [fieldsToReview, setFieldsToReview] = useState<string[]>([]);
+  const [curricularReferences, setCurricularReferences] = useState<CurricularReference[] | null>(null);
   const [lastAppliedGuide, setLastAppliedGuide] = useState<{ fieldId: string; previous: FieldValue } | null>(null);
   const [editingResult, setEditingResult] = useState(false);
   const [regeneratingSection, setRegeneratingSection] = useState<number | null>(null);
@@ -215,7 +149,22 @@ export function WorkflowTool() {
   const selectedTemplate = templates.find((template) => template.id === draft.templateId);
 
   const currentStep = workflow?.steps[draft.currentStep];
+  // Formulario corto: sin bloques técnicos ni ayudas por campo (ver WorkflowDefinition.simple).
+  const simple = Boolean(workflow?.simple);
   const allFields = workflow?.steps.flatMap((item) => item.fields) ?? [];
+  /**
+   * Origen efectivo. Si el borrador guarda un plan o una unidad que el docente ya
+   * borró, se ignora: de lo contrario el servidor respondería 404 a cada intento
+   * de generar y el selector se oculta cuando no queda ningún documento, así que
+   * no habría forma de corregirlo desde la pantalla.
+   */
+  const curricularSelection = useMemo(
+    () => effectiveOrigin(draft.curricular, curricularReferences),
+    [curricularReferences, draft.curricular],
+  );
+
+  /** Documento del que cuelga esta herramienta: la unidad si se eligió, si no el plan anual. */
+  const curricularSourceId = originDocumentId(curricularSelection);
   const currentErrors = useMemo(
     () => currentStep?.fields.filter((field) => fieldError(field, draft.values[field.id], resolvedFieldOptions(field, draft.values))) ?? [],
     [currentStep, draft.values],
@@ -307,6 +256,15 @@ export function WorkflowTool() {
     return () => window.clearTimeout(timeout);
   }, [draft.values, preferences.last_context, preferences.remember_recent_context, updatePreferences, workflow]);
 
+  // Planes anuales y unidades guardados: alimentan el selector en cascada.
+  useEffect(() => {
+    const controller = new AbortController();
+    void gateway.listCurricularReferences(controller.signal)
+      .then(setCurricularReferences)
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [gateway]);
+
   const stepStatus = (stepItem: WorkflowStep, index: number) => {
     if (stepItem.kind && stepItem.kind !== "form") return draft.artifact ? "Listo" : index === draft.currentStep ? "Ahora" : "Pendiente";
     const relevant = stepItem.fields.filter((field) => field.required);
@@ -355,20 +313,15 @@ export function WorkflowTool() {
   useEffect(() => {
     if (!workflow) return;
     const timeout = window.setTimeout(() => {
-      const saved = { ...draft, version: 2 as const, updatedAt: new Date().toISOString() };
-      localStorage.setItem(storageKey, JSON.stringify(saved));
+      drafts.write(draft);
     }, 450);
     return () => window.clearTimeout(timeout);
-  }, [draft, storageKey, workflow]);
+  }, [draft, drafts, storageKey, workflow]);
 
   useEffect(() => {
     if (!workflow || !documentIdFromUrl || draft.documentId === documentIdFromUrl) return;
-    const token = readAccessToken();
-    if (!token) return;
-    type StoredDocument = { id: string; metadata_json: Record<string, unknown> };
-    void apiRequest<StoredDocument>(`/documents/${documentIdFromUrl}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    }).then((document) => {
+    void gateway.readDocument(documentIdFromUrl).then((document) => {
+      if (!document) return;
       const metadata = document.metadata_json ?? {};
       const fields = metadata.fields && typeof metadata.fields === "object" ? metadata.fields as Record<string, FieldValue> : {};
       setDraft(() => ({
@@ -381,11 +334,12 @@ export function WorkflowTool() {
         templateId: typeof metadata.template_id === "string" ? metadata.template_id : undefined,
         templateName: typeof metadata.template_name === "string" ? metadata.template_name : undefined,
         reference: metadata.reference && typeof metadata.reference === "object" ? metadata.reference as DocumentReferenceSelection : undefined,
+        curricular: metadata.curricular_reference && typeof metadata.curricular_reference === "object" ? metadata.curricular_reference as ReferenceSelection : undefined,
         updatedAt: new Date().toISOString(),
       }));
       setMessage("Documento recuperado desde tu historial.");
     }).catch(() => setMessage("No se pudo recuperar este documento del historial."));
-  }, [documentIdFromUrl, draft.documentId, workflow]);
+  }, [documentIdFromUrl, draft.documentId, gateway, workflow]);
 
   useEffect(() => {
     const token = readAccessToken();
@@ -409,15 +363,12 @@ export function WorkflowTool() {
   }, [preferences.always_show_help, workflow?.key]);
 
   useEffect(() => {
-    const token = readAccessToken();
-    if (!token) return;
-    type Preferences = { consent: boolean; assistance_mode: AssistanceMode };
-    void apiRequest<Preferences>("/ai/tools/field-assist/preferences", { headers: { Authorization: `Bearer ${token}` } })
-      .then((preferences) => {
-        setRememberAssistance(preferences.consent);
-        if (preferences.consent) setAssistanceMode(preferences.assistance_mode);
-      }).catch(() => undefined);
-  }, []);
+    void assistance.readPreferences().then((preferences) => {
+      if (!preferences) return;
+      setRememberAssistance(preferences.consent);
+      if (preferences.consent && preferences.assistance_mode) setAssistanceMode(preferences.assistance_mode);
+    });
+  }, [assistance]);
 
   const exactPreviewWorkflowKey = workflow?.key ?? "";
   const exactPreviewTemplate = templates.find((template) => template.id === draft.templateId);
@@ -522,8 +473,7 @@ export function WorkflowTool() {
   };
 
   const saveLocal = (nextDraft = draft) => {
-    const saved: Draft = { ...nextDraft, version: 2, updatedAt: new Date().toISOString() };
-    localStorage.setItem(storageKey, JSON.stringify(saved));
+    const saved = drafts.write(nextDraft);
     setDraft(saved);
     return saved;
   };
@@ -532,49 +482,51 @@ export function WorkflowTool() {
     setStatus("saving");
     const saved = saveLocal(nextDraft);
     try {
-      const token = readAccessToken();
-      if (token) {
-        type StoredDocument = { id: string; metadata_json: Record<string, unknown> };
-        const nextServerVersion = (saved.serverVersion ?? 0) + 1;
-        const document = await apiRequest<StoredDocument>(saved.documentId ? `/documents/${saved.documentId}` : "/documents", {
-          method: saved.documentId ? "PATCH" : "POST",
-          headers: { Authorization: `Bearer ${token}` },
-          body: JSON.stringify({
-            title: saved.artifact?.document_title ?? tool.title,
-            document_type: workflow.key,
-            content: saved.artifact ? artifactAsText(saved.artifact) : "Borrador en preparación",
-            metadata: {
-              version: nextServerVersion,
-              fields: saved.values,
-              artifact: saved.artifact,
-              source_route: tool.path,
-              current_step: saved.currentStep,
-              template_id: saved.templateId,
-              template_name: saved.templateName,
-              reference: saved.reference,
-              field_sources: saved.fieldSources,
-              pedagogical_context: derivePedagogicalContext(saved.values),
-            },
-          }),
-        });
+      const nextServerVersion = (saved.serverVersion ?? 0) + 1;
+      const context = derivePedagogicalContext(saved.values);
+      const document = await gateway.saveDocument({
+        documentId: saved.documentId,
+        serverVersion: nextServerVersion,
+        title: saved.artifact?.document_title ?? tool.title,
+        documentType: workflow.key,
+        content: saved.artifact ? artifactAsText(saved.artifact) : "Borrador en preparación",
+        metadata: {
+          fields: saved.values,
+          artifact: saved.artifact,
+          source_route: tool.path,
+          current_step: saved.currentStep,
+          template_id: saved.templateId,
+          template_name: saved.templateName,
+          reference: saved.reference,
+          curricular_reference: saved.curricular,
+          field_sources: saved.fieldSources,
+          pedagogical_context: context,
+        },
+      });
+      if (document) {
+        if (curricularSourceId) {
+          // La procedencia es orientativa: si el vínculo falla, el documento ya
+          // está guardado y no tiene sentido dar el guardado por fallido.
+          await gateway.linkDocument({
+            parentDocumentId: curricularSourceId,
+            childDocumentId: document.id,
+            relationType: "continuation",
+            inheritedFields: ["unit_title", "unit_purpose", "curricular_area", "grade", "level"],
+            context,
+            compatibilityStatus: "compatible",
+          }).catch(() => undefined);
+        }
         if (saved.reference) {
-          await apiRequest("/documents/relations", {
-            method: "POST",
-            headers: { Authorization: `Bearer ${token}` },
-            body: JSON.stringify({
-              parent_document_id: saved.reference.documentId,
-              child_document_id: document.id,
-              relation_type: "reference",
-              inherited_fields: saved.reference.fields,
-              context: derivePedagogicalContext(saved.values),
-              compatibility_status: saved.reference.compatibilityStatus === "compatible" ? "compatible" : "review",
-              consent: true,
-            }),
+          await gateway.linkDocument({
+            parentDocumentId: saved.reference.documentId,
+            childDocumentId: document.id,
+            relationType: "reference",
+            inheritedFields: saved.reference.fields,
+            context,
+            compatibilityStatus: saved.reference.compatibilityStatus === "compatible" ? "compatible" : "review",
           });
         }
-        const synced = { ...saved, documentId: document.id, serverVersion: nextServerVersion, updatedAt: new Date().toISOString() };
-        localStorage.setItem(storageKey, JSON.stringify(synced));
-        setDraft(synced);
+        setDraft(drafts.write({ ...saved, documentId: document.id, serverVersion: document.serverVersion }));
       }
       setStatus("saved");
       setMessage("Borrador guardado correctamente.");
@@ -665,21 +617,15 @@ export function WorkflowTool() {
     setStatus("generating");
     setMessage("");
     try {
-      const token = readAccessToken();
-      const requestId = crypto.randomUUID();
-      const requestBody = JSON.stringify({
-        request_id: requestId,
-        tool_id: tool.id,
+      const requestGeneration = () => gateway.generate({
+        requestId: crypto.randomUUID(),
+        toolId: tool.id,
         module: tool.module,
-        tool_title: tool.title,
-        artifact_type: workflow.artifactType,
+        toolTitle: tool.title,
+        artifactType: workflow.artifactType,
         fields: Object.fromEntries(Object.entries(draft.values).map(([key, value]) => [key, displayValue(value)])),
-        requested_sections: workflow.outputSections,
-      });
-      const requestGeneration = () => apiRequest<WorkflowArtifact>("/ai/tools/workflow/generate", {
-        method: "POST",
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        body: requestBody,
+        requestedSections: workflow.outputSections,
+        ...(curricularSourceId ? { sourceDocumentId: curricularSourceId } : {}),
       });
       let artifact: WorkflowArtifact;
       try {
@@ -697,7 +643,7 @@ export function WorkflowTool() {
         updatedAt: new Date().toISOString(),
       };
       setDraft(generated);
-      localStorage.setItem(storageKey, JSON.stringify(generated));
+      drafts.write(generated);
       await saveDocument(generated);
     } catch (error) {
       setStatus("error");
@@ -737,7 +683,6 @@ export function WorkflowTool() {
     const controller = new AbortController();
     guideRequest.current = controller;
     try {
-      const token = readAccessToken();
       const requestPayload = JSON.stringify({
           tool_id: tool.id,
           tool_title: tool.title,
@@ -756,12 +701,7 @@ export function WorkflowTool() {
           context_fingerprint: pedagogicalContext.fingerprint,
           assistance_mode: assistanceMode,
       });
-      const requestSuggestion = () => apiRequest<{ reply: string }>("/ai/tools/field-assist", {
-          method: "POST",
-          signal: controller.signal,
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-          body: requestPayload,
-      });
+      const requestSuggestion = () => assistance.suggestField({ payload: requestPayload, signal: controller.signal });
       let response: { reply: string };
       try {
         response = await requestSuggestion();
@@ -796,28 +736,25 @@ export function WorkflowTool() {
 
   const saveGuideFeedback = (outcome: "useful" | "edited" | "incorrect" | "repetitive" | "too_long" | "discarded") => {
     if (!guideField) return;
-    const token = readAccessToken();
-    if (!token) return;
-    void apiRequest("/ai/tools/field-assist/feedback", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ tool_id: tool.id, field_id: guideField.id, outcome, assistance_mode: assistanceMode, context_fingerprint: pedagogicalContext.fingerprint, edited: outcome === "edited" }),
-    }).catch(() => undefined);
+    void assistance.recordFeedback({
+      tool_id: tool.id,
+      field_id: guideField.id,
+      outcome,
+      assistance_mode: assistanceMode,
+      context_fingerprint: pedagogicalContext.fingerprint,
+      edited: outcome === "edited",
+    });
   };
 
   const changeAssistanceMode = (value: AssistanceMode) => {
     setAssistanceMode(value);
     if (!rememberAssistance) return;
-    const token = readAccessToken();
-    if (!token) return;
-    void apiRequest("/ai/tools/field-assist/preferences", { method: "PATCH", headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ consent: true, assistance_mode: value, preferred_length: "balanced" }) }).catch(() => undefined);
+    void assistance.savePreferences({ consent: true, assistanceMode: value });
   };
 
   const changeRememberAssistance = (value: boolean) => {
     setRememberAssistance(value);
-    const token = readAccessToken();
-    if (!token) return;
-    void apiRequest("/ai/tools/field-assist/preferences", { method: "PATCH", headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({ consent: value, assistance_mode: assistanceMode, preferred_length: "balanced" }) }).catch(() => undefined);
+    void assistance.savePreferences({ consent: value, assistanceMode });
   };
 
   const applyGuide = () => {
@@ -851,6 +788,41 @@ export function WorkflowTool() {
     }));
     setLastAppliedGuide(null);
     setMessage("Se restauró el contenido anterior del campo.");
+  };
+
+  /**
+   * Origen curricular elegido en cascada (plan anual → unidad). Hereda solo los
+   * campos que esta herramienta declara, para no inventar datos que no pide.
+   */
+  const pickCurricular = (selection: ReferenceSelection) => {
+    const source = originSource(selection, curricularReferences);
+    const inherited = inheritedValues(source, new Set(allFields.map((field) => field.id)));
+
+    // Heredar nivel, grado o área equivale a cambiarlos a mano: hay que marcar
+    // para revisión los campos que dependen de ellos e invalidar el resultado
+    // ya generado, que se redactó con el contexto anterior.
+    const affected = [...new Set(
+      Object.keys(inherited).flatMap((fieldId) => impactedFields(allFields, fieldId, draft.values)),
+    )].filter((fieldId) => !(fieldId in inherited));
+    if (affected.length) {
+      setFieldsToReview((existing) => [...new Set([...existing, ...affected])]);
+      setMessage(`${affected.length === 1 ? "Un campo depende" : `${affected.length} campos dependen`} del documento de origen. Conservamos su contenido para que puedas revisarlo.`);
+    }
+
+    setDraft((current) => {
+      const released = Object.fromEntries(
+        releasedFields(current.curricularFields ?? [], inherited, current.fieldSources).map((id) => [id, ""] as const),
+      );
+      return {
+        ...current,
+        artifact: null,
+        curricular: selection,
+        curricularFields: Object.keys(inherited),
+        values: { ...current.values, ...released, ...inherited },
+        fieldSources: { ...current.fieldSources, ...Object.fromEntries(Object.keys(inherited).map((id) => [id, "reference" as const])) },
+      };
+    });
+    setStatus("idle");
   };
 
   const importReference = (reference: DocumentReferenceSelection, values: Record<string, FieldValue>) => {
@@ -904,16 +876,11 @@ export function WorkflowTool() {
     if (!section) return;
     setRegeneratingSection(index);
     try {
-      const token = readAccessToken();
-      const response = await apiRequest<{ reply: string }>("/ai/tools/copilot", {
-        method: "POST",
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        body: JSON.stringify({
-          message: `Regenera únicamente la sección «${section.title}». Entrega texto listo para reemplazar la narrativa actual, sin encabezado ni explicaciones. Mantén coherencia con todos los datos del formulario.`,
-          tool_title: tool.title,
-          module: tool.module,
-          form_values: Object.fromEntries(Object.entries(draft.values).map(([key, value]) => [key, displayValue(value)])),
-        }),
+      const response = await assistance.rewriteSection({
+        message: `Regenera únicamente la sección «${section.title}». Entrega texto listo para reemplazar la narrativa actual, sin encabezado ni explicaciones. Mantén coherencia con todos los datos del formulario.`,
+        tool_title: tool.title,
+        module: tool.module,
+        form_values: Object.fromEntries(Object.entries(draft.values).map(([key, value]) => [key, displayValue(value)])),
       });
       updateArtifactSection(index, "narrative", response.reply);
     } catch (error) {
@@ -927,8 +894,8 @@ export function WorkflowTool() {
   const fieldLabel = (field: WorkflowField, value: FieldValue, canGuide: boolean) => (
     <span className="workflow-field__label">
       <span>{field.label}</span>
-      {field.required ? <b>Necesario para crear</b> : <em>Puedes completarlo después</em>}
-      {displayValue(value).trim() && draft.fieldSources?.[field.id] ? (
+      {field.required ? <b aria-label="Obligatorio">*</b> : simple ? null : <em>Opcional</em>}
+      {!simple && displayValue(value).trim() && draft.fieldSources?.[field.id] ? (
         <small className={`workflow-field__source is-${draft.fieldSources[field.id]}`}>
           {draft.fieldSources[field.id] === "profile" ? "De tu perfil" : draft.fieldSources[field.id] === "reference" ? "Del documento anterior" : draft.fieldSources[field.id] === "ai" ? "Propuesto por Avendia" : "Escrito por ti"}
         </small>
@@ -947,7 +914,7 @@ export function WorkflowTool() {
     const options = optionsFor(field);
     const error = showErrors || touchedFields.has(field.id) ? fieldError(field, value, options) : "";
     const dependencyReady = !field.dependsOn || Boolean(displayValue(draft.values[field.dependsOn]).trim());
-    const canGuide = field.guide !== false && (field.type === "textarea" || field.type === "text");
+    const canGuide = !simple && field.guide !== false && (field.type === "textarea" || field.type === "text");
     const label = fieldLabel(field, value, canGuide);
     const helpId = `workflow-help-${field.id}`;
     const errorId = `workflow-error-${field.id}`;
@@ -988,7 +955,7 @@ export function WorkflowTool() {
           <div>
             {options.map((option) => (
               <label key={option} className={selected.includes(option) ? "is-selected" : ""}>
-                <input type="checkbox" checked={selected.includes(option)} aria-invalid={Boolean(error)} aria-describedby={describedBy} onChange={() => { markTouched(field.id); setValue(field.id, selected.includes(option) ? selected.filter((item) => item !== option) : [...selected, option]); }} />
+                <input type="checkbox" checked={selected.includes(option)} aria-invalid={Boolean(error)} aria-describedby={describedBy} onChange={() => { markTouched(field.id); setValue(field.id, selected.includes(option) ? selected.filter((item) => item !== option) : field.maxItems && selected.length >= field.maxItems ? [...selected.slice(1), option] : [...selected, option]); }} />
                 <span>{option}</span><i aria-hidden="true">{selected.includes(option) ? <Check /> : null}</i>
               </label>
             ))}
@@ -1152,6 +1119,13 @@ export function WorkflowTool() {
     );
   };
 
+  /** Aviso breve para el docente cuando el resultado necesita revisión; el detalle técnico queda en administración. */
+  const renderSimpleQualityNotice = () => {
+    if (!draft.artifact || (draft.artifact.quality_status ?? "ready") === "ready") return null;
+    const warning = draft.artifact.warnings?.[0];
+    return <div className="workflow-message" role="status"><AlertTriangle aria-hidden="true" /> Revisa el documento antes de usarlo{warning ? `: ${warning}` : "."}</div>;
+  };
+
   const renderCurrentFields = () => {
     if (currentStep.kind && currentStep.kind !== "form") {
       if (!draft.artifact) {
@@ -1175,6 +1149,12 @@ export function WorkflowTool() {
         const groupFields = group.fieldIds
           .map((fieldId) => currentStep.fields.find((field) => field.id === fieldId))
           .filter((field): field is WorkflowField => Boolean(field));
+        if (group.collapsed) {
+          return <details className="workflow-group workflow-group--collapsed" key={group.id}>
+            <summary><h3>{group.title}</h3>{group.description ? <p>{group.description}</p> : null}</summary>
+            <div className={`workflow-grid workflow-grid--${group.columns ?? currentStep.columns ?? 2}`}>{groupFields.map(renderField)}</div>
+          </details>;
+        }
         return <section className="workflow-group" key={group.id}>
           <header><h3>{group.title}</h3>{group.description ? <p>{group.description}</p> : null}</header>
           <div className={`workflow-grid workflow-grid--${group.columns ?? currentStep.columns ?? 2}`}>{groupFields.map(renderField)}</div>
@@ -1196,7 +1176,7 @@ export function WorkflowTool() {
         {renderTemplateExport()}
       </section> : null}
       {showInteractive && tool.id !== "tarea-extension-hogar" && draft.artifact.activity?.items.length ? <InteractiveArtifact activity={draft.artifact.activity} toolId={tool.id} values={draft.values} /> : null}
-      {renderQualityPanel()}
+      {simple ? renderSimpleQualityNotice() : renderQualityPanel()}
       <StructuredArtifactPreview artifact={draft.artifact} artifactType={workflow.artifactType} toolId={tool.id} values={draft.values} workflowKey={workflow.key} onDownloadWord={downloadWord} editingResult={editingResult} onUpdateSection={updateArtifactSection} onUpdateTableCell={updateArtifactTableCell} onRegenerateSection={regenerateArtifactSection} regeneratingSection={regeneratingSection} onPrepareExactPreview={prepareExactPreview} />
     </div>;
   };
@@ -1220,17 +1200,20 @@ export function WorkflowTool() {
         <section className="workflow-result-actions"><button type="button" className="secondary-button" onClick={() => setDraft((current) => ({ ...current, artifact: null, currentStep: workflow.steps.length - 1 }))}><ChevronLeft /> Editar datos</button><button type="button" className="secondary-button" onClick={() => setEditingResult((current) => !current)}><Pencil /> {editingResult ? "Cerrar edición" : "Editar resultado"}</button><button type="button" className="secondary-button" onClick={() => generate()} disabled={status === "generating"}><RefreshCw /> Regenerar todo</button><button type="button" className="secondary-button" onClick={() => void copyArtifact()}><Clipboard /> {workflow.artifactType === "comunicacion" ? "Copiar correo" : "Copiar"}</button>{renderTemplateExport()}</section>
         {message ? <div className={`workflow-message ${status === "error" ? "workflow-message--error" : ""}`}>{message}</div> : null}
         {draft.artifact.activity?.items.length ? <InteractiveArtifact activity={draft.artifact.activity} toolId={tool.id} values={draft.values} /> : null}
-        {renderQualityPanel()}
+        {simple ? renderSimpleQualityNotice() : <details className="generation-quality-details">
+          <summary>Detalle técnico de la generación</summary>
+          {renderQualityPanel()}
+        </details>}
         <StructuredArtifactPreview artifact={draft.artifact} artifactType={workflow.artifactType} toolId={tool.id} values={draft.values} workflowKey={workflow.key} onDownloadWord={downloadWord} editingResult={editingResult} onUpdateSection={updateArtifactSection} onUpdateTableCell={updateArtifactTableCell} onRegenerateSection={regenerateArtifactSection} regeneratingSection={regeneratingSection} onPrepareExactPreview={prepareExactPreview} />
-        <GenerationProgressOverlay open={status === "generating"} toolTitle={tool.title} family={tool.module} />
+        <GenerationProgressOverlay open={status === "generating"} toolTitle={tool.title} family={tool.module} toolId={tool.id} />
       </div></main>
     );
   }
 
   return (
     <main className="workflow-page"><div className="workflow-shell">
-      <header className="workflow-header"><div><span>{tool.module} · complejidad {workflow.complexity}</span><h1>{tool.title}</h1><p>{tool.description}</p></div><div className="workflow-header__actions"><button type="button" className="secondary-button" onClick={() => saveDocument()} disabled={status === "saving"}>{status === "saving" ? <LoaderCircle className="is-spinning" /> : status === "saved" ? <Check /> : <Save />}{status === "saved" ? "Guardado" : "Guardar borrador"}</button></div></header>
-      <section className={`workflow-orientation ${orientationOpen ? "is-open" : ""}`} aria-labelledby="workflow-orientation-title">
+      <header className="workflow-header"><div><span>{simple ? tool.module : `${tool.module} · complejidad ${workflow.complexity}`}</span><h1>{tool.title}</h1><p>{tool.description}</p></div><div className="workflow-header__actions"><button type="button" className="secondary-button" onClick={() => saveDocument()} disabled={status === "saving"}>{status === "saving" ? <LoaderCircle className="is-spinning" /> : status === "saved" ? <Check /> : <Save />}{status === "saved" ? "Guardado" : "Guardar borrador"}</button></div></header>
+      {simple ? null : <section className={`workflow-orientation ${orientationOpen ? "is-open" : ""}`} aria-labelledby="workflow-orientation-title">
         <button className="workflow-orientation__toggle" type="button" aria-expanded={orientationOpen} onClick={() => setOrientationOpen((value) => !value)}>
           <span><CircleHelp aria-hidden="true" /><strong id="workflow-orientation-title">Antes de comenzar</strong></span>
           <small>{orientationOpen ? "Ocultar orientación" : "Ver qué necesitas y qué creará Avendia"}</small>
@@ -1240,8 +1223,14 @@ export function WorkflowTool() {
           <article><Sparkles aria-hidden="true" /><div><strong>Lo que vas a crear</strong><p>{tool.description}</p></div></article>
           <article><Clock3 aria-hidden="true" /><div><strong>Tiempo aproximado</strong><p>{estimatedMinutes} minutos en modo guiado.</p></div></article>
         </div> : null}
-      </section>
-      <DocumentReferencePanel targetType={workflow.key.split("/").at(-1) ?? tool.id} fields={allFields} selection={draft.reference} onImport={importReference} onClear={() => setDraft((current) => ({ ...current, reference: undefined }))} />
+      </section>}
+      <CurricularReferencePicker
+        references={curricularReferences ?? []}
+        selection={curricularSelection}
+        onChange={pickCurricular}
+        help="La herramienta se genera alineada a ese documento y queda vinculada a él en el historial."
+      />
+      {simple ? null : <DocumentReferencePanel targetType={workflow.key.split("/").at(-1) ?? tool.id} fields={allFields} selection={draft.reference} onImport={importReference} onClear={() => setDraft((current) => ({ ...current, reference: undefined }))} />}
       <ol className="workflow-stepper" aria-label="Pasos de la herramienta">{workflow.steps.map((item, index) => {
         const state = stepStatus(item, index);
         return <li className={index === draft.currentStep ? "is-active" : state === "Listo" ? "is-completed" : ""} key={item.id}><button type="button" aria-current={index === draft.currentStep ? "step" : undefined} aria-label={`${item.shortTitle}: ${state}`} onClick={() => setDraft((current) => ({ ...current, currentStep: index }))}><span>{state === "Listo" && index !== draft.currentStep ? <Check /> : index + 1}</span><strong>{item.shortTitle}</strong><small>{state}</small></button></li>;
@@ -1269,12 +1258,12 @@ export function WorkflowTool() {
           return;
         }
         goNext();
-      }}><div className="workflow-card__intro"><small>Paso {draft.currentStep + 1} de {workflow.steps.length} · {stepStatus(currentStep, draft.currentStep)}</small><h2>{currentStep.title}</h2><p>{currentStep.description}</p><div className="workflow-completion" aria-label={`${completionPercent}% de información necesaria completada`}><span><strong>{remainingRequired ? `${remainingRequired} ${remainingRequired === 1 ? "dato necesario pendiente" : "datos necesarios pendientes"}` : "Información necesaria completa"}</strong><small>{completionPercent}%</small></span><progress max="100" value={completionPercent}>{completionPercent}%</progress></div></div>
-      <section className={`workflow-context-status is-${liveContextStatus.status}`} aria-live="polite">
+      }}><div className="workflow-card__intro"><small>Paso {draft.currentStep + 1} de {workflow.steps.length} · {stepStatus(currentStep, draft.currentStep)}</small><h2>{currentStep.title}</h2><p>{currentStep.description}</p>{simple ? null : <div className="workflow-completion" aria-label={`${completionPercent}% de información necesaria completada`}><span><strong>{remainingRequired ? `${remainingRequired} ${remainingRequired === 1 ? "dato necesario pendiente" : "datos necesarios pendientes"}` : "Información necesaria completa"}</strong><small>{completionPercent}%</small></span><progress max="100" value={completionPercent}>{completionPercent}%</progress></div>}</div>
+      {simple ? null : <section className={`workflow-context-status is-${liveContextStatus.status}`} aria-live="polite">
         <span>{liveContextStatus.status === "coherent" ? <CheckCircle2 /> : <AlertTriangle />}</span>
         <div><strong>{liveContextStatus.label}</strong><small>{liveContextStatus.detail}</small>{pedagogicalContext.summary.length ? <p>{pedagogicalContext.summary.join(" · ")}</p> : null}</div>
         {fieldsToReview.length ? <button type="button" onClick={() => { const field = allFields.find((candidate) => candidate.id === fieldsToReview[0]); if (field) revealInvalidField(field); }}>Revisar ahora</button> : null}
-      </section>
+      </section>}
       {renderValidationSummary()}{renderCurrentFields()}{message ? <div className={`workflow-message ${status === "error" ? "workflow-message--error" : ""}`}>{message}{lastAppliedGuide ? <button type="button" onClick={undoGuide}>Deshacer sugerencia</button> : null}</div> : null}<footer className="workflow-actions"><button type="button" className="secondary-button" disabled={draft.currentStep === 0 || status === "generating"} onClick={() => setDraft((current) => ({ ...current, currentStep: Math.max(0, current.currentStep - 1) }))}><ChevronLeft /> Anterior</button>{draft.currentStep < workflow.steps.length - 1 ? <button type="submit" className="workflow-primary" disabled={status === "generating"}>{status === "generating" ? <LoaderCircle className="is-spinning" /> : currentStep.kind === "generate" ? <Sparkles /> : null}{status === "generating" ? "Creando con IA…" : currentStep.kind === "generate" ? "Generar con IA" : "Siguiente"}{currentStep.kind === "generate" ? null : <ChevronRight />}</button> : draft.artifact ? <button type="button" className="workflow-primary" onClick={downloadWord} disabled={exportingWord}>{exportingWord ? <LoaderCircle className="is-spinning" /> : <Download />}{exportingWord ? "Preparando…" : "Descargar Word"}</button> : <button type="submit" className="workflow-primary" disabled={status === "generating"}>{status === "generating" ? <LoaderCircle className="is-spinning" /> : <Sparkles />}{status === "generating" ? "Creando con IA…" : "Generar con IA"}</button>}</footer></form>
       {guideOpen && guideField && guideConfig ? <ContextualAIGuideDialog
         toolTitle={tool.title}
@@ -1309,7 +1298,7 @@ export function WorkflowTool() {
         onApply={applyGuide}
         onClose={() => { guideRequest.current?.abort(); setGuideOpen(false); }}
       /> : null}
-      <GenerationProgressOverlay open={status === "generating"} toolTitle={tool.title} family={tool.module} />
+      <GenerationProgressOverlay open={status === "generating"} toolTitle={tool.title} family={tool.module} toolId={tool.id} />
     </div></main>
   );
 }

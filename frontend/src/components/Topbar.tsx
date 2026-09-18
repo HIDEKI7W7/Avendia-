@@ -1,4 +1,4 @@
-import { Accessibility, ArrowLeft, Bell, Menu, Moon, PanelRightClose, PanelRightOpen, Search, ShieldCheck, Sun } from "lucide-react";
+import { Accessibility, ArrowLeft, Bell, Menu, Moon, PanelRightClose, PanelRightOpen, Search, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
@@ -56,16 +56,6 @@ export function Topbar({ onOpenMenu, onOpenSearch, contextAvailable = false, con
         <div className="topbar__title"><small>Espacio docente</small><strong>{pageTitle(pathname)}</strong></div>
       </div>
       <div className="topbar__actions">
-        {user.role === "admin" ? (
-          <button
-            className="search-trigger topbar-admin-link"
-            onClick={() => navigate("/admin")}
-            title="Abrir panel de administración"
-          >
-            <ShieldCheck />
-            <span>Panel Admin</span>
-          </button>
-        ) : null}
         <button className="search-trigger" onClick={onOpenSearch}><Search /><span>Buscar herramientas</span><kbd>Ctrl K</kbd></button>
         <div className="font-size-control" role="group" aria-label="Tamaño del texto">
           <button className={fontScale === 87.5 ? "is-active" : ""} onClick={() => setFontScale(87.5)} title="Texto más pequeño" aria-pressed={fontScale === 87.5}>A−</button>

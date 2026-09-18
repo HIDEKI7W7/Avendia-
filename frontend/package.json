@@ -16,6 +16,7 @@
   "dependencies": {
     "@tanstack/react-query": "^5.66.0",
     "docx": "^9.7.1",
+    "jszip": "^3.10.1",
     "lucide-react": "^0.468.0",
     "pdfjs-dist": "^6.3.289",
     "pptxgenjs": "^4.0.1",

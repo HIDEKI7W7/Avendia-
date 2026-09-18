@@ -7,6 +7,7 @@ import { RouteScrollManager } from "../components/RouteScrollManager";
 import { DashboardPage } from "../features/dashboard/DashboardPage";
 import { LoginPage } from "../features/auth/LoginPage";
 import { ModulePage } from "../features/tools/ModulePage";
+import { applyBrandingResponse, resetYearMotto } from "../features/tools/docx/motto";
 import { apiRequest } from "../lib/api";
 import { readAccessToken, readStoredSessionUser, updateStoredSessionUser, type SessionUser } from "../lib/session";
 
@@ -22,9 +23,11 @@ const IdeasPage = lazy(() => import("../features/utilities/IdeasPage").then((mod
 const TutorialsPage = lazy(() => import("../features/utilities/TutorialsPage").then((module) => ({ default: module.TutorialsPage })));
 const ReferralsPage = lazy(() => import("../features/utilities/ReferralsPage").then((module) => ({ default: module.ReferralsPage })));
 const CommunityPage = lazy(() => import("../features/utilities/CommunityPage").then((module) => ({ default: module.CommunityPage })));
-const UtilitiesAdminPage = lazy(() => import("../features/utilities/UtilitiesAdminPage").then((module) => ({ default: module.UtilitiesAdminPage })));
+const UtilitiesAdminPage = lazy(() => import("../features/admin/UtilitiesAdminPage").then((module) => ({ default: module.UtilitiesAdminPage })));
+const AdminModerationPage = lazy(() => import("../features/admin/AdminModerationPage").then((module) => ({ default: module.AdminModerationPage })));
 const AdminControlCenterPage = lazy(() => import("../features/admin/AdminControlCenterPage").then((module) => ({ default: module.AdminControlCenterPage })));
 const PresentationTool = lazy(() => import("../features/tools/PresentationTool").then((module) => ({ default: module.PresentationTool })));
+const CreateClassPage = lazy(() => import("../features/classes/CreateClassPage").then((module) => ({ default: module.CreateClassPage })));
 const RosterPage = lazy(() => import("../features/rosters/RosterPage").then((module) => ({ default: module.RosterPage })));
 
 function RequireSession({ children, admin = false }: { children: ReactNode; admin?: boolean }) {
@@ -35,6 +38,7 @@ function RequireSession({ children, admin = false }: { children: ReactNode; admi
     const expire = () => {
       setUser(null);
       setSession("anonymous");
+      resetYearMotto();
     };
     window.addEventListener("avendia-session-expired", expire);
     return () => window.removeEventListener("avendia-session-expired", expire);
@@ -48,6 +52,10 @@ function RequireSession({ children, admin = false }: { children: ReactNode; admi
         updateStoredSessionUser(verifiedUser);
         setUser(verifiedUser);
         setSession("authenticated");
+        // Lema del año fijado por administración para los Word; si falla, queda el incrustado.
+        void apiRequest<unknown>("/dashboard/branding", { signal: controller.signal })
+          .then(applyBrandingResponse)
+          .catch(() => undefined);
       })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
@@ -70,6 +78,7 @@ export function App() {
       <Route path="/registro" element={<RegisterPage />} />
       <Route path="/dashboard" element={<RequireSession><AppShell /></RequireSession>}>
         <Route index element={<DashboardPage />} />
+        <Route path="crear-clase" element={<CreateClassPage />} />
         <Route path="calendario" element={<CalendarPage />} />
         <Route path="mis-estudiantes" element={<Suspense fallback={<div className="roster-load-state">Cargando tus estudiantes…</div>}><RosterPage /></Suspense>} />
         <Route path="recursos/presentaciones-didacticas" element={<Suspense fallback={<div className="admin-state">Cargando editor de presentaciones…</div>}><PresentationTool /></Suspense>} />
@@ -88,6 +97,7 @@ export function App() {
       </Route>
       <Route path="/admin" element={<RequireSession admin><AdminShell /></RequireSession>}>
         <Route path="utilidades" element={<UtilitiesAdminPage />} />
+        <Route path="moderacion" element={<AdminModerationPage />} />
         <Route index element={<Suspense fallback={<div className="admin-state">Cargando centro de control…</div>}><AdminControlCenterPage /></Suspense>} />
         <Route path="tokens" element={<Navigate to="/admin" replace />} />
       </Route>

@@ -1,18 +1,4 @@
-import {
-  CalendarClock,
-  Cloud,
-  Copy,
-  Download,
-  ExternalLink,
-  FileText,
-  HardDrive,
-  LoaderCircle,
-  Link2,
-  RotateCcw,
-  Search,
-  Trash2,
-  X,
-} from "lucide-react";
+import { CalendarClock, Cloud, Copy, Download, ExternalLink, FileText, FolderArchive, HardDrive, Link2, LoaderCircle, RotateCcw, Search, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -56,7 +42,12 @@ type HistoryItem = {
   server?: ServerDocument;
   evaluation?: EvaluationSummary;
   reference?: { title: string; documentId: string; fields: string[] };
+  /** Documento creado desde "Crear mi clase": etapa y sesión que agrupa la clase. */
+  classStage?: "sesion" | "instrumento" | "materiales";
+  classSessionId?: string;
 };
+
+const CLASS_STAGE_LABELS = { sesion: "Sesión", instrumento: "Instrumento", materiales: "Materiales" } as const;
 
 const evaluationRoutes: Record<string, string> = {
   checklist: "/dashboard/evaluamos/lista-cotejo",
@@ -127,7 +118,18 @@ function asItem(document: ServerDocument): HistoryItem {
     reference: document.metadata_json.reference && typeof document.metadata_json.reference === "object"
       ? document.metadata_json.reference as HistoryItem["reference"]
       : undefined,
+    ...classMembership(document),
   };
+}
+
+/** Etapa y sesión de la clase completa a la que pertenece un documento, si aplica. */
+function classMembership(document: ServerDocument): Pick<HistoryItem, "classStage" | "classSessionId"> {
+  const metadata = document.metadata_json;
+  if (metadata.class_flow !== true) return {};
+  const stage = metadata.class_stage;
+  if (stage !== "sesion" && stage !== "instrumento" && stage !== "materiales") return {};
+  const sessionId = typeof metadata.class_session_id === "string" && metadata.class_session_id ? metadata.class_session_id : stage === "sesion" ? document.id : "";
+  return { classStage: stage, classSessionId: sessionId || undefined };
 }
 
 function asEvaluationItem(instrument: EvaluationSummary): HistoryItem {
@@ -274,7 +276,7 @@ export function HistoryPage() {
     <section className="history-toolbar"><label><Search /><input value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="Buscar por título o herramienta" /></label><select value={source} onChange={(event) => setSource(event.target.value as typeof source)} aria-label="Filtrar por ubicación"><option value="all">Todas las ubicaciones</option><option value="cloud">Sincronizados</option><option value="device">Este dispositivo</option></select><select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }} aria-label="Filtrar por estado"><option value="all">Todos los estados</option>{["Borrador", "Completado", "Generado", "Archivado", "En preparación"].map((itemStatus) => <option key={itemStatus}>{itemStatus}</option>)}</select></section>
     {message ? <div className="history-notice" role="status"><span>{message}</span><button onClick={() => setMessage("")} aria-label="Cerrar"><X /></button></div> : null}
     {loading && !items.length ? <div className="history-loading"><LoaderCircle className="is-spinning" /> Sincronizando historial…</div> : null}
-    <section className="history-list">{items.map((item) => <article className="history-card" key={`${item.source}-${item.id}`}><span className="history-card__icon"><FileText /></span><div className="history-card__main"><div className="history-card__meta"><span className={`history-source history-source--${item.source}`}>{item.source === "cloud" ? <Cloud /> : <HardDrive />}{item.source === "cloud" ? "Sincronizado" : "Este dispositivo"}</span><span>{item.status}</span></div><h2>{item.title}</h2><p>{item.type}</p>{item.reference ? <span className="history-card__reference"><Link2 /> Derivado de «{item.reference.title}» · {item.reference.fields.length} campos</span> : null}<small><CalendarClock /> {item.updatedAt ? new Date(item.updatedAt).toLocaleString("es-PE") : "Sin fecha de actualización"}</small></div><div className="history-card__actions">{item.server ? <DocumentControls document={item.server} refresh={refreshServer} /> : null}{item.route && item.status !== "Archivado" ? <Link className="primary-button" to={`${item.route}${item.source === "cloud" ? `?document=${item.id}` : ""}`}><ExternalLink /> Abrir</Link> : null}{!item.evaluation ? <button className="secondary-button" onClick={() => downloadText(item)}><Download /> Descargar</button> : null}{item.source === "cloud" && !item.evaluation ? <button className="secondary-button" onClick={() => duplicate(item)} disabled={workingId === item.id}>{workingId === item.id ? <LoaderCircle className="is-spinning" /> : <Copy />} Duplicar</button> : null}{item.evaluation && item.status === "Archivado" ? <button className="secondary-button" onClick={() => void restore(item)} disabled={workingId === item.id}>{workingId === item.id ? <LoaderCircle className="is-spinning" /> : <RotateCcw />} Restaurar</button> : null}{item.status !== "Archivado" ? <button className="history-delete" onClick={() => setPendingDelete(item)} disabled={workingId === item.id}><Trash2 /> {item.evaluation ? "Archivar" : "Eliminar"}</button> : null}</div></article>)}{!loading && !items.length ? <div className="history-empty"><FileText /><h2>No encontramos documentos</h2><p>Cambia los filtros o crea una herramienta nueva. Los borradores aparecerán aquí automáticamente.</p><Link className="primary-button" to="/dashboard">Ir al inicio</Link></div> : null}</section>
+    <section className="history-list">{items.map((item) => <article className="history-card" key={`${item.source}-${item.id}`}><span className="history-card__icon"><FileText /></span><div className="history-card__main"><div className="history-card__meta"><span className={`history-source history-source--${item.source}`}>{item.source === "cloud" ? <Cloud /> : <HardDrive />}{item.source === "cloud" ? "Sincronizado" : "Este dispositivo"}</span><span>{item.status}</span>{item.classStage ? <span className="history-card__class"><FolderArchive /> Clase completa · {CLASS_STAGE_LABELS[item.classStage]}</span> : null}</div><h2>{item.title}</h2><p>{item.type}</p>{item.reference ? <span className="history-card__reference"><Link2 /> Derivado de «{item.reference.title}» · {item.reference.fields.length} campos</span> : null}<small><CalendarClock /> {item.updatedAt ? new Date(item.updatedAt).toLocaleString("es-PE") : "Sin fecha de actualización"}</small></div><div className="history-card__actions">{item.server ? <DocumentControls document={item.server} refresh={refreshServer} /> : null}{item.classSessionId && item.status !== "Archivado" ? <Link className="primary-button" to={`/dashboard/crear-clase?class=${item.classSessionId}`}><FolderArchive /> Abrir clase</Link> : null}{item.route && item.status !== "Archivado" ? <Link className={item.classSessionId ? "secondary-button" : "primary-button"} to={`${item.route}${item.source === "cloud" ? `?document=${item.id}` : ""}`}><ExternalLink /> Abrir</Link> : null}{!item.evaluation ? <button className="secondary-button" onClick={() => downloadText(item)}><Download /> Descargar</button> : null}{item.source === "cloud" && !item.evaluation ? <button className="secondary-button" onClick={() => duplicate(item)} disabled={workingId === item.id}>{workingId === item.id ? <LoaderCircle className="is-spinning" /> : <Copy />} Duplicar</button> : null}{item.evaluation && item.status === "Archivado" ? <button className="secondary-button" onClick={() => void restore(item)} disabled={workingId === item.id}>{workingId === item.id ? <LoaderCircle className="is-spinning" /> : <RotateCcw />} Restaurar</button> : null}{item.status !== "Archivado" ? <button className="history-delete" onClick={() => setPendingDelete(item)} disabled={workingId === item.id}><Trash2 /> {item.evaluation ? "Archivar" : "Eliminar"}</button> : null}</div></article>)}{!loading && !items.length ? <div className="history-empty"><FileText /><h2>No encontramos documentos</h2><p>Cambia los filtros o crea una herramienta nueva. Los borradores aparecerán aquí automáticamente.</p><Link className="primary-button" to="/dashboard">Ir al inicio</Link></div> : null}</section>
     {pendingDelete ? <div className="dialog-backdrop"><section className="history-confirm" role="dialog" aria-modal="true" aria-label="Confirmar eliminación"><span><Trash2 /></span><h2>¿{pendingDelete.evaluation ? "Archivar" : "Eliminar"} «{pendingDelete.title}»?</h2><p>{pendingDelete.evaluation ? "El instrumento se conservará y podrás restaurarlo después." : `Esta acción quitará el documento de ${pendingDelete.source === "cloud" ? "tu cuenta" : "este dispositivo"}.`}</p><footer><button className="secondary-button" onClick={() => setPendingDelete(null)}>Cancelar</button><button className="danger-button" onClick={() => void remove()}><Trash2 /> {pendingDelete.evaluation ? "Archivar" : "Eliminar"}</button></footer></section></div> : null}
   </main>;
 }

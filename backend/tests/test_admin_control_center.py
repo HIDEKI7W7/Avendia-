@@ -148,6 +148,7 @@ async def test_platform_settings_control_registration_and_default_credits() -> N
                 "registration_open": False,
                 "default_ai_credits": 25_000,
                 "low_credit_threshold": 1_500,
+                "year_motto": "  “Año de la  Unidad Nacional” ",
                 "reason": "Configuración institucional de prueba",
             },
         )
@@ -158,6 +159,7 @@ async def test_platform_settings_control_registration_and_default_credits() -> N
 
     assert updated.status_code == 200
     assert updated.json()["default_ai_credits"] == 25_000
+    assert updated.json()["year_motto"] == "“Año de la Unidad Nacional”"
     assert rejected.status_code == 403
     async with session_factory() as db:
         entry = await db.scalar(

@@ -204,4 +204,22 @@ describe("workflow registry", () => {
       expect(new Set(fieldIds).size, workflow.key).toBe(fieldIds.length);
     }
   });
+
+  it("deja la unidad de aprendizaje como formulario corto con los campos largos plegados", () => {
+    const unit = workflowDefinitions.find((item) => item.key === "planificamos/unidad-aprendizaje");
+    expect(unit?.simple).toBe(true);
+    expect(unit?.steps.map((step) => step.title)).toEqual(["Datos", "Competencias", "Enfoques", "Producto y evaluación", "Generar", "Documento"]);
+    const fields = unit?.steps.flatMap((step) => step.fields) ?? [];
+    const competencies = fields.find((field) => field.id === "competencies");
+    expect(competencies).toMatchObject({ type: "multiselect", dynamicOptions: "competenciesByArea", dependsOn: "curricular_area", maxItems: 2 });
+    expect(fields.find((field) => field.id === "transversal_approaches")?.maxItems).toBe(2);
+    // Ningún campo obligatorio es una caja de texto larga: lo largo lo redacta la IA.
+    expect(fields.filter((field) => field.required && field.type === "textarea")).toEqual([]);
+    expect(fields.filter((field) => field.required).length).toBeLessThanOrEqual(18);
+    const evaluation = unit?.steps.find((step) => step.title === "Producto y evaluación");
+    const advanced = evaluation?.groups?.find((group) => group.collapsed);
+    expect(advanced?.fieldIds).toContain("significant_situation");
+    expect(advanced?.fieldIds).toContain("dua_adjustments");
+    expect(advanced?.fieldIds.every((id) => fields.find((field) => field.id === id)?.required === false)).toBe(true);
+  });
 });

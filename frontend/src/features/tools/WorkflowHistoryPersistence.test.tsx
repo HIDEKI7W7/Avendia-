@@ -72,7 +72,7 @@ describe("WorkflowTool server history", () => {
   });
 
   it("reabre una tarea para hogar completa desde backend sin usar localStorage", async () => {
-    mocks.apiRequest.mockResolvedValueOnce({
+    const homeworkDocument = {
       id: "homework-document-1",
       metadata_json: {
         version: 4,
@@ -114,7 +114,9 @@ describe("WorkflowTool server history", () => {
           quality_status: "ready",
         },
       },
-    });
+    };
+    // El motor también pide la lista de documentos para el selector de origen.
+    mocks.apiRequest.mockImplementation(async (path: string) => path === "/documents" ? [] : homeworkDocument);
 
     render(
       <MemoryRouter initialEntries={[
