@@ -847,7 +847,7 @@ textarea { padding: 12px; line-height: 1.55; resize: vertical; }
 .tool-alert { display: grid; grid-template-columns: 21px minmax(0, 1fr) 28px; align-items: center; gap: 10px; padding: 13px 15px; border-radius: 12px; font-size: 12px; font-weight: 600; }
 .tool-alert--error { color: #9f1f1f; border: 1px solid #fecaca; background: #fff1f2; }
 .tool-alert svg { width: 19px; }
-.tool-alert button { width: 28px; height: 28px; border: 0; border-radius: 7px; color: currentColor; background: transparent; cursor: pointer; font-size: 20px; }
+.tool-alert button { display: grid; place-items: center; line-height: 1; width: 28px; height: 28px; border: 0; border-radius: 7px; color: currentColor; background: transparent; cursor: pointer; font-size: 20px; }
 
 .word-grouping-panel { min-width: 0; padding: clamp(23px, 3vw, 38px); border: 1px solid #dce3ed; border-radius: 22px; background: white; box-shadow: 0 16px 45px rgba(19, 43, 78, .075); animation: word-grouping-enter .28s ease both; }
 @keyframes word-grouping-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
@@ -1270,7 +1270,7 @@ textarea { padding: 12px; line-height: 1.55; resize: vertical; }
 .generation-quality__repair strong { font-size:11px; }
 .generation-quality__repair small { color:#665d83; font-size:9px; line-height:1.5; }
 .generation-quality ul { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; margin:0; padding:0; list-style:none; }
-.generation-quality li { display:grid; grid-template-columns:22px minmax(0,1fr); gap:9px; padding:11px 12px; border:1px solid var(--line); border-radius:11px; background:var(--surface); }
+.generation-quality li { display:grid; grid-template-columns:22px minmax(0,1fr); gap:9px; padding:11px 12px; border:1px solid var(--line); border-radius:11px; background:var(--surface, #fff); }
 .generation-quality li > svg { width:18px; height:18px; color:#168460; }
 .generation-quality li.needs-review > svg { color:#b5750b; }
 .generation-quality li span { display:grid; gap:2px; }

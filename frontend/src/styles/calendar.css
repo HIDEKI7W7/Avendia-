@@ -97,7 +97,7 @@
 .event-type-pill--feriado { color: #a1383d; background: #fff0f1; }
 .event-type-pill--civica, .event-type-pill--minedu { color: #6548c8; background: #f0ecff; }
 .event-type-pill--concurso { color: #86570b; background: #fff2d4; }
-.danger-button { min-height: 42px; padding: 0 16px; border: 1px solid #e4a4a8; border-radius: 8px; color: #a62e36; background: #fff6f6; font-size: 12px; font-weight: 750; cursor: pointer; }
+.danger-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; padding: 0 16px; border: 1px solid #e4a4a8; border-radius: 8px; color: #a62e36; background: #fff6f6; font-size: 12px; font-weight: 750; cursor: pointer; }
 
 .calendar-manager-dialog { display: flex; flex-direction: column; width: min(700px, 100%); max-height: 90vh; overflow: hidden; border: 1px solid var(--line); border-radius: 18px; background: white; box-shadow: 0 28px 80px rgba(7, 25, 60, .25); }
 .calendar-manager-dialog > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 22px 24px; border-bottom: 1px solid var(--line); }

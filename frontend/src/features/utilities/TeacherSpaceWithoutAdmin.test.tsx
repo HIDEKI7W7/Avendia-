@@ -22,6 +22,16 @@ describe("Separación del espacio docente y la administración", () => {
     expect(readFileSync(page, "utf8")).not.toContain('role === "admin"');
   });
 
+  it("el resumen de admin enlaza la gestión a /admin/moderacion y no al espacio docente", () => {
+    const overview = readFileSync("src/features/admin/UtilitiesAdminPage.tsx", "utf8");
+    // Las tarjetas de gestión (tutoriales, ideas, referidos, comunidad) apuntaban
+    // a /dashboard/*, donde esos controles ya no existen.
+    for (const dashboardPath of ["/dashboard/videos-tutorial", "/dashboard/ideas", "/dashboard/referidos", "/dashboard/comunidad-activa"]) {
+      expect(overview).not.toContain(dashboardPath);
+    }
+    expect(overview).toContain("/admin/moderacion");
+  });
+
   it("la moderación agrupa ideas, comunidad, tutoriales y referidos en el área de admin", () => {
     const moderation = readFileSync("src/features/admin/AdminModerationPage.tsx", "utf8");
     for (const endpoint of ["/admin/ideas/", "/admin/community/", "/admin/tutorials", "/admin/referrals"]) {
