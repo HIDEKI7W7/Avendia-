@@ -15,13 +15,14 @@ import {
   Pencil,
   Plus,
   RefreshCw,
+  RotateCcw,
   Save,
   Sparkles,
   Trash2,
   WandSparkles,
 } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, Navigate, useLocation, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { getWorkflowFieldGuide } from "../../config/aiGuides";
 import { getToolByPath, tools as toolCatalog } from "../../config/tools";
@@ -47,6 +48,7 @@ import {
   type CurricularReference,
   type ReferenceSelection,
 } from "../../lib/curricularReference";
+import { blockedField, sourceValueFor } from "./documentReference";
 import { InteractiveArtifact } from "./InteractiveArtifact";
 import {
   contextStatus,
@@ -60,7 +62,7 @@ import { StructuredArtifactPreview } from "./StructuredArtifactPreview";
 import { localDraftStorage } from "./workflow/adapters/localDraftStorage";
 import { httpWorkflowGateway } from "./workflow/adapters/httpWorkflowGateway";
 import { httpAssistanceGateway } from "./workflow/adapters/httpAssistanceGateway";
-import { DRAFT_VERSION, type Draft } from "./workflow/domain/draft";
+import { DRAFT_VERSION, emptyDraft, type Draft } from "./workflow/domain/draft";
 import { displayValue, type FieldValue } from "./workflow/domain/fieldValue";
 import { fieldError, resolvedFieldOptions } from "./workflow/domain/validation";
 import {
@@ -99,6 +101,16 @@ function artifactAsText(artifact: WorkflowArtifact) {
   ].filter(Boolean).join("\n\n");
 }
 
+type DraftPrompt = { mode: "restored"; updatedAt: string; hasArtifact: boolean } | { mode: "confirm" } | null;
+
+/** Recursos que continúan una sesión de aprendizaje reutilizando lo ya llenado en ella. */
+const CLASS_CONTINUATIONS: { path: string; label: string; hint: string }[] = [
+  { path: "/dashboard/evaluamos/lista-cotejo", label: "Instrumento", hint: "Lista de cotejo con el encuadre de la sesión." },
+  { path: "/dashboard/evaluamos/ficha-aprendizaje", label: "Ficha", hint: "Práctica imprimible sobre el mismo tema." },
+  { path: "/dashboard/recursos/presentaciones-didacticas", label: "Presentación", hint: "Diapositivas para proyectar la clase." },
+  { path: "/dashboard/recursos/crucigramas", label: "Recurso interactivo", hint: "Juego de repaso con el vocabulario del tema." },
+];
+
 export function WorkflowTool() {
   const location = useLocation();
   const { pathname } = location;
@@ -115,6 +127,11 @@ export function WorkflowTool() {
   const [draft, setDraft] = useState<Draft>(() => workflow
     ? drafts.read(getInitialWorkflowValues(workflow))
     : { version: DRAFT_VERSION, values: {}, currentStep: 0, artifact: null, updatedAt: "" });
+  const [draftPrompt, setDraftPrompt] = useState<DraftPrompt>(() => {
+    if (!workflow) return null;
+    const meta = drafts.meta(getInitialWorkflowValues(workflow));
+    return meta ? { mode: "restored", updatedAt: meta.updatedAt, hasArtifact: meta.hasArtifact } : null;
+  });
   const [status, setStatus] = useState<SaveStatus>("idle");
   const [message, setMessage] = useState("");
   const [showErrors, setShowErrors] = useState(false);
@@ -136,6 +153,10 @@ export function WorkflowTool() {
   const [rememberAssistance, setRememberAssistance] = useState(false);
   const [fieldsToReview, setFieldsToReview] = useState<string[]>([]);
   const [curricularReferences, setCurricularReferences] = useState<CurricularReference[] | null>(null);
+  // Confirmaciones explícitas: el docente decide si continúa pese a un cambio de contexto o a un resultado con errores obligatorios.
+  const [pendingConfirm, setPendingConfirm] = useState<null | { kind: "context"; targetStep?: number } | { kind: "blocked-export" }>(null);
+  const skipContextReviewRef = useRef(false);
+  const allowBlockedExportRef = useRef(false);
   const [lastAppliedGuide, setLastAppliedGuide] = useState<{ fieldId: string; previous: FieldValue } | null>(null);
   const [editingResult, setEditingResult] = useState(false);
   const [regeneratingSection, setRegeneratingSection] = useState<number | null>(null);
@@ -146,8 +167,12 @@ export function WorkflowTool() {
   const teacherNeedApplied = useRef(false);
   const recentContextApplied = useRef(false);
   const documentIdFromUrl = searchParams.get("document");
+  const continuedFromDocumentId = searchParams.get("desde");
+  const navigate = useNavigate();
+  const continuationApplied = useRef("");
   const selectedTemplate = templates.find((template) => template.id === draft.templateId);
 
+  const isClassSession = Boolean(workflow?.key.includes("sesion-aprendizaje"));
   const currentStep = workflow?.steps[draft.currentStep];
   // Formulario corto: sin bloques técnicos ni ayudas por campo (ver WorkflowDefinition.simple).
   const simple = Boolean(workflow?.simple);
@@ -400,6 +425,49 @@ export function WorkflowTool() {
     return preview.blob;
   }, [draft.artifact, draft.values, exactPreviewTemplate, exactPreviewToolTitle, exactPreviewWorkflowKey]);
 
+  // Al llegar desde otra herramienta con "?desde=", se copian sus datos compatibles.
+  useEffect(() => {
+    if (!workflow || !tool || !continuedFromDocumentId) return;
+    if (continuationApplied.current === continuedFromDocumentId) return;
+    continuationApplied.current = continuedFromDocumentId;
+    const targetType = workflow.key.split("/").at(-1) ?? tool.id;
+    const campos = workflow.steps.flatMap((step) => step.fields);
+    void gateway.listCompatibleDocuments(targetType)
+      .then((documents) => {
+        if (!documents) return;
+        const source = documents.find((document) => document.id === continuedFromDocumentId);
+        if (!source) {
+          setMessage("El documento de origen ya no está disponible. Completa los datos manualmente.");
+          return;
+        }
+        const sourceFields = source.metadata_json?.fields ?? {};
+        const ids = campos
+          .filter((field) => !blockedField(field.id) && sourceValueFor(field.id, sourceFields) !== undefined)
+          .map((field) => field.id);
+        if (!ids.length) {
+          setMessage(`No hay datos reutilizables de «${source.title}». Completa los campos de esta herramienta.`);
+          return;
+        }
+        const values = Object.fromEntries(ids.map((id) => [id, sourceValueFor(id, sourceFields) ?? ""]));
+        setDraft((current) => ({
+          ...current,
+          artifact: null,
+          reference: {
+            documentId: source.id,
+            revision: source.revision,
+            title: source.title,
+            fields: ids,
+            compatibilityStatus: source.compatibility_status,
+          },
+          values: { ...current.values, ...values },
+          fieldSources: { ...current.fieldSources, ...Object.fromEntries(ids.map((id) => [id, "reference" as const])) },
+        }));
+        setFieldsToReview(source.compatibility_status === "compatible" ? [] : ids);
+        setMessage(`Se copiaron ${ids.length} datos de «${source.title}». Revísalos y genera el recurso.`);
+      })
+      .catch(() => setMessage("No se pudieron copiar los datos del documento de origen."));
+  }, [continuedFromDocumentId, gateway, tool, workflow]);
+
   if (!tool || !workflow || !currentStep) return <Navigate to="/dashboard" replace />;
 
   const optionsFor = (field: WorkflowField) => {
@@ -538,13 +606,31 @@ export function WorkflowTool() {
     }
   };
 
-  const downloadWord = async () => {
-    if (!draft.artifact) return;
-    if (draft.artifact.quality_status === "blocked") {
+  /** Guarda el documento y devuelve su identificador en el servidor, si lo hay. */
+  const saveAndGetDocumentId = async (): Promise<string | null> => {
+    const ok = await saveDocument();
+    if (!ok) return null;
+    return drafts.read({}).documentId ?? null;
+  };
+
+  /** Abre la herramienta siguiente de la clase copiando lo llenado en esta sesión. */
+  const continueClass = async (path: string) => {
+    const documentId = await saveAndGetDocumentId();
+    if (!documentId) {
       setStatus("error");
-      setMessage("Este resultado tiene errores obligatorios. Regénéralo o corrígelo antes de exportar.");
+      setMessage("Guarda la sesión antes de continuar: no se pudo sincronizar con el servidor.");
       return;
     }
+    navigate(`${path}?desde=${documentId}`);
+  };
+
+  const downloadWord = async () => {
+    if (!draft.artifact) return;
+    if (draft.artifact.quality_status === "blocked" && !allowBlockedExportRef.current) {
+      setPendingConfirm({ kind: "blocked-export" });
+      return;
+    }
+    allowBlockedExportRef.current = false;
     setExportingWord(true);
     try {
       const persisted = await saveDocument(draft);
@@ -602,12 +688,11 @@ export function WorkflowTool() {
 
   const generate = async (event?: FormEvent, targetStep?: number) => {
     event?.preventDefault();
-    if (fieldsToReview.length) {
-      const field = allFields.find((candidate) => candidate.id === fieldsToReview[0]);
-      setMessage("Revisa los campos afectados por el cambio de contexto antes de generar.");
-      if (field) revealInvalidField(field);
+    if (fieldsToReview.length && !skipContextReviewRef.current) {
+      setPendingConfirm({ kind: "context", targetStep });
       return;
     }
+    skipContextReviewRef.current = false;
     const allMissing = allFields.filter((field) => fieldError(field, draft.values[field.id], resolvedFieldOptions(field, draft.values)));
     if (allMissing.length) {
       setMessage(`Faltan ${allMissing.length} campos obligatorios o válidos para generar un resultado confiable.`);
@@ -823,6 +908,42 @@ export function WorkflowTool() {
       };
     });
     setStatus("idle");
+  };
+
+  /** Descarta el borrador guardado y deja la herramienta como recién abierta. */
+  const startFromScratch = () => {
+    if (!workflow) return;
+    const values = getInitialWorkflowValues(workflow);
+    drafts.clear();
+    setDraft(emptyDraft(values));
+    setDraftPrompt(null);
+    setFieldsToReview([]);
+    setTouchedFields(new Set());
+    setShowErrors(false);
+    setEditingResult(false);
+    setStatus("idle");
+    setMessage("Empezaste un documento nuevo. Se conservan los datos de tu perfil.");
+  };
+
+  /** Quita la referencia y devuelve a su valor original los campos que copió. */
+  const clearReference = () => {
+    setDraft((current) => {
+      const imported = current.reference?.fields ?? [];
+      if (!imported.length) return { ...current, reference: undefined };
+      const initial = workflow ? getInitialWorkflowValues(workflow) : {};
+      const values = { ...current.values };
+      const fieldSources = { ...(current.fieldSources ?? {}) };
+      imported.forEach((id) => {
+        if (fieldSources[id] !== "reference") return;
+        const original = initial[id] ?? "";
+        values[id] = original;
+        if (displayValue(original).trim()) fieldSources[id] = "profile";
+        else delete fieldSources[id];
+      });
+      return { ...current, reference: undefined, values, fieldSources };
+    });
+    setFieldsToReview([]);
+    setMessage("Se quitaron los datos copiados del documento de referencia.");
   };
 
   const importReference = (reference: DocumentReferenceSelection, values: Record<string, FieldValue>) => {
@@ -1164,6 +1285,33 @@ export function WorkflowTool() {
     </div>;
   };
 
+  /** Recursos que continúan la clase, disponibles junto al resultado de la sesión. */
+  function renderClassNext() {
+    if (!isClassSession) return null;
+    return (
+      <section className="workflow-class-next" aria-label="Continúa tu clase">
+        <div className="workflow-class-next__intro">
+          <strong>Continúa tu clase</strong>
+          <small>Cada recurso se crea con los datos que ya llenaste en esta sesión.</small>
+        </div>
+        <div className="workflow-class-next__cards">
+          {CLASS_CONTINUATIONS.map((item) => (
+            <button
+              key={item.path}
+              type="button"
+              className="workflow-class-next__card"
+              disabled={status === "saving"}
+              onClick={() => void continueClass(item.path)}
+            >
+              <span>{item.label}</span>
+              <small>{item.hint}</small>
+            </button>
+          ))}
+        </div>
+      </section>
+    );
+  }
+
   const renderEmbeddedArtifact = (kind: NonNullable<WorkflowStep["kind"]> = "preview") => {
     if (!draft.artifact) return null;
     const showInteractive = kind === "interactive";
@@ -1177,6 +1325,7 @@ export function WorkflowTool() {
       </section> : null}
       {showInteractive && tool.id !== "tarea-extension-hogar" && draft.artifact.activity?.items.length ? <InteractiveArtifact activity={draft.artifact.activity} toolId={tool.id} values={draft.values} /> : null}
       {simple ? renderSimpleQualityNotice() : renderQualityPanel()}
+      {renderClassNext()}
       <StructuredArtifactPreview artifact={draft.artifact} artifactType={workflow.artifactType} toolId={tool.id} values={draft.values} workflowKey={workflow.key} onDownloadWord={downloadWord} editingResult={editingResult} onUpdateSection={updateArtifactSection} onUpdateTableCell={updateArtifactTableCell} onRegenerateSection={regenerateArtifactSection} regeneratingSection={regeneratingSection} onPrepareExactPreview={prepareExactPreview} />
     </div>;
   };
@@ -1193,18 +1342,78 @@ export function WorkflowTool() {
     </div>;
   }
 
+  const draftSavedAt = draftPrompt?.mode === "restored" && draftPrompt.updatedAt
+    ? new Date(draftPrompt.updatedAt).toLocaleString("es-PE", { dateStyle: "short", timeStyle: "short" })
+    : "";
+  const draftPromptBanner = draftPrompt ? (
+    <section className="workflow-draft-choice" role="status" aria-label="Borrador guardado">
+      <div className="workflow-draft-choice__text">
+        <strong>
+          {draftPrompt.mode === "confirm"
+            ? "¿Empezar desde cero?"
+            : `Tienes un borrador guardado${draftSavedAt ? ` del ${draftSavedAt}` : ""}`}
+        </strong>
+        <small>
+          {draftPrompt.mode === "confirm"
+            ? "Se descartará lo que ves en pantalla. Los datos de tu perfil se conservan."
+            : draftPrompt.hasArtifact
+              ? "Incluye el documento que ya habías generado."
+              : "Incluye los datos que ya habías completado."}
+        </small>
+      </div>
+      <div className="workflow-draft-choice__actions">
+        {draftPrompt.mode === "confirm" ? (
+          <>
+            <button type="button" className="secondary-button" onClick={() => setDraftPrompt(null)}>Cancelar</button>
+            <button type="button" className="workflow-primary" onClick={startFromScratch}><RotateCcw /> Sí, empezar desde cero</button>
+          </>
+        ) : (
+          <>
+            <button type="button" className="workflow-primary" onClick={() => setDraftPrompt(null)}>Continuar borrador</button>
+            <button type="button" className="secondary-button" onClick={startFromScratch}><RotateCcw /> Empezar desde cero</button>
+          </>
+        )}
+      </div>
+    </section>
+  ) : null;
+  // Mientras el aviso está en pantalla el botón sobra: el aviso ya ofrece las dos opciones.
+  const startOverButton = draftPrompt ? null : (
+    <button type="button" className="secondary-button" onClick={() => setDraftPrompt({ mode: "confirm" })}>
+      <RotateCcw /> Empezar desde cero
+    </button>
+  );
+
   if (draft.artifact && !workflow.embeddedResult) {
     return (
       <main className="workflow-page"><div className="workflow-shell">
         <header className="workflow-header"><div><span>{tool.module} · resultado generado</span><h1>{draft.artifact.document_title}</h1><p>{draft.artifact.executive_summary}</p></div><button type="button" className="secondary-button" onClick={() => saveDocument()}><Save /> Guardar</button></header>
-        <section className="workflow-result-actions"><button type="button" className="secondary-button" onClick={() => setDraft((current) => ({ ...current, artifact: null, currentStep: workflow.steps.length - 1 }))}><ChevronLeft /> Editar datos</button><button type="button" className="secondary-button" onClick={() => setEditingResult((current) => !current)}><Pencil /> {editingResult ? "Cerrar edición" : "Editar resultado"}</button><button type="button" className="secondary-button" onClick={() => generate()} disabled={status === "generating"}><RefreshCw /> Regenerar todo</button><button type="button" className="secondary-button" onClick={() => void copyArtifact()}><Clipboard /> {workflow.artifactType === "comunicacion" ? "Copiar correo" : "Copiar"}</button>{renderTemplateExport()}</section>
+        {draftPromptBanner}
+        <section className="workflow-result-actions">{startOverButton}<button type="button" className="secondary-button" onClick={() => setDraft((current) => ({ ...current, artifact: null, currentStep: workflow.steps.length - 1 }))}><ChevronLeft /> Editar datos</button><button type="button" className="secondary-button" onClick={() => setEditingResult((current) => !current)}><Pencil /> {editingResult ? "Cerrar edición" : "Editar resultado"}</button><button type="button" className="secondary-button" onClick={() => generate()} disabled={status === "generating"}><RefreshCw /> Regenerar todo</button><button type="button" className="secondary-button" onClick={() => void copyArtifact()}><Clipboard /> {workflow.artifactType === "comunicacion" ? "Copiar correo" : "Copiar"}</button>{renderTemplateExport()}</section>
         {message ? <div className={`workflow-message ${status === "error" ? "workflow-message--error" : ""}`}>{message}</div> : null}
         {draft.artifact.activity?.items.length ? <InteractiveArtifact activity={draft.artifact.activity} toolId={tool.id} values={draft.values} /> : null}
         {simple ? renderSimpleQualityNotice() : <details className="generation-quality-details">
           <summary>Detalle técnico de la generación</summary>
           {renderQualityPanel()}
         </details>}
+        {renderClassNext()}
         <StructuredArtifactPreview artifact={draft.artifact} artifactType={workflow.artifactType} toolId={tool.id} values={draft.values} workflowKey={workflow.key} onDownloadWord={downloadWord} editingResult={editingResult} onUpdateSection={updateArtifactSection} onUpdateTableCell={updateArtifactTableCell} onRegenerateSection={regenerateArtifactSection} regeneratingSection={regeneratingSection} onPrepareExactPreview={prepareExactPreview} />
+        {pendingConfirm ? <div className="dialog-backdrop"><section className="workflow-confirm" role="dialog" aria-modal="true" aria-labelledby="workflow-confirm-title"><span><AlertTriangle /></span>
+          {pendingConfirm.kind === "context" ? <>
+            <h2 id="workflow-confirm-title">¿Generar con el contexto actual?</h2>
+            <p>{fieldsToReview.length === 1 ? "Un campo depende" : `${fieldsToReview.length} campos dependen`} de un dato que cambiaste: {fieldsToReview.map((id) => allFields.find((field) => field.id === id)?.label ?? id).join(", ")}. Puedes revisarlos o continuar tal como están.</p>
+            <div className="workflow-confirm__actions">
+              <button type="button" className="secondary-button" onClick={() => { const field = allFields.find((candidate) => candidate.id === fieldsToReview[0]); setPendingConfirm(null); if (field) revealInvalidField(field); }}>Revisar campos</button>
+              <button type="button" className="primary-button" onClick={() => { const target = pendingConfirm.targetStep; setPendingConfirm(null); setFieldsToReview([]); skipContextReviewRef.current = true; void generate(undefined, target); }}>Sí, continuar</button>
+            </div>
+          </> : <>
+            <h2 id="workflow-confirm-title">¿Descargar de todos modos?</h2>
+            <p>Este resultado no superó algunos controles obligatorios (los ves marcados en el control de calidad). Puedes regenerarlo o corregirlo, o descargarlo bajo tu revisión.</p>
+            <div className="workflow-confirm__actions">
+              <button type="button" className="secondary-button" onClick={() => setPendingConfirm(null)}>Volver a revisar</button>
+              <button type="button" className="primary-button" onClick={() => { setPendingConfirm(null); allowBlockedExportRef.current = true; void downloadWord(); }}>Sí, descargar</button>
+            </div>
+          </>}
+        </section></div> : null}
         <GenerationProgressOverlay open={status === "generating"} toolTitle={tool.title} family={tool.module} toolId={tool.id} />
       </div></main>
     );
@@ -1212,7 +1421,7 @@ export function WorkflowTool() {
 
   return (
     <main className="workflow-page"><div className="workflow-shell">
-      <header className="workflow-header"><div><span>{simple ? tool.module : `${tool.module} · complejidad ${workflow.complexity}`}</span><h1>{tool.title}</h1><p>{tool.description}</p></div><div className="workflow-header__actions"><button type="button" className="secondary-button" onClick={() => saveDocument()} disabled={status === "saving"}>{status === "saving" ? <LoaderCircle className="is-spinning" /> : status === "saved" ? <Check /> : <Save />}{status === "saved" ? "Guardado" : "Guardar borrador"}</button></div></header>
+      <header className="workflow-header"><div><span>{simple ? tool.module : `${tool.module} · complejidad ${workflow.complexity}`}</span><h1>{tool.title}</h1><p>{tool.description}</p></div><div className="workflow-header__actions">{startOverButton}<button type="button" className="secondary-button" onClick={() => saveDocument()} disabled={status === "saving"}>{status === "saving" ? <LoaderCircle className="is-spinning" /> : status === "saved" ? <Check /> : <Save />}{status === "saved" ? "Guardado" : "Guardar borrador"}</button></div></header>
       {simple ? null : <section className={`workflow-orientation ${orientationOpen ? "is-open" : ""}`} aria-labelledby="workflow-orientation-title">
         <button className="workflow-orientation__toggle" type="button" aria-expanded={orientationOpen} onClick={() => setOrientationOpen((value) => !value)}>
           <span><CircleHelp aria-hidden="true" /><strong id="workflow-orientation-title">Antes de comenzar</strong></span>
@@ -1224,13 +1433,14 @@ export function WorkflowTool() {
           <article><Clock3 aria-hidden="true" /><div><strong>Tiempo aproximado</strong><p>{estimatedMinutes} minutos en modo guiado.</p></div></article>
         </div> : null}
       </section>}
+      {draftPromptBanner}
       <CurricularReferencePicker
         references={curricularReferences ?? []}
         selection={curricularSelection}
         onChange={pickCurricular}
         help="La herramienta se genera alineada a ese documento y queda vinculada a él en el historial."
       />
-      {simple ? null : <DocumentReferencePanel targetType={workflow.key.split("/").at(-1) ?? tool.id} fields={allFields} selection={draft.reference} onImport={importReference} onClear={() => setDraft((current) => ({ ...current, reference: undefined }))} />}
+      {simple ? null : <DocumentReferencePanel targetType={workflow.key.split("/").at(-1) ?? tool.id} fields={allFields} selection={draft.reference} onImport={importReference} onClear={clearReference} />}
       <ol className="workflow-stepper" aria-label="Pasos de la herramienta">{workflow.steps.map((item, index) => {
         const state = stepStatus(item, index);
         return <li className={index === draft.currentStep ? "is-active" : state === "Listo" ? "is-completed" : ""} key={item.id}><button type="button" aria-current={index === draft.currentStep ? "step" : undefined} aria-label={`${item.shortTitle}: ${state}`} onClick={() => setDraft((current) => ({ ...current, currentStep: index }))}><span>{state === "Listo" && index !== draft.currentStep ? <Check /> : index + 1}</span><strong>{item.shortTitle}</strong><small>{state}</small></button></li>;
@@ -1298,7 +1508,24 @@ export function WorkflowTool() {
         onApply={applyGuide}
         onClose={() => { guideRequest.current?.abort(); setGuideOpen(false); }}
       /> : null}
-      <GenerationProgressOverlay open={status === "generating"} toolTitle={tool.title} family={tool.module} toolId={tool.id} />
+      {pendingConfirm ? <div className="dialog-backdrop"><section className="workflow-confirm" role="dialog" aria-modal="true" aria-labelledby="workflow-confirm-title"><span><AlertTriangle /></span>
+          {pendingConfirm.kind === "context" ? <>
+            <h2 id="workflow-confirm-title">¿Generar con el contexto actual?</h2>
+            <p>{fieldsToReview.length === 1 ? "Un campo depende" : `${fieldsToReview.length} campos dependen`} de un dato que cambiaste: {fieldsToReview.map((id) => allFields.find((field) => field.id === id)?.label ?? id).join(", ")}. Puedes revisarlos o continuar tal como están.</p>
+            <div className="workflow-confirm__actions">
+              <button type="button" className="secondary-button" onClick={() => { const field = allFields.find((candidate) => candidate.id === fieldsToReview[0]); setPendingConfirm(null); if (field) revealInvalidField(field); }}>Revisar campos</button>
+              <button type="button" className="primary-button" onClick={() => { const target = pendingConfirm.targetStep; setPendingConfirm(null); setFieldsToReview([]); skipContextReviewRef.current = true; void generate(undefined, target); }}>Sí, continuar</button>
+            </div>
+          </> : <>
+            <h2 id="workflow-confirm-title">¿Descargar de todos modos?</h2>
+            <p>Este resultado no superó algunos controles obligatorios (los ves marcados en el control de calidad). Puedes regenerarlo o corregirlo, o descargarlo bajo tu revisión.</p>
+            <div className="workflow-confirm__actions">
+              <button type="button" className="secondary-button" onClick={() => setPendingConfirm(null)}>Volver a revisar</button>
+              <button type="button" className="primary-button" onClick={() => { setPendingConfirm(null); allowBlockedExportRef.current = true; void downloadWord(); }}>Sí, descargar</button>
+            </div>
+          </>}
+        </section></div> : null}
+        <GenerationProgressOverlay open={status === "generating"} toolTitle={tool.title} family={tool.module} toolId={tool.id} />
     </div></main>
   );
 }
