@@ -418,7 +418,6 @@
 [data-theme="dark"] .home-history__count { color: #8cb9ff; background: #172b48; }
 [data-theme="dark"] .workflow-confirm { color: #edf3ff; border-color: #2c3a50; background: #111c2e; }
 [data-theme="dark"] .workflow-confirm > span { color: #f1c879; background: #382c1d; }
-
 /* Botones unificados en modo oscuro (ver styles/buttons.css). */
 [data-theme="dark"] .primary-button,
 [data-theme="dark"] .admin-button--primary,
