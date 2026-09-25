@@ -113,6 +113,17 @@ export function CreateClassPage({ mode = "clase" }: { mode?: WizardMode } = {}) 
   }, [draft, storageKey]);
 
   useEffect(() => {
+    setMessage("");
+    setErrors([]);
+  }, [draft.step]);
+
+  useEffect(() => {
+    if (!message) return;
+    const timer = window.setTimeout(() => setMessage(""), 7000);
+    return () => window.clearTimeout(timer);
+  }, [message]);
+
+  useEffect(() => {
     if (!readAccessToken()) return;
     const controller = new AbortController();
     void listRosters({ signal: controller.signal }).then(setRosters).catch(() => undefined);
@@ -218,7 +229,12 @@ export function CreateClassPage({ mode = "clase" }: { mode?: WizardMode } = {}) 
         setMessage("");
       }
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "No se pudo sugerir el título.");
+      setDraft((latest) => {
+        if (latest.step === 0) {
+          setMessage(error instanceof Error ? error.message : "No se pudo sugerir el título.");
+        }
+        return latest;
+      });
     } finally {
       setBusy("");
     }
