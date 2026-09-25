@@ -1,0 +1,72 @@
+# ==============================================================================
+# AVENDIA 3.0 - DOCKER COMPOSE PARA BACKEND EN VPS
+# ==============================================================================
+# Despliega únicamente la base de datos PostgreSQL (con pgvector) y la API FastAPI.
+# El frontend se sirve desde Vercel (Edge CDN global).
+# Ambos servicios exponen puertos únicamente a localhost (127.0.0.1) para que Nginx
+# actúe como reverse proxy seguro con HTTPS / SSL.
+# ==============================================================================
+
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    container_name: avendia-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-avendia}
+      POSTGRES_USER: ${POSTGRES_USER:-avendia}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Error: Define POSTGRES_PASSWORD en .env}
+    ports:
+      # Expuesto solo a localhost para mantenimiento seguro o scripts locales
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-avendia} -d ${POSTGRES_DB:-avendia}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - avendia_postgres_data:/var/lib/postgresql/data
+    networks:
+      - avendia-internal
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: avendia-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      ENVIRONMENT: production
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-avendia}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-avendia}
+      DATABASE_SCHEMA: ${DATABASE_SCHEMA:-avendia3}
+      DATABASE_SSL_REQUIRED: "false"
+      PORT: 8000
+    ports:
+      # Expuesto a localhost para que Nginx reverse proxy reciba el tráfico
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/api/v1/ready"]
+      interval: 15s
+      timeout: 5s
+      start_period: 40s
+      retries: 5
+    volumes:
+      - avendia_api_data:/app/data
+    networks:
+      - avendia-internal
+
+volumes:
+  avendia_postgres_data:
+    name: avendia_postgres_data
+  avendia_api_data:
+    name: avendia_api_data
+
+networks:
+  avendia-internal:
+    name: avendia-internal
+    driver: bridge
