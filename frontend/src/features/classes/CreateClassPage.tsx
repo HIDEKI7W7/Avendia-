@@ -168,22 +168,27 @@ export function CreateClassPage({ mode = "clase" }: { mode?: WizardMode } = {}) 
       return { ...current, values: next };
     });
     setErrors([]);
+    setMessage("");
   }, []);
 
   const goTo = (step: number) => {
     setErrors([]);
+    setMessage("");
     setDraft((current) => ({ ...current, step: Math.max(0, Math.min(WIZARD_STEPS.length - 1, step)) }));
   };
 
   const next = () => {
     const stepProblems = stepErrors(draft.step, values);
     if (stepProblems.length) { setErrors(stepProblems); return; }
+    setMessage("");
     if (draft.step < WIZARD_STEPS.length - 1) goTo(draft.step + 1);
     else void generateSession();
   };
 
   const suggestTitle = async () => {
     if (!values.session_topic.trim()) { setErrors(["Escribe primero el tema de la sesión."]); return; }
+    setErrors([]);
+    setMessage("");
     setBusy("suggesting");
     try {
       const response = await withRetry(() => apiRequest<{ reply: string }>("/ai/tools/field-assist", {
@@ -208,7 +213,10 @@ export function CreateClassPage({ mode = "clase" }: { mode?: WizardMode } = {}) 
         }),
       }));
       const title = response.reply.split("\n").map((line) => line.replace(/^["“”'\s-]+|["“”'\s.]+$/g, "")).find(Boolean) ?? "";
-      if (title) setValue("session_title", title);
+      if (title) {
+        setValue("session_title", title);
+        setMessage("");
+      }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "No se pudo sugerir el título.");
     } finally {
@@ -664,7 +672,12 @@ export function CreateClassPage({ mode = "clase" }: { mode?: WizardMode } = {}) 
           ) : null}
 
           {errors.length ? <div className="workflow-message workflow-message--error" role="alert">{errors.join(" ")}</div> : null}
-          {message ? <div className="workflow-message workflow-message--error" role="alert">{message}</div> : null}
+          {message ? (
+            <div className="workflow-message workflow-message--error" role="alert" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span>{message}</span>
+              <button type="button" onClick={() => setMessage("")} aria-label="Cerrar mensaje" style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", padding: "0 6px", fontSize: "18px", fontWeight: "bold", lineHeight: 1 }}>&times;</button>
+            </div>
+          ) : null}
 
           <footer className="class-wizard__footer">
             {draft.step > 0 ? <button type="button" className="secondary-button" onClick={() => goTo(draft.step - 1)}><ArrowLeft aria-hidden="true" /> Atrás</button> : <span />}
