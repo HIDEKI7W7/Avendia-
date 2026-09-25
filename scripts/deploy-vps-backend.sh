@@ -70,8 +70,9 @@ fi
 
 # 5. Levantar contenedores Docker (PostgreSQL + FastAPI con LibreOffice)
 echo -e "${BLUE}🐳 Compilando e iniciando servicios en Docker (PostgreSQL 17 + FastAPI)...${NC}"
-docker compose -f docker-compose.backend.yml down --remove-orphans || true
-docker compose -f docker-compose.backend.yml up -d --build
+# Usamos -p avendia3 para garantizar aislamiento total respecto a otros proyectos (ej. cuadernillos)
+docker compose -p avendia3 -f docker-compose.backend.yml down || true
+docker compose -p avendia3 -f docker-compose.backend.yml up -d --build
 
 # 6. Esperar a que la base de datos y la API estén listas
 echo -e "${YELLOW}⏳ Esperando a que el backend inicialice las migraciones y el usuario administrador...${NC}"

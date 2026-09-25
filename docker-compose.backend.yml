@@ -7,6 +7,8 @@
 # actúe como reverse proxy seguro con HTTPS / SSL.
 # ==============================================================================
 
+name: avendia3
+
 services:
   db:
     image: pgvector/pgvector:pg17
@@ -15,10 +17,10 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-avendia}
       POSTGRES_USER: ${POSTGRES_USER:-avendia}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Error: Define POSTGRES_PASSWORD en .env}
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-AvendiaSecure2026!Prod}"
     ports:
-      # Expuesto solo a localhost para mantenimiento seguro o scripts locales
-      - "127.0.0.1:5432:5432"
+      # Puerto alternativo en localhost para aislar y no colisionar con avend-postgres (5432)
+      - "127.0.0.1:5435:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-avendia} -d ${POSTGRES_DB:-avendia}"]
       interval: 5s
@@ -44,8 +46,7 @@ services:
       DATABASE_SSL_REQUIRED: "false"
       PORT: 8000
     ports:
-      # Expuesto a localhost para que Nginx reverse proxy reciba el tráfico
-      - "127.0.0.1:8000:8000"
+      - "8000:8000"
     depends_on:
       db:
         condition: service_healthy
